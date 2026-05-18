@@ -3,7 +3,7 @@ import 'server-only';
 import { connection, NextRequest, NextResponse } from 'next/server';
 
 // FIREBASE URL HERE (Do not include a trailing slash)
-const FIREBASE_DB_URL = "https://bestauthotp-default-rtdb.asia-southeast1.firebasedatabase.app";
+const FIREBASE_DB_URL = "https://eurofoam-5a36a-default-rtdb.firebaseio.com/";
 
 export async function GET(request: NextRequest) {
   await connection();
