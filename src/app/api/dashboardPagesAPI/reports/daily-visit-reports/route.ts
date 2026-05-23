@@ -16,7 +16,13 @@ const frontendDVRSchema = z.object({
   dealerName: z.string().nullable().optional(),
 
   customerType: z.string().nullable().optional(),
+  dealerType: z.string().nullable().optional(),
+  institutionType: z.string().nullable().optional(),
+  ifluencerType: z.string().nullable().optional(),
   visitType: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  brandSelling: z.array(z.string()).nullable().optional(),
+  
   nameOfParty: z.string().nullable().optional(),
   contactNoOfParty: z.string().nullable().optional(),
   expectedActivationDate: z.string().nullable().optional(),
@@ -56,7 +62,8 @@ async function getCachedDailyVisitReports(
     const searchCondition = or(
       ilike(users.username, `%${search}%`),
       ilike(dealers.dealerPartyName, `%${search}%`),
-      ilike(dailyVisitReports.nameOfParty, `%${search}%`)
+      ilike(dailyVisitReports.nameOfParty, `%${search}%`),
+      ilike(dailyVisitReports.location, `%${search}%`)
     );
     if (searchCondition) filters.push(searchCondition);
   }
@@ -80,7 +87,7 @@ async function getCachedDailyVisitReports(
     })
     .from(dailyVisitReports)
     .leftJoin(users, eq(dailyVisitReports.userId, users.id))
-    .leftJoin(dealers, eq(dailyVisitReports.dealerId, dealers.id)) // Ensure dealerId is integer in schema!
+    .leftJoin(dealers, eq(dailyVisitReports.dealerId, dealers.id))
     .where(whereClause)
     .orderBy(desc(dailyVisitReports.reportDate))
     .limit(pageSize)
@@ -96,7 +103,6 @@ async function getCachedDailyVisitReports(
   const totalCount = Number(totalCountResult[0].count);
 
   const formatted = results.map((row) => {
-    const toNum = (v: any) => (v == null ? null : Number(v));
     const salesmanName = row.userUsername || row.userEmail || 'Unknown';
 
     return {
@@ -108,7 +114,14 @@ async function getCachedDailyVisitReports(
       reportDate: row.reportDate ? new Date(row.reportDate).toISOString().split('T')[0] : '',
       dealerName: row.dealerNameStr ?? null,
 
+      customerType: row.customerType ?? null,
+      dealerType: row.dealerType ?? null,
+      institutionType: row.institutionType ?? null,
+      influencerType: row.influencerType ?? null,
       visitType: row.visitType ?? null,
+      location: row.location ?? null,
+      brandSelling: row.brandSelling ?? null,
+
       nameOfParty: row.nameOfParty ?? null,
       contactNoOfParty: row.contactNoOfParty ?? null,
       expectedActivationDate: row.expectedActivationDate ? new Date(row.expectedActivationDate).toISOString().split('T')[0] : null,
@@ -147,7 +160,7 @@ export async function GET(request: NextRequest) {
 
     const search = searchParams.get('search');
     const area = searchParams.get('area');
-    const zone = searchParams.get('zone'); // Mapped from 'region'
+    const zone = searchParams.get('zone'); 
 
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');

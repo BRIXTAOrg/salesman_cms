@@ -1,7 +1,8 @@
 // src/app/home/customReportGenerator/customTableHeaders.ts
 
 import {
-    LucideIcon, User, ClipboardCheck, BandageIcon, CalendarCheck, MapPin, Building2, ListChecks, Store
+    LucideIcon, User, ClipboardCheck, BandageIcon, CalendarCheck, 
+    MapPin, Building2, ListChecks, Store, Users2
 } from 'lucide-react';
 
 export interface TableColumn {
@@ -42,12 +43,34 @@ export const tablesMetadata: TableMeta[] = [
         ],
     },
     {
+        id: 'institutions',
+        title: 'Institutions',
+        icon: Building2, 
+        columns: [
+            'id', 'institutionName', 'contactPersonName', 'contactPersonNumber', 
+            'email', 'gstNo', 'panNo', 'zone', 'district', 'area', 'state', 
+            'pinCode', 'address', 'latitude', 'longitude', 'isVerified', 
+            'createdAt', 'updatedAt'
+        ]
+    },
+    {
+        id: 'influencers',
+        title: 'Influencers',
+        icon: Users2, 
+        columns: [
+            'id', 'contactPersonName', 'contactPersonNumber', 'email', 
+            'zone', 'district', 'area', 'state', 'pinCode', 'address', 
+            'latitude', 'longitude', 'isVerified', 'createdAt', 'updatedAt'
+        ]
+    },
+    {
         id: 'dailyVisitReports',
         title: 'Daily Visit Reports',
         icon: CalendarCheck,
         columns: [
             'id', 'reportDate', 'salesmanName', 'salesmanEmail', 'zone', 'area', 
-            'dealerType', 'visitType', 'dealerName', 'nameOfParty', 'contactNoOfParty', 
+            'customerType', 'dealerType', 'institutionType', 'influencerType', 'visitType', 
+            'dealerName', 'nameOfParty', 'contactNoOfParty', 
             'expectedActivationDate', 'location', 'latitude', 'longitude', 'brandSelling', 
             'todayOrderQty', 'todayCollectionRupees', 'currentDealerOutstandingAmt', 
             'overdueAmount', 'feedbacks', 'checkInDate', 'checkInTime', 'checkOutDate', 
@@ -61,7 +84,7 @@ export const tablesMetadata: TableMeta[] = [
         requiredJobRole: ['Sales-Marketing', 'Reports-MIS'], 
         columns: [
             'userId', 'salesmanName', 'zone', 'area',
-            'totalVisits', 'dealerVisits', 'subDealerVisits'
+            'totalVisits', 'dealerVisits', 'institutionVisits', 'influencerVisits'
         ]
     },
     {
@@ -70,7 +93,8 @@ export const tablesMetadata: TableMeta[] = [
         icon: ListChecks,
         columns: [
             'id', 'planDate', 'assignedSalesmanName', 'assignedSalesmanEmail', 
-            'creatorName', 'creatorEmail', 'areaToBeVisited', 'visitDealerName', 
+            'creatorName', 'creatorEmail', 'areaToBeVisited', 
+            'visitDealerName', 'visitInstitutionName', 'visitInfluencerName',
             'route', 'description', 'status', 'verificationStatus', 
             'additionalVisitRemarks', 'diversionReason', 'createdAt', 'updatedAt'
         ]
@@ -95,18 +119,18 @@ export const tablesMetadata: TableMeta[] = [
             'startDate', 'endDate', 'reason', 'status', 'adminRemarks', 'updatedAt'
         ],
     },
-    {
-        id: 'geoTracking',
-        title: 'Salesman GeoTracking',
-        icon: MapPin,
-        columns: [
-            'id', 'journeyId', 'salesmanName', 'salesmanEmail',
-            'latitude', 'longitude', 'recordedAt', 'accuracy', 'speed', 'heading', 
-            'altitude', 'locationType', 'activityType', 'appState', 'batteryLevel', 
-            'isCharging', 'networkStatus', 'ipAddress', 'siteName', 'checkInTime', 
-            'checkOutTime', 'totalDistanceTravelled', 'isActive', 'destLat', 'destLng'
-        ],
-    },
+    // {
+    //     id: 'geoTracking',
+    //     title: 'Salesman GeoTracking',
+    //     icon: MapPin,
+    //     columns: [
+    //         'id', 'journeyId', 'salesmanName', 'salesmanEmail',
+    //         'latitude', 'longitude', 'recordedAt', 'accuracy', 'speed', 'heading', 
+    //         'altitude', 'locationType', 'activityType', 'appState', 'batteryLevel', 
+    //         'isCharging', 'networkStatus', 'ipAddress', 'siteName', 'checkInTime', 
+    //         'checkOutTime', 'totalDistanceTravelled', 'isActive', 'destLat', 'destLng'
+    //     ],
+    // },
 ];
 
 export type ReportFormat = 'csv' | 'xlsx';

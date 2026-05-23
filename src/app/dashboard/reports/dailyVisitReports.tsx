@@ -15,6 +15,11 @@ import {
   Camera,
   LogIn,
   LogOut,
+  Store,
+  Building2,
+  Users,
+  Briefcase,
+  ExternalLink
 } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -58,7 +63,15 @@ const extendedDailyVisitReportSchema = selectDailyVisitReportSchema
     zone: z.string().optional().catch("N/A"),
 
     dealerName: z.string().nullable().optional(),
-    subDealerName: z.string().nullable().optional(),
+    nameOfParty: z.string().nullable().optional(),
+    contactNoOfParty: z.string().nullable().optional(),
+    location: z.string().nullable().optional(),
+    
+    customerType: z.string().nullable().optional(),
+    dealerType: z.string().nullable().optional(),
+    institutionType: z.string().nullable().optional(),
+    influencerType: z.string().nullable().optional(),
+    visitType: z.string().nullable().optional(),
 
     latitude: z.coerce.number().nullable().optional().catch(null),
     longitude: z.coerce.number().nullable().optional().catch(null),
@@ -68,7 +81,8 @@ const extendedDailyVisitReportSchema = selectDailyVisitReportSchema
     overdueAmount: z.coerce.number().nullable().optional().catch(0),
 
     brandSelling: z.array(z.string()).nullable().optional().transform(v => v || []),
-
+    feedbacks: z.string().nullable().optional(),
+    
     pjpStatus: z.string().nullable().optional(),
   });
 
@@ -83,9 +97,8 @@ interface LocationsResponse {
 
 const CUSTOMER_TYPE_OPTIONS = [
   'Dealer',
-  'Sub-Dealer',
-  'Non-Trade',
-  'Other'
+  'Institution',
+  'Influencer'
 ];
 
 const PJP_STATUS_OPTIONS = [
@@ -95,6 +108,28 @@ const PJP_STATUS_OPTIONS = [
   'Verified',
   'Failed',
 ];
+
+const formatTimeIST = (dateString: string | null | undefined) => {
+  if (!dateString) return 'N/A';
+  try {
+    return new Date(dateString).toLocaleTimeString('en-IN', {
+      timeZone: 'UTC',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }).toUpperCase();
+  } catch (e) {
+    return 'N/A';
+  }
+};
+
+const getCustomerTypeBadgeColor = (type: string | null | undefined) => {
+  if (!type) return 'secondary';
+  if (type === 'Dealer') return 'default'; // primary/dark
+  if (type === 'Institution') return 'secondary'; // blue-ish depending on theme
+  if (type === 'Influencer') return 'outline'; 
+  return 'secondary';
+};
 
 const InfoField = ({
   label,
@@ -131,7 +166,6 @@ export default function DailyVisitReportsPage() {
   const [page, setPage] = useState(0);
   const [pageSize] = useState(500);
 
-  // --- Standardized Filter State ---
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
@@ -141,12 +175,10 @@ export default function DailyVisitReportsPage() {
   const [pjpStatusFilter, setPjpStatusFilter] = useState('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
-  // --- Backend Filter Options ---
   const [availableAreas, setAvailableAreas] = useState<string[]>([]);
   const [availableZones, setAvailableZones] = useState<string[]>([]);
   const [isLoadingLocations, setIsLoadingLocations] = useState(true);
 
-  // Reset page when filters change
   useEffect(() => {
     setPage(0);
   }, [debouncedSearchQuery, areaFilters, zoneFilters, customerTypeFilter, pjpStatusFilter, dateRange]);
@@ -160,7 +192,6 @@ export default function DailyVisitReportsPage() {
 
       if (debouncedSearchQuery) url.searchParams.append('search', debouncedSearchQuery);
 
-      // Join arrays for multi-select
       if (areaFilters.length > 0) url.searchParams.append('area', areaFilters.join(','));
       if (zoneFilters.length > 0) url.searchParams.append('zone', zoneFilters.join(','));
 
@@ -200,7 +231,7 @@ export default function DailyVisitReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [router, page, pageSize, debouncedSearchQuery, areaFilters, zoneFilters, customerTypeFilter, pjpStatusFilter, dateRange]);
+  }, [page, pageSize, debouncedSearchQuery, areaFilters, zoneFilters, customerTypeFilter, pjpStatusFilter, dateRange]);
 
   const fetchLocations = useCallback(async () => {
     setIsLoadingLocations(true);
@@ -231,7 +262,6 @@ export default function DailyVisitReportsPage() {
     fetchLocations();
   }, [fetchLocations]);
 
-  // --- Map raw string arrays to `{ label, value }` Options ---
   const zoneOptions = useMemo(() => [...availableZones].sort().map(r => ({ label: r, value: r })), [availableZones]);
   const areaOptions = useMemo(() => [...availableAreas].sort().map(a => ({ label: a, value: a })), [availableAreas]);
 
@@ -244,9 +274,19 @@ export default function DailyVisitReportsPage() {
     ...PJP_STATUS_OPTIONS.map(s => ({ label: s, value: s }))
   ], []);
 
-  const isDealerVisit = (r: DailyVisitReport) => !!r.dealerType;
+  const isDealerVisit = (r: DailyVisitReport) => r.customerType === 'Dealer';
+  const isInstitutionVisit = (r: DailyVisitReport) => r.customerType === 'Institution';
+  const isInfluencerVisit = (r: DailyVisitReport) => r.customerType === 'Influencer';
 
   const columns = useMemo<ColumnDef<DailyVisitReport>[]>(() => [
+    {
+      accessorKey: "customerType",
+      header: "Customer Type",
+      cell: ({ row }) => {
+        const type = row.original.customerType;
+        return <Badge variant={getCustomerTypeBadgeColor(type)} className="whitespace-nowrap">{type || 'Unknown'}</Badge>;
+      }
+    },
     {
       accessorKey: "salesmanName",
       header: "Salesman",
@@ -258,20 +298,14 @@ export default function DailyVisitReportsPage() {
     },
     {
       accessorKey: "dealerName",
-      header: "Dealer / Party Name",
+      header: "Party / Contact Name",
       cell: ({ row }) => (
-        <span className="text-sm font-medium">
-          {row.original.dealerName || row.original.nameOfParty || '-'}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "subDealerName",
-      header: "Sub Dealer Name",
-      cell: ({ row }) => (
-        <span className="text-sm">
-          {row.original.subDealerName || '-'}
-        </span>
+        <div className="flex flex-col max-w-[180px]">
+          <span className="font-semibold text-sm truncate" title={row.original.dealerName || row.original.nameOfParty || ''}>
+            {row.original.dealerName || row.original.nameOfParty || '-'}
+          </span>
+          <span className="text-xs text-muted-foreground">{row.original.contactNoOfParty}</span>
+        </div>
       ),
     },
     {
@@ -282,7 +316,7 @@ export default function DailyVisitReportsPage() {
 
         const getGoogleMapsLink = (lat?: number | null, lng?: number | null) => {
           if (!lat || !lng) return null;
-          return `http://maps.google.com/?q=${lat},${lng}`;
+          return `http://googleusercontent.com/maps.google.com/?q=${lat},${lng}`;
         };
 
         const mapLink = getGoogleMapsLink(latitude, longitude);
@@ -374,6 +408,62 @@ export default function DailyVisitReportsPage() {
     },
   ], []);
 
+  const renderDealerDetails = (r: DailyVisitReport) => (
+    <Card className="border-l-4 border-l-amber-600">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-bold flex items-center gap-2">
+          <Store className="w-4 h-4" />
+          Dealer Details & Metrics
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid grid-cols-2 gap-4 pt-2">
+        <InfoField label="Dealer Type" value={r.dealerType} />
+        <InfoField label="Expected Activation" value={r.expectedActivationDate ? new Date(r.expectedActivationDate).toLocaleDateString() : 'N/A'} />
+        <InfoField label="Brands Selling" value={r.brandSelling?.join(', ')} fullWidth />
+        <Separator className="col-span-2 my-2" />
+        <InfoField label="Today's Order Qty" value={r.todayOrderQty ? `${r.todayOrderQty}` : '0'} />
+        <InfoField label="Today's Collection" value={`₹${r.todayCollectionRupees || 0}`} />
+        <InfoField label="Overdue Amount" value={`₹${r.overdueAmount || 0}`} />
+      </CardContent>
+    </Card>
+  );
+
+  const renderInstitutionDetails = (r: DailyVisitReport) => (
+    <Card className="border-l-4 border-l-blue-500">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-bold flex items-center gap-2">
+          <Building2 className="w-4 h-4" />
+          Institution Information
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid grid-cols-2 gap-4 pt-2">
+        <InfoField label="Institution Type" value={r.institutionType} />
+        <InfoField label="Brands Selling" value={r.brandSelling?.join(', ')} />
+        <Separator className="col-span-2 my-2" />
+        <InfoField label="Today's Order Qty" value={r.todayOrderQty ? `${r.todayOrderQty}` : '0'} />
+        <InfoField label="Today's Collection" value={`₹${r.todayCollectionRupees || 0}`} />
+      </CardContent>
+    </Card>
+  );
+
+  const renderInfluencerDetails = (r: DailyVisitReport) => (
+    <Card className="border-l-4 border-l-purple-500">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-bold flex items-center gap-2">
+          <Users className="w-4 h-4" />
+          Influencer / Professional Info
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid grid-cols-2 gap-4 pt-2">
+        <InfoField label="Influencer Type" value={r.influencerType} />
+        <InfoField label="Brands Selling" value={r.brandSelling?.join(', ')} />
+        <Separator className="col-span-2 my-2" />
+        <InfoField label="Today's Order Qty" value={r.todayOrderQty ? `${r.todayOrderQty}` : '0'} />
+        <InfoField label="Today's Collection" value={`₹${r.todayCollectionRupees || 0}`} />
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground w-full">
       <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 w-full">
@@ -391,7 +481,6 @@ export default function DailyVisitReportsPage() {
           />
         </div>
 
-        {/* --- Unified Global Filter Bar --- */}
         <div className="w-full">
           <GlobalFilterBar
             showSearch={true}
@@ -399,7 +488,7 @@ export default function DailyVisitReportsPage() {
             showZone={true}
             showArea={true}
             showDateRange={true}
-            showStatus={true} // PJP Status mapped to Status
+            showStatus={true} 
 
             searchVal={searchQuery}
             roleVal={customerTypeFilter}
@@ -437,20 +526,19 @@ export default function DailyVisitReportsPage() {
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* ---------------------------- MODAL -------------------------------- */}
-      {/* ------------------------------------------------------------------ */}
-
       {selectedReport && (
         <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
           <DialogContent className="sm:max-w-[850px] max-h-[90vh] overflow-y-auto p-0 gap-0 bg-background">
 
-            <div className={`px-6 py-4 border-b bg-muted/20 ${isDealerVisit(selectedReport) ? 'border-l-[6px] border-l-amber-600' : 'border-l-[6px] border-l-blue-500'}`}>
+            <div className={`px-6 py-4 border-b bg-muted/20 ${isDealerVisit(selectedReport) ? 'border-l-[6px] border-l-amber-600' : isInstitutionVisit(selectedReport) ? 'border-l-[6px] border-l-blue-500' : 'border-l-[6px] border-l-purple-500'}`}>
               <DialogTitle className="text-xl flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span>Visit Details</span>
                   <Badge variant={selectedReport.pjpStatus?.toUpperCase() === 'COMPLETED' ? 'default' : 'secondary'} className="text-xs uppercase">
                     {selectedReport.pjpStatus || 'UNPLANNED'}
+                  </Badge>
+                  <Badge variant={getCustomerTypeBadgeColor(selectedReport.customerType)} className="text-sm px-3 ml-2">
+                    {selectedReport.customerType || 'Unknown'}
                   </Badge>
                 </div>
               </DialogTitle>
@@ -466,37 +554,46 @@ export default function DailyVisitReportsPage() {
 
             <div className="p-6 space-y-6">
 
-              {/* Location & Contact */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="h-full">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <MapPin className="w-4 h-4" /> Location & Contact
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-3 pt-2">
+                    <InfoField label="Zone" value={selectedReport.zone} />
+                    <InfoField label="Area" value={selectedReport.area} />
+                    <InfoField label="Location Address" value={selectedReport.location} fullWidth />
+                    <InfoField label="Party / Contact" value={selectedReport.dealerName || selectedReport.nameOfParty} fullWidth />
+                    <InfoField label="Phone No." value={selectedReport.contactNoOfParty} fullWidth />
+                  </CardContent>
+                </Card>
+
+                <Card className="h-full">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <Briefcase className="w-4 h-4" /> Visit Summary
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-3 pt-2">
+                    <InfoField label="Visit Type" value={selectedReport.visitType} fullWidth />
+                    <InfoField label="Check In" value={formatTimeIST(selectedReport.checkInTime)} />
+                    <InfoField label="Check Out" value={formatTimeIST(selectedReport.checkOutTime)} />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {isDealerVisit(selectedReport) && renderDealerDetails(selectedReport)}
+              {isInstitutionVisit(selectedReport) && renderInstitutionDetails(selectedReport)}
+              {isInfluencerVisit(selectedReport) && renderInfluencerDetails(selectedReport)}
+
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <MapPin className="w-4 h-4" /> Location & Contact
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-3 pt-2">
-                  <InfoField label="Zone" value={selectedReport.zone} />
-                  <InfoField label="Area" value={selectedReport.area} />
-                  <InfoField label="Location" value={selectedReport.location} fullWidth />
+                <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <InfoField label="Visit Remarks / Feedback" value={selectedReport.feedbacks} fullWidth />
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-amber-600">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-bold">
-                    Dealer Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-4 pt-2">
-                  <InfoField label="Dealer Type" value={selectedReport.dealerType} />
-                  <InfoField label="Dealer Name" value={selectedReport.dealerName} />
-                  <InfoField label="Brand Selling" value={selectedReport.brandSelling?.join(', ')} fullWidth />
-                  <Separator className="col-span-2 my-2" />
-                  <InfoField label="Today's Collection" value={`₹${selectedReport.todayCollectionRupees}`} />
-                  <InfoField label="Overdue Amount" value={`₹${selectedReport.overdueAmount}`} />
-                </CardContent>
-              </Card>
-
-              {/* Photo Evidence */}
               <div>
                 <h4 className="text-sm font-bold mb-3 flex items-center gap-2">
                   <Camera className="w-4 h-4" /> Photo Evidence
@@ -504,33 +601,49 @@ export default function DailyVisitReportsPage() {
 
                 <div className="flex flex-col gap-6">
 
-                  {selectedReport.inTimeImageUrl && (
-                    <div className="border rounded-lg overflow-hidden shadow-sm">
+                  {selectedReport.inTimeImageUrl ? (
+                    <div className="border rounded-lg overflow-hidden shadow-sm bg-background">
                       <div className="bg-emerald-50 px-4 py-2 text-sm font-semibold border-b flex items-center gap-2 text-emerald-800">
                         <LogIn className="w-4 h-4" /> Check-In Selfie
                       </div>
-                      <a href={selectedReport.inTimeImageUrl} target="_blank" rel="noreferrer">
+                      <a href={selectedReport.inTimeImageUrl} target="_blank" rel="noreferrer" className="block relative group">
                         <img
                           src={selectedReport.inTimeImageUrl}
                           className="w-full h-auto max-h-[400px] object-contain bg-black/5"
                           alt="Check In"
                         />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <ExternalLink className="text-white w-5 h-5" />
+                          <span className="text-white font-medium text-sm">View Full Image</span>
+                        </div>
                       </a>
+                    </div>
+                  ) : (
+                    <div className="border rounded-lg h-24 flex items-center justify-center bg-muted/10 text-muted-foreground text-sm italic border-dashed">
+                      No Check-In Photo Available
                     </div>
                   )}
 
-                  {selectedReport.outTimeImageUrl && (
-                    <div className="border rounded-lg overflow-hidden shadow-sm">
+                  {selectedReport.outTimeImageUrl ? (
+                    <div className="border rounded-lg overflow-hidden shadow-sm bg-background">
                       <div className="bg-orange-50 px-4 py-2 text-sm font-semibold border-b flex items-center gap-2 text-orange-800">
                         <LogOut className="w-4 h-4" /> Check-Out Selfie
                       </div>
-                      <a href={selectedReport.outTimeImageUrl} target="_blank" rel="noreferrer">
+                      <a href={selectedReport.outTimeImageUrl} target="_blank" rel="noreferrer" className="block relative group">
                         <img
                           src={selectedReport.outTimeImageUrl}
                           className="w-full h-auto max-h-[400px] object-contain bg-black/5"
                           alt="Check Out"
                         />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <ExternalLink className="text-white w-5 h-5" />
+                          <span className="text-white font-medium text-sm">View Full Image</span>
+                        </div>
                       </a>
+                    </div>
+                  ) : (
+                    <div className="border rounded-lg h-24 flex items-center justify-center bg-muted/10 text-muted-foreground text-sm italic border-dashed">
+                      No Check-Out Photo Available
                     </div>
                   )}
 

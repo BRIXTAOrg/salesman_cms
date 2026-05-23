@@ -1,4 +1,4 @@
-// app/dashboard/reports/soPerformanceMetrics.tsx
+// src/app/dashboard/reports/soPerformanceMetrics.tsx
 'use client';
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
@@ -10,7 +10,7 @@ import { DateRange } from "react-day-picker";
 import { format, startOfMonth } from "date-fns";
 
 import {
-    Loader2, Eye, MapPin, User, Activity, Store
+    Loader2, Eye, MapPin, User, Activity, Store,
 } from 'lucide-react';
 
 import { DataTableReusable } from '@/components/data-table-reusable';
@@ -45,7 +45,8 @@ const soPerformanceMetricSchema = z.object({
     totalVisits: z.coerce.number().catch(0),
     metrics: z.object({
         dealerVisits: metricNode,
-        subDealerVisits: metricNode,
+        institutionVisits: metricNode,
+        influencerVisits: metricNode,
     }),
 });
 
@@ -148,6 +149,7 @@ export default function SoPerformanceMetricsPage() {
                     const itemWithId = { ...item, id: item.userId ? String(item.userId) : `row-fallback-${index}` };
                     return soPerformanceMetricSchema.parse(itemWithId);
                 } catch (e) {
+                    console.error('Validation Data Issue:', e);
                     return null;
                 }
             }).filter(Boolean) as SoPerformanceMetric[];
@@ -213,37 +215,40 @@ export default function SoPerformanceMetricsPage() {
             id: "dealerVisits",
             header: "Dealer Visits",
             cell: ({ row }) => (
-                <div className="flex flex-col">
-                    <span className="font-medium text-muted-foreground">{row.original.metrics.dealerVisits.mtd}</span>
-                </div>
+                <span className="font-medium text-amber-700">{row.original.metrics.dealerVisits.mtd}</span>
             )
         },
         {
-            id: "subDealerVisits",
-            header: "Sub-Dealer Visits",
+            id: "institutionVisits",
+            header: "Institution Visits",
             cell: ({ row }) => (
-                <div className="flex flex-col">
-                    <span className="font-medium text-muted-foreground">{row.original.metrics.subDealerVisits.mtd}</span>
-                </div>
+                <span className="font-medium text-blue-700">{row.original.metrics.institutionVisits.mtd}</span>
             )
         },
-        // {
-        //     id: "actions",
-        //     header: "Actions",
-        //     cell: ({ row }) => (
-        //         <Button
-        //             variant="outline"
-        //             size="sm"
-        //             className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300 h-8 px-2 shadow-sm"
-        //             onClick={() => {
-        //                 setSelectedMetric(row.original);
-        //                 setIsViewModalOpen(true);
-        //             }}
-        //         >
-        //             <Eye className="h-3.5 w-3.5 mr-1" /> View Breakdown
-        //         </Button>
-        //     ),
-        // },
+        {
+            id: "influencerVisits",
+            header: "Influencer Visits",
+            cell: ({ row }) => (
+                <span className="font-medium text-purple-700">{row.original.metrics.influencerVisits.mtd}</span>
+            )
+        },
+        {
+            id: "actions",
+            header: "Actions",
+            cell: ({ row }) => (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300 h-8 px-2 shadow-sm"
+                    onClick={() => {
+                        setSelectedMetric(row.original);
+                        setIsViewModalOpen(true);
+                    }}
+                >
+                    <Eye className="h-3.5 w-3.5 mr-1" /> View Breakdown
+                </Button>
+            ),
+        },
     ], []);
 
     return (
@@ -291,9 +296,10 @@ export default function SoPerformanceMetricsPage() {
                 </div>
             </div>
 
+            {/* View Details Modal */}
             {selectedMetric && (
                 <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-                    <DialogContent className="sm:max-w-[600px] p-0 gap-0 bg-background">
+                    <DialogContent className="sm:max-w-[700px] p-0 gap-0 bg-background">
                         <div className="px-6 py-4 border-b bg-muted/20 border-l-[6px] border-l-primary">
                             <DialogTitle className="text-xl flex items-center justify-between">
                                 <span className="flex items-center gap-2">
@@ -312,10 +318,11 @@ export default function SoPerformanceMetricsPage() {
 
                         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                             <div>
-                                <h3 className="text-sm font-bold text-muted-foreground mb-4 uppercase tracking-wider flex items-center gap-2"><Store className="w-4 h-4"/> Channel Visits</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <h3 className="text-sm font-bold text-muted-foreground mb-4 uppercase tracking-wider flex items-center gap-2"><Store className="w-4 h-4"/> Visit Categories Split</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                                     <MetricProgressCard title="Dealer Visits" data={selectedMetric.metrics.dealerVisits} colorClass="bg-amber-500" />
-                                    <MetricProgressCard title="Sub-Dealer Visits" data={selectedMetric.metrics.subDealerVisits} colorClass="bg-blue-500" />
+                                    <MetricProgressCard title="Institution Visits" data={selectedMetric.metrics.institutionVisits} colorClass="bg-blue-500" />
+                                    <MetricProgressCard title="Influencer Visits" data={selectedMetric.metrics.influencerVisits} colorClass="bg-purple-500" />
                                 </div>
                             </div>
                         </div>

@@ -1,10 +1,10 @@
 // src/lib/reports-transformer.ts
 import { db } from '@/lib/drizzle';
 import {
-  users, roles, userRoles, dealers, dailyVisitReports,
+  users, roles, userRoles, dealers, influencers, institutions, dailyVisitReports,
   permanentJourneyPlans, salesmanAttendance, salesmanLeaveApplications, journeyOps,
 } from '../../drizzle/schema';
-import { eq, desc, and, or, inArray, getTableColumns, aliasedTable, sql, SQL, lte, gte } from 'drizzle-orm';
+import { eq, desc, and, getTableColumns, aliasedTable, sql, SQL, lte, gte } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 
 // --- HELPERS ---
@@ -150,6 +150,69 @@ export async function getFlattenedDealers() {
   }));
 }
 
+export async function getFlattenedInstitutions() {
+  const raw = await db
+    .select()
+    .from(institutions)
+    .orderBy(desc(institutions.createdAt));
+
+  return raw.map((r) => {
+    return {
+      id: r.id,
+      institutionName: r.institutionName,
+      contactPersonName: r.contactPersonName ?? '',
+      contactPersonNumber: r.contactPersonNumber ?? '',
+      email: r.email ?? '',
+      gstNo: r.gstNo ?? '',
+      panNo: r.panNo ?? '',
+      
+      zone: r.zone ?? '',
+      district: r.district ?? '',
+      area: r.area ?? '',
+      state: r.state ?? '',
+      pinCode: r.pinCode ?? '',
+      address: r.address ?? '',
+      
+      latitude: toNum(r.latitude) || 0,
+      longitude: toNum(r.longitude) || 0,
+      
+      isVerified: r.isVerified ? 'Yes' : 'No',
+      createdAt: formatDateTimeIST(r.createdAt),
+      updatedAt: formatDateTimeIST(r.updatedAt),
+    };
+  });
+}
+
+export async function getFlattenedInfluencers() {
+  const raw = await db
+    .select()
+    .from(influencers)
+    .orderBy(desc(influencers.createdAt));
+
+  return raw.map((r) => {
+    return {
+      id: r.id,
+      contactPersonName: r.contactPersonName ?? '',
+      contactPersonNumber: r.contactPersonNumber ?? '',
+      email: r.email ?? '',
+      
+      zone: r.zone ?? '',
+      district: r.district ?? '',
+      area: r.area ?? '',
+      state: r.state ?? '',
+      pinCode: r.pinCode ?? '',
+      address: r.address ?? '',
+      
+      latitude: toNum(r.latitude) || 0,
+      longitude: toNum(r.longitude) || 0,
+      
+      isVerified: r.isVerified ? 'Yes' : 'No',
+      createdAt: formatDateTimeIST(r.createdAt),
+      updatedAt: formatDateTimeIST(r.updatedAt),
+    };
+  });
+}
+
 export async function getFlattenedDailyVisitReports() {
   const raw = await db
     .select({
@@ -169,13 +232,16 @@ export async function getFlattenedDailyVisitReports() {
     return {
       id: r.id,
       reportDate: r.reportDate ? formatDateIST(r.reportDate) : '',
+      
+      customerType: r.customerType ?? null,
+      dealerType: r.dealerType ?? null,
+      institutionType: r.institutionType ?? null,
+      influencerType: r.influencerType ?? null, 
+      visitType: r.visitType ?? null,
 
       nameOfParty: r.nameOfParty ?? null,
       contactNoOfParty: r.contactNoOfParty ?? null,
       expectedActivationDate: r.expectedActivationDate ? formatDateIST(r.expectedActivationDate) : null,
-
-      dealerType: r.dealerType ?? null,
-      visitType: r.visitType ?? null,
       dealerName: r.dealerName ?? null,
 
       location: r.location ?? null,
@@ -241,8 +307,9 @@ export async function getFlattenedSoPerformanceMetrics(
       zone: users.zone,
       area: users.area,
       totalVisits: sql<number>`CAST(COUNT(${dailyVisitReports.id}) AS INTEGER)`,
-      dealerVisits: sql<number>`CAST(SUM(CASE WHEN ${dailyVisitReports.dealerType} ILIKE 'Dealer%' THEN 1 ELSE 0 END) AS INTEGER)`,
-      subDealerVisits: sql<number>`CAST(SUM(CASE WHEN ${dailyVisitReports.dealerType} ILIKE 'Sub%Dealer%' THEN 1 ELSE 0 END) AS INTEGER)`,
+      dealerVisits: sql<number>`CAST(SUM(CASE WHEN ${dailyVisitReports.customerType} ILIKE 'Dealer%' THEN 1 ELSE 0 END) AS INTEGER)`,
+      institutionVisits: sql<number>`CAST(SUM(CASE WHEN ${dailyVisitReports.customerType} ILIKE 'Institution%' THEN 1 ELSE 0 END) AS INTEGER)`,
+      influencerVisits: sql<number>`CAST(SUM(CASE WHEN ${dailyVisitReports.customerType} ILIKE 'Influencer%' THEN 1 ELSE 0 END) AS INTEGER)`,
     })
     .from(dailyVisitReports)
     .leftJoin(users, eq(dailyVisitReports.userId, users.id))
@@ -258,7 +325,8 @@ export async function getFlattenedSoPerformanceMetrics(
       area: r.area || '',
       totalVisits: r.totalVisits || 0,
       dealerVisits: r.dealerVisits || 0,
-      subDealerVisits: r.subDealerVisits || 0,
+      institutionVisits: r.institutionVisits || 0,
+      influencerVisits: r.influencerVisits || 0,
     };
   });
 }
@@ -274,11 +342,15 @@ export async function getFlattenedPermanentJourneyPlans() {
       creatorUsername: createdByUsers.username,
       creatorEmail: createdByUsers.email,
       dealerName: dealers.dealerPartyName,
+      institutionName: institutions.institutionName, 
+      influencerName: influencers.contactPersonName, 
     })
     .from(permanentJourneyPlans)
     .leftJoin(users, eq(permanentJourneyPlans.userId, users.id))
     .leftJoin(createdByUsers, eq(permanentJourneyPlans.createdById, createdByUsers.id))
     .leftJoin(dealers, eq(permanentJourneyPlans.dealerId, dealers.id))
+    .leftJoin(institutions, eq(permanentJourneyPlans.institutionId, institutions.id)) // NEW
+    .leftJoin(influencers, eq(permanentJourneyPlans.influencerId, influencers.id)) // NEW
     .orderBy(desc(permanentJourneyPlans.planDate));
 
   if (rawReports.length === 0) return [];
@@ -300,8 +372,12 @@ export async function getFlattenedPermanentJourneyPlans() {
 
       userId: String(r.userId),
       dealerId: r.dealerId,
-      siteId: r.siteId,
+      institutionId: r.institutionId,
+      influencerId: r.influencerId,
+      
       visitDealerName: r.dealerName ?? null,
+      visitInstitutionName: r.institutionName ?? null,
+      visitInfluencerName: r.influencerName ?? null,
 
       assignedSalesmanName: formatUserName({ username: r.salesmanUsername, email: r.salesmanEmail }),
       assignedSalesmanEmail: r.salesmanEmail || '',
@@ -465,6 +541,8 @@ export const transformerMap = {
   // Core Report Models
   users: getFlattenedUsers,
   dealers: getFlattenedDealers,
+  institutions: getFlattenedInstitutions,
+  influencers: getFlattenedInfluencers,
   dailyVisitReports: getFlattenedDailyVisitReports,
   soPerformanceMetrics: getFlattenedSoPerformanceMetrics,
 

@@ -97,6 +97,54 @@ export const dealers = myCustomSchema.table("dealers", {
 	index("idx_verified_gst").on(t.gstNo),
 ]);
 
+export const institutions = myCustomSchema.table("instititions", {
+	id: serial("id").primaryKey(),
+	institutionName: varchar("institution_name", { length: 255 }).notNull(),
+	contactPersonName: varchar("contact_person_name", { length: 255 }),
+	contactPersonNumber: varchar("contact_person_number", { length: 20 }),
+	email: varchar("email", { length: 255 }),
+	gstNo: varchar("gst_no", { length: 50 }),
+	panNo: varchar("pan_no", { length: 50 }),
+	zone: varchar("zone", { length: 120 }),
+	district: varchar("district", { length: 120 }),
+	area: varchar("area", { length: 120 }),
+	state: varchar("state", { length: 100 }),
+	pinCode: varchar("pin_code", { length: 20 }),
+	address: varchar("address", { length: 500 }),
+	latitude: numeric("latitude", { precision: 10, scale: 7 }),
+	longitude: numeric("longitude", { precision: 10, scale: 7 }),
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	isVerified: boolean("is_verified").default(false),
+}, (t) => [
+	index("idx_institute_verified_zone").on(t.zone),
+	index("idx_institute_verified_district").on(t.district),
+	index("idx_institute_verified_pincode").on(t.pinCode),
+	index("idx_institute_verified_gst").on(t.gstNo),
+]);
+
+export const influencers = myCustomSchema.table("influencers", {
+	id: serial("id").primaryKey(),
+	contactPersonName: varchar("contact_person_name", { length: 255 }),
+	contactPersonNumber: varchar("contact_person_number", { length: 20 }),
+	email: varchar("email", { length: 255 }),
+	zone: varchar("zone", { length: 120 }),
+	district: varchar("district", { length: 120 }),
+	area: varchar("area", { length: 120 }),
+	state: varchar("state", { length: 100 }),
+	pinCode: varchar("pin_code", { length: 20 }),
+	address: varchar("address", { length: 500 }),
+	latitude: numeric("latitude", { precision: 10, scale: 7 }),
+	longitude: numeric("longitude", { precision: 10, scale: 7 }),
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	isVerified: boolean("is_verified").default(false),
+}, (t) => [
+	index("idx_influencer_verified_zone").on(t.zone),
+	index("idx_influencer_verified_district").on(t.district),
+	index("idx_influencer_verified_pincode").on(t.pinCode),
+]);
+
 export const permanentJourneyPlans = myCustomSchema.table("permanent_journey_plans", {
 	id: varchar({ length: 255 }).primaryKey().notNull(),
 	userId: integer("user_id").notNull(),
@@ -110,7 +158,8 @@ export const permanentJourneyPlans = myCustomSchema.table("permanent_journey_pla
 	dealerId: integer("dealer_id"),
 	bulkOpId: varchar("bulk_op_id", { length: 50 }),
 	idempotencyKey: varchar("idempotency_key", { length: 120 }),
-	siteId: uuid("site_id"),
+	institutionId: integer("institution_id"),
+	influencerId: integer("influencer_id"),
 	route: varchar({ length: 500 }),
 	diversionReason: varchar("diversion_reason", { length: 500 }),
 	createdAt: timestamp("created_at", { precision: 6, withTimezone: true, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
@@ -120,7 +169,8 @@ export const permanentJourneyPlans = myCustomSchema.table("permanent_journey_pla
 	index("idx_permanent_journey_plans_user_id").using("btree", table.userId.asc().nullsLast()),
 	index("idx_pjp_bulk_op_id").using("btree", table.bulkOpId.asc().nullsLast()),
 	index("idx_pjp_dealer_id").using("btree", table.dealerId.asc().nullsLast()),
-	index("idx_pjp_site_id").using("btree", table.siteId.asc().nullsLast()),
+	index("idx_pjp_institution_id").using("btree", table.institutionId.asc().nullsLast()),
+	index("idx_pjp_influencer_id").using("btree", table.influencerId.asc().nullsLast()),
 	uniqueIndex("uniq_pjp_idempotency_key_not_null").using("btree", table.idempotencyKey.asc().nullsLast()).where(sql`(idempotency_key IS NOT NULL)`),
 	uniqueIndex("uniq_pjp_user_dealer_plan_date").using("btree", table.userId.asc().nullsLast(), table.dealerId.asc().nullsLast(), table.planDate.asc().nullsLast()),
 	foreignKey({
@@ -138,13 +188,26 @@ export const permanentJourneyPlans = myCustomSchema.table("permanent_journey_pla
 		foreignColumns: [dealers.id],
 		name: "permanent_journey_plans_dealer_id_fkey"
 	}).onUpdate("cascade").onDelete("set null"),
+	foreignKey({
+		columns: [table.institutionId],
+		foreignColumns: [institutions.id],
+		name: "permanent_journey_plans_institution_id_fkey"
+	}).onUpdate("cascade").onDelete("set null"),
+	foreignKey({
+		columns: [table.influencerId],
+		foreignColumns: [influencers.id],
+		name: "permanent_journey_plans_influencer_id_fkey"
+	}).onUpdate("cascade").onDelete("set null"),
 ]);
 
 export const dailyVisitReports = myCustomSchema.table("daily_visit_reports", {
 	id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
 	reportDate: date("report_date"),
-	dealerType: varchar("dealer_type", { length: 50 }),
-	visitType: varchar("visit_type", { length: 50 }),
+	customerType: varchar("customer_type", { length: 50 }), //dealer or institution or influencer
+	dealerType: varchar("dealer_type", { length: 50 }), // eurofoam or non-eurofoam
+	institutionType: varchar("institution_type", { length: 50 }), // hotel/hospital/guest house...
+	influencerType: varchar("influencer_type", { length: 50 }), // int decor people/carpenter....
+	visitType: varchar("visit_type", { length: 50 }), // new or follow-up
 	location: varchar("location", { length: 500 }),
 	latitude: numeric("latitude", { precision: 20, scale: 7 }),
 	longitude: numeric("longitude", { precision: 20, scale: 7 }),

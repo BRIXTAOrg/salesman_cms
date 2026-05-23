@@ -61,6 +61,16 @@ const menuItems: MenuItem[] = [
         requiredPerm: ['READ', 'WRITE', 'UPDATE']
       },
       {
+        title: "Institution",
+        url: "/dashboard/institutionManagement",
+        requiredPerm: ['READ', 'WRITE', 'UPDATE']
+      },
+      {
+        title: "Influencers",
+        url: "/dashboard/influencerManagement",
+        requiredPerm: ['READ', 'WRITE', 'UPDATE']
+      },
+      {
         title: "Reports",
         url: "/dashboard/reports",
       },
@@ -68,10 +78,10 @@ const menuItems: MenuItem[] = [
         title: "PJPs", 
         url: "/dashboard/permanentJourneyPlan",
       },
-      {
-        title: "Salesman Geotracking",
-        url: "/dashboard/slmGeotracking",
-      },
+      // {
+      //   title: "Salesman Geotracking",
+      //   url: "/dashboard/slmGeotracking",
+      // },
       {
         title: "Salesman Leaves",
         url: "/dashboard/slmLeaves",

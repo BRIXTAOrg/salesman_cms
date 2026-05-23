@@ -23,7 +23,8 @@ const soPerformanceMetricSchema = z.object({
     totalVisits: z.number(),
     metrics: z.object({
         dealerVisits: metricNode,
-        subDealerVisits: metricNode,
+        institutionVisits: metricNode,
+        influencerVisits: metricNode,
     })
 });
 
@@ -75,8 +76,11 @@ async function getCachedSoPerformanceMetrics(
             zone: users.zone,
             area: users.area,
             totalVisits: sql<number>`CAST(COUNT(${dailyVisitReports.id}) AS INTEGER)`,
-            dealerVisits: sql<number>`CAST(SUM(CASE WHEN ${dailyVisitReports.dealerType} ILIKE 'Dealer%' THEN 1 ELSE 0 END) AS INTEGER)`,
-            subDealerVisits: sql<number>`CAST(SUM(CASE WHEN ${dailyVisitReports.dealerType} ILIKE 'Sub%Dealer%' THEN 1 ELSE 0 END) AS INTEGER)`,
+            
+            // New Splits Based on customerType
+            dealerVisits: sql<number>`CAST(SUM(CASE WHEN ${dailyVisitReports.customerType} ILIKE 'Dealer%' THEN 1 ELSE 0 END) AS INTEGER)`,
+            institutionVisits: sql<number>`CAST(SUM(CASE WHEN ${dailyVisitReports.customerType} ILIKE 'Institution%' THEN 1 ELSE 0 END) AS INTEGER)`,
+            influencerVisits: sql<number>`CAST(SUM(CASE WHEN ${dailyVisitReports.customerType} ILIKE 'Influencer%' THEN 1 ELSE 0 END) AS INTEGER)`,
         })
         .from(dailyVisitReports)
         .leftJoin(users, eq(dailyVisitReports.userId, users.id))
@@ -97,17 +101,24 @@ async function getCachedSoPerformanceMetrics(
 
     const calcPct = (mtd: number, aop: number) => aop > 0 ? Math.round((mtd / aop) * 100) : 0;
 
-    const results = rawResults.map((r) => ({
-        userId: r.userId,
-        salesmanName: r.salesmanName,
-        zone: r.zone,
-        area: r.area,
-        totalVisits: r.totalVisits,
-        metrics: {
-            dealerVisits: { aop: SO_AOP_TARGETS.dealerVisits, mtd: r.dealerVisits || 0, pct: calcPct(r.dealerVisits || 0, SO_AOP_TARGETS.dealerVisits) },
-            subDealerVisits: { aop: SO_AOP_TARGETS.subDealerVisits, mtd: r.subDealerVisits || 0, pct: calcPct(r.subDealerVisits || 0, SO_AOP_TARGETS.subDealerVisits) },
-        }
-    }));
+    const results = rawResults.map((r) => {
+        const dealerAOP = (SO_AOP_TARGETS as any)?.dealerVisits || 0;
+        const institutionAOP = (SO_AOP_TARGETS as any)?.institutionVisits || 0;
+        const influencerAOP = (SO_AOP_TARGETS as any)?.influencerVisits || 0;
+
+        return {
+            userId: r.userId,
+            salesmanName: r.salesmanName,
+            zone: r.zone,
+            area: r.area,
+            totalVisits: r.totalVisits,
+            metrics: {
+                dealerVisits: { aop: dealerAOP, mtd: r.dealerVisits || 0, pct: calcPct(r.dealerVisits || 0, dealerAOP) },
+                institutionVisits: { aop: institutionAOP, mtd: r.institutionVisits || 0, pct: calcPct(r.institutionVisits || 0, institutionAOP) },
+                influencerVisits: { aop: influencerAOP, mtd: r.influencerVisits || 0, pct: calcPct(r.influencerVisits || 0, influencerAOP) },
+            }
+        };
+    });
 
     return { data: results, totalCount };
 }

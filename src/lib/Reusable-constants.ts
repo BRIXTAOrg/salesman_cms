@@ -19,7 +19,8 @@ export const Zone = ["All Zone", "Lower Assam 1", "Lower Assam 2", "Central Assa
 
 export const SO_AOP_TARGETS = {
   dealerVisits: 100,
-  subDealerVisits: 200,
+  institutionVisits: 100,
+  influencerVisits: 100
 };
 
 export const ORG_ROLES = [ //fixed
