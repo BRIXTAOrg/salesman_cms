@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import {
-  Eye, MapPin, User, Calendar as CalendarIcon, ClipboardList, Loader2, Route
+  Eye, MapPin, User, Calendar as CalendarIcon, ClipboardList, Loader2, Route, Store, Building2, Users
 } from 'lucide-react';
 
 // Shadcn UI Components
@@ -34,239 +34,338 @@ const pjpSchema = z.object({
   additionalVisitRemarks: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   status: z.string(),
-  verificationStatus: z.string().nullable().optional(),
+  verificationStatus: z.string(),
+  salesmanName: z.string(),
+  createdByName: z.string(),
+  targetPartyName: z.string().nullable().optional(),
   
-  // Joined fields from backend route
-  salesmanName: z.string().optional().catch("Unknown"),
-  visitDealerName: z.string().nullable().optional(),
-  createdByName: z.string().optional().catch("Unknown"),
+  noOfDealerVisits: z.coerce.number().catch(0),
+  noOfInstitutionVisits: z.coerce.number().catch(0),
+  noOfInfluencerVisits: z.coerce.number().catch(0),
 });
 
-type PermanentJourneyPlan = z.infer<typeof pjpSchema>;
+type PjpType = z.infer<typeof pjpSchema>;
 
-const InfoField = ({ label, value, icon: Icon, fullWidth = false }: { label: string, value: React.ReactNode, icon?: any, fullWidth?: boolean }) => (
-  <div className={`flex flex-col space-y-1.5 ${fullWidth ? 'col-span-2' : ''}`}>
-    <Label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1 tracking-wider">
-      {Icon && <Icon className="w-3 h-3" />}
-      {label}
-    </Label>
-    <div className="text-sm font-medium p-2.5 bg-secondary/30 rounded-md border border-border/50 min-h-10 flex items-center">
-      {value || <span className="text-muted-foreground italic text-xs">N/A</span>}
-    </div>
-  </div>
-);
+const API_ENDPOINT = `/api/dashboardPagesAPI/permanent-journey-plan`;
 
-export default function PJPListPage() {
-  const [pjps, setPjps] = useState<PermanentJourneyPlan[]>([]);
+export default function PjpList() {
+  const [data, setData] = useState<PjpType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Pagination & Backend Meta
-  const [page, setPage] = useState(0);
-  const [pageSize] = useState(500);
   const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [pageSize] = useState(100);
 
-  // Filters
-  const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  // Search/Filters State
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500);
+  const [salesmanId, setSalesmanId] = useState('all');
+  const [area, setArea] = useState('all');
+  const [status, setStatus] = useState('all');
+  const [verificationStatus, setVerificationStatus] = useState('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
-  // Modal State
-  const [selectedPjp, setSelectedPjp] = useState<PermanentJourneyPlan | null>(null);
+  // Filters options from server
+  const [salesmanOptions, setSalesmanOptions] = useState<{ label: string, value: string }[]>([]);
+  const [areaOptions, setAreaOptions] = useState<{ label: string, value: string }[]>([]);
+
+  // Detailed view dialog state
+  const [selectedPjp, setSelectedPjp] = useState<PjpType | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  useEffect(() => { setPage(0); }, [debouncedSearchQuery, dateRange]);
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearch, salesmanId, area, status, verificationStatus, dateRange]);
+
+  const fetchFilters = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_ENDPOINT}?action=fetch_filters`);
+      const json = await res.json();
+      if (res.ok) {
+        setSalesmanOptions([{ label: 'All Salesmen', value: 'all' }, ...json.salesmen]);
+        setAreaOptions([{ label: 'All Areas', value: 'all' }, ...json.areas]);
+      }
+    } catch (err) {
+      console.error('Error fetching filters options', err);
+    }
+  }, []);
 
   const fetchPjps = useCallback(async () => {
     setLoading(true);
     try {
-      const url = new URL(`/api/dashboardPagesAPI/permanent-journey-plan`, window.location.origin);
-      url.searchParams.append('verificationStatus', 'VERIFIED');
-      url.searchParams.append('page', page.toString());
-      url.searchParams.append('pageSize', pageSize.toString());
+      const url = new URL(API_ENDPOINT, window.location.origin);
+      url.searchParams.append('page', String(page));
+      url.searchParams.append('pageSize', String(pageSize));
 
-      if (debouncedSearchQuery) url.searchParams.append('search', debouncedSearchQuery);
-      
-      if (dateRange?.from) url.searchParams.append('fromDate', format(dateRange.from, "yyyy-MM-dd"));
-      if (dateRange?.to) {
-        url.searchParams.append('toDate', format(dateRange.to, "yyyy-MM-dd"));
-      } else if (dateRange?.from) {
-        url.searchParams.append('toDate', format(dateRange.from, "yyyy-MM-dd"));
-      }
+      if (debouncedSearch) url.searchParams.append('search', debouncedSearch);
+      if (salesmanId !== 'all') url.searchParams.append('salesmanId', salesmanId);
+      if (area !== 'all') url.searchParams.append('area', area);
+      if (status !== 'all') url.searchParams.append('status', status);
+      if (verificationStatus !== 'all') url.searchParams.append('verificationStatus', verificationStatus);
 
-      url.searchParams.append('_t', Date.now().toString());
+      if (dateRange?.from) url.searchParams.append('startDate', format(dateRange.from, "yyyy-MM-dd"));
+      if (dateRange?.to) url.searchParams.append('endDate', format(dateRange.to, "yyyy-MM-dd"));
 
-      const response = await fetch(url.toString(), { cache: 'no-store' });
-      const result = await response.json();
-      const data: any[] = result.data || result;
-      
-      setTotalCount(result.totalCount || 0);
-      setPjps(data.map((item: any) => ({ ...pjpSchema.parse(item), id: String(item.id) })));
-    } catch (e: any) {
-      setError(e.message);
-      toast.error("Failed to load Permanent Journey Plans.");
+      const res = await fetch(url.toString());
+      const json = await res.json();
+
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch data');
+
+      const parsedData = z.array(pjpSchema).parse(json.data);
+      setData(parsedData);
+      setTotalCount(json.totalCount || 0);
+    } catch (err: any) {
+      toast.error(err.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, debouncedSearchQuery, dateRange]);
+  }, [page, pageSize, debouncedSearch, salesmanId, area, status, verificationStatus, dateRange]);
 
-  useEffect(() => { fetchPjps(); }, [fetchPjps]);
+  useEffect(() => {
+    fetchFilters();
+  }, [fetchFilters]);
 
-  const stats = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const todaysPlans = pjps.filter(p => {
-      if (!p.planDate) return false;
-      return new Date(p.planDate).toISOString().split('T')[0] === todayStr;
-    });
+  useEffect(() => {
+    fetchPjps();
+  }, [fetchPjps]);
 
-    return {
-      todayCount: todaysPlans.length,
-      totalCount: totalCount, 
-    };
-  }, [pjps, totalCount]);
-
-  const columns: ColumnDef<PermanentJourneyPlan>[] = [
-    { accessorKey: "salesmanName", header: "Salesman" },
-    { accessorKey: "planDate", header: "Planned Date" },
-    { accessorKey: "areaToBeVisited", header: "Area" },
+  const columns = useMemo<ColumnDef<PjpType>[]>(() => [
     {
-      accessorKey: "visitDealerName",
-      header: "Visiting",
-      cell: ({ row }) => {
-        const name = row.original.visitDealerName;
-        return name ? <span className="font-medium text-sm">{name}</span> : <span className="text-muted-foreground">N/A</span>;
-      },
+      accessorKey: 'planDate',
+      header: 'Plan Date',
+      cell: ({ row }) => <span className="font-medium text-sm">{String(row.original.planDate)}</span>
     },
     {
-      accessorKey: "status",
-      header: "Status",
+      accessorKey: 'salesmanName',
+      header: 'Salesman',
+    },
+    {
+      accessorKey: 'areaToBeVisited',
+      header: 'Area / Route To Be Visited',
+      cell: ({ row }) => (
+        <div className="flex flex-col space-y-0.5">
+          <span className="font-semibold text-sm text-slate-800">{row.original.areaToBeVisited}</span>
+          {row.original.route && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Route className="w-3 h-3" /> {row.original.route}
+            </span>
+          )}
+        </div>
+      )
+    },
+    {
+      id: 'targetsCount',
+      header: 'Planned Targets',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1.5 text-xs font-semibold">
+          <Badge variant="outline" className="text-amber-700 bg-amber-50 border-amber-200">Dlr: {row.original.noOfDealerVisits}</Badge>
+          <Badge variant="outline" className="text-blue-700 bg-blue-50 border-blue-200">Inst: {row.original.noOfInstitutionVisits}</Badge>
+          <Badge variant="outline" className="text-purple-700 bg-purple-50 border-purple-200">Inf: {row.original.noOfInfluencerVisits}</Badge>
+        </div>
+      )
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
       cell: ({ row }) => {
-        const status = row.original.status;
-        if (status === 'VERIFIED') return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 shadow-none">{status}</Badge>;
-        if (status === 'COMPLETED') return <Badge variant="default" className="shadow-none">{status}</Badge>;
-        return <Badge variant="secondary" className="shadow-none">{status}</Badge>;
+        const val = row.original.status.toUpperCase();
+        if (val === 'COMPLETED') return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 shadow-none">Completed</Badge>;
+        if (val === 'UNPLANNED') return <Badge variant="destructive" className="shadow-none">Unplanned</Badge>;
+        return <Badge variant="secondary" className="shadow-none">{row.original.status}</Badge>;
       }
     },
     {
-      id: "actions",
-      header: "View",
-      cell: ({ row }) => (
-        <Button variant="outline" size="sm" className="h-8 px-2" onClick={() => { setSelectedPjp(row.original); setIsViewModalOpen(true); }}>
-          <Eye className="h-4 w-4 mr-1" /> View
-        </Button>
-      ),
+      accessorKey: 'verificationStatus',
+      header: 'Admin Verification',
+      cell: ({ row }) => {
+        const val = row.original.verificationStatus.toUpperCase();
+        if (val === 'APPROVED' || val === 'VERIFIED') return <Badge className="bg-green-100 text-green-800 border-green-200 shadow-none">Approved</Badge>;
+        if (val === 'REJECTED' || val === 'FAILED') return <Badge variant="destructive" className="shadow-none">Rejected</Badge>;
+        return <Badge variant="outline" className="text-amber-800 bg-amber-50 border-amber-200 shadow-none">Pending</Badge>;
+      }
     },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-blue-600 border-blue-200 hover:bg-blue-50 h-8 shadow-none"
+          onClick={() => {
+            setSelectedPjp(row.original);
+            setIsViewModalOpen(true);
+          }}
+        >
+          <Eye className="w-3.5 h-3.5 mr-1" /> View Details
+        </Button>
+      )
+    }
+  ], []);
+
+  const statusOptions = [
+    { label: 'All Statuses', value: 'all' },
+    { label: 'Pending', value: 'Pending' },
+    { label: 'Completed', value: 'Completed' },
+    { label: 'Unplanned', value: 'Unplanned' },
+  ];
+
+  const verifyOptions = [
+    { label: 'All Verifications', value: 'all' },
+    { label: 'Pending', value: 'PENDING' },
+    { label: 'Approved', value: 'APPROVED' },
+    { label: 'Rejected', value: 'REJECTED' },
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground w-full">
-      <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 w-full">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-             <h2 className="text-3xl font-bold tracking-tight">Verified PJPs</h2>
-             <Badge variant="outline" className="text-base px-4 py-1">Total: {stats.totalCount}</Badge>
-          </div>
-          <RefreshDataButton cachePrefix="permanent-journey-plan" onRefresh={fetchPjps} />
+    <div className="space-y-6 w-full max-w-[100vw] overflow-x-hidden">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight">Permanent Journey Plans (PJP)</h1>
+          <Badge variant="outline" className="text-sm px-3 py-0.5 rounded-full">
+            Total Logs: {totalCount}
+          </Badge>
         </div>
-
-        {/* --- Summary Cards --- */}
-        <div className="grid gap-4 md:grid-cols-2 lg:w-1/2">
-          <Card className="bg-primary/5 border-primary/10">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-wide">Today's Verified Plans</CardTitle>
-              <ClipboardList className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.todayCount}</div>
-              <p className="text-[10px] text-muted-foreground mt-1">Active plans for {format(new Date(), "dd MMM, yyyy")}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-muted/20 border-dashed shadow-none flex flex-col justify-center items-center">
-            <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider mb-2">Total Verified Records</span>
-            <span className="text-4xl font-black text-foreground">{stats.totalCount}</span>
-          </Card>
-        </div>
-
-        {/* --- Unified Global Filter Bar --- */}
-        <div className="w-full">
-          <GlobalFilterBar 
-            showSearch={true} showRole={false} showZone={false} showArea={false} showDateRange={true} showStatus={false} 
-            searchVal={searchQuery} dateRangeVal={dateRange}
-            onSearchChange={setSearchQuery} onDateRangeChange={setDateRange}
-          />
-        </div>
-
-        <div className="bg-card p-1 rounded-lg border shadow-sm">
-          {loading && pjps.length === 0 ? (
-             <div className="flex justify-center items-center h-64">
-               <Loader2 className="w-8 h-8 animate-spin text-primary mr-2" />
-               <p className="text-muted-foreground">Loading PJPs...</p>
-             </div>
-          ) : pjps.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">No Permanent Journey Plans found matching the selected filters.</div>
-          ) : (
-            <DataTableReusable columns={columns} data={pjps} enableRowDragging={false} onRowOrderChange={() => {}} />
-          )}
-        </div>
+        <RefreshDataButton cachePrefix="pjp-global" onRefresh={fetchPjps} />
       </div>
 
-      {/* --- Smart Details Modal --- */}
+      <GlobalFilterBar
+        showSearch={true}
+        showRole={true} 
+        showZone={true} 
+        showStatus={true} 
+        showDateRange={true}
+        showArea={true} 
+
+        searchVal={search}
+        roleVal={salesmanId}
+        zoneVals={area === 'all' ? [] : [area]}
+        statusVal={status}
+        dateRangeVal={dateRange}
+        areaVals={verificationStatus === 'all' ? [] : [verificationStatus]}
+
+        roleOptions={salesmanOptions}
+        zoneOptions={areaOptions}
+        statusOptions={statusOptions}
+        areaOptions={verifyOptions} 
+
+        onSearchChange={setSearch}
+        onRoleChange={setSalesmanId}
+        onZoneChange={(vals) => setArea(vals[0] || 'all')}
+        onStatusChange={setStatus}
+        onDateRangeChange={setDateRange}
+        onAreaChange={(vals) => setVerificationStatus(vals[0] || 'all')}
+      />
+
+      <div className="bg-card rounded-lg border shadow-sm p-1">
+        {loading ? (
+          <div className="flex items-center justify-center h-48">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <DataTableReusable columns={columns} data={data} enableRowDragging={false} />
+        )}
+      </div>
+
+      {/* View PJP Log Metrics Details Dialog Modal */}
       {selectedPjp && (
         <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-          <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto p-0 gap-0 bg-background">
-            <div className="px-6 py-4 border-b bg-muted/30 border-l-[6px] border-l-primary">
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <div className="flex flex-col space-y-2 border-b pb-4">
               <DialogTitle className="text-xl flex items-center justify-between">
-                <span>PJP Details</span>
-                <Badge className="text-xs uppercase">{selectedPjp.status}</Badge>
+                <span>Journey Plan Allocation</span>
+                <Badge variant={selectedPjp.status.toUpperCase() === 'COMPLETED' ? 'default' : 'secondary'}>
+                  {selectedPjp.status}
+                </Badge>
               </DialogTitle>
-              <DialogDescription className="mt-1 flex items-center gap-4 text-xs font-medium">
-                <span className="flex items-center gap-1"><User className="w-3 h-3 text-primary" /> {selectedPjp.salesmanName}</span>
-                <span className="flex items-center gap-1"><CalendarIcon className="w-3 h-3 text-primary" /> {selectedPjp.planDate.toString().split('T')[0]}</span>
+              <DialogDescription className="text-sm text-muted-foreground flex items-center gap-4">
+                <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" /> {selectedPjp.salesmanName}</span>
+                <span className="flex items-center gap-1"><CalendarIcon className="w-3.5 h-3.5" /> {String(selectedPjp.planDate)}</span>
               </DialogDescription>
             </div>
 
-            <div className="p-6 space-y-6">
-              <Card className="bg-primary/5 border-primary/10">
-                <CardHeader className="p-3 border-b border-dashed">
-                  <CardTitle className="text-xs uppercase flex items-center gap-2"><MapPin className="w-3 h-3" /> Visit Location</CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 space-y-3">
-                  <InfoField label="Area" value={selectedPjp.areaToBeVisited} />
-                  <InfoField label="Visiting Dealer" value={selectedPjp.visitDealerName} />
-                  <InfoField label="Planned Route" value={selectedPjp.route} icon={Route} />
-                </CardContent>
-              </Card>
+            <div className="space-y-5 pt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-xs uppercase text-muted-foreground font-bold">Planned Area</Label>
+                  <p className="text-sm font-medium bg-muted p-2.5 rounded-md flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-slate-500" />
+                    {selectedPjp.areaToBeVisited}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs uppercase text-muted-foreground font-bold">Target Route Info</Label>
+                  <p className="text-sm font-medium bg-muted p-2.5 rounded-md flex items-center gap-1.5">
+                    <Route className="w-4 h-4 text-slate-500" />
+                    {selectedPjp.route || 'No Specific Route Configured'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Visit Target Matrix Dashboard Section */}
+              <div className="space-y-2">
+                <Label className="text-xs uppercase text-muted-foreground font-bold">Allocated Visit Metrics</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  <Card className="border border-amber-100 bg-amber-50/40 shadow-none">
+                    <CardContent className="p-3 flex flex-col items-center justify-center">
+                      <Store className="w-5 h-5 text-amber-600 mb-1" />
+                      <span className="text-2xl font-bold text-amber-900">{selectedPjp.noOfDealerVisits}</span>
+                      <span className="text-[10px] text-amber-700 uppercase font-bold tracking-wider mt-0.5">Dealers</span>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="border border-blue-100 bg-blue-50/40 shadow-none">
+                    <CardContent className="p-3 flex flex-col items-center justify-center">
+                      <Building2 className="w-5 h-5 text-blue-600 mb-1" />
+                      <span className="text-2xl font-bold text-blue-900">{selectedPjp.noOfInstitutionVisits}</span>
+                      <span className="text-[10px] text-blue-700 uppercase font-bold tracking-wider mt-0.5">Institutions</span>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border border-purple-100 bg-purple-50/40 shadow-none">
+                    <CardContent className="p-3 flex flex-col items-center justify-center">
+                      <Users className="w-5 h-5 text-purple-600 mb-1" />
+                      <span className="text-2xl font-bold text-purple-900">{selectedPjp.noOfInfluencerVisits}</span>
+                      <span className="text-[10px] text-purple-700 uppercase font-bold tracking-wider mt-0.5">Influencers</span>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
 
               {selectedPjp.description && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs uppercase font-bold text-muted-foreground">Salesman Description</Label>
-                  <div className="p-3 bg-secondary/20 rounded-md text-sm italic border">"{selectedPjp.description}"</div>
+                  <Label className="text-xs uppercase text-muted-foreground font-bold">Plan Description / Objectives</Label>
+                  <div className="p-3 bg-muted rounded-md text-sm text-slate-700 font-medium">
+                    {selectedPjp.description}
+                  </div>
                 </div>
               )}
 
               {selectedPjp.additionalVisitRemarks && (
                 <div className="space-y-1.5">
                   <Label className="text-xs uppercase font-bold text-emerald-700">Verification Remarks (Admin)</Label>
-                  <div className="p-3 bg-emerald-50 rounded-md text-sm border border-emerald-100 text-emerald-900">
+                  <div className="p-3 bg-emerald-50 rounded-md text-sm border border-emerald-100 text-emerald-900 font-medium">
                     {selectedPjp.additionalVisitRemarks}
                   </div>
                 </div>
               )}
 
-              <div className="bg-muted/50 p-4 rounded-lg flex items-center justify-between">
+              <div className="bg-muted/50 p-4 rounded-lg flex items-center justify-between border">
                 <div className="space-y-1">
                   <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Created By</p>
-                  <p className="text-sm font-semibold">{selectedPjp.createdByName}</p>
+                  <p className="text-sm font-semibold text-slate-800">{selectedPjp.createdByName}</p>
                 </div>
                 <div className="text-right space-y-1">
                   <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Verification Status</p>
-                  <Badge variant="outline" className="border-emerald-200 text-emerald-700 bg-emerald-50">{selectedPjp.verificationStatus}</Badge>
+                  <Badge variant="outline" className="border-emerald-200 text-emerald-700 bg-emerald-50 font-bold uppercase tracking-wide">
+                    {selectedPjp.verificationStatus}
+                  </Badge>
                 </div>
               </div>
             </div>
 
-            <DialogFooter className="p-4 bg-muted/20 border-t">
+            <DialogFooter className="p-4 bg-muted/20 border-t mt-4">
               <Button onClick={() => setIsViewModalOpen(false)}>Close View</Button>
             </DialogFooter>
           </DialogContent>

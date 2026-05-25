@@ -2,7 +2,7 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/drizzle';
-import { users, permanentJourneyPlans, dealers } from '../../../../../drizzle/schema';
+import { users, permanentJourneyPlans, dealers, institutions, influencers } from '../../../../../drizzle/schema';
 import { eq, and, or, ilike, desc, asc, aliasedTable, getTableColumns, count, gte, lte, SQL } from 'drizzle-orm';
 import { verifySession, hasPermission } from '@/lib/auth';
 
@@ -32,93 +32,114 @@ export async function GET(request: NextRequest) {
                 .innerJoin(users, eq(permanentJourneyPlans.userId, users.id))
                 .orderBy(asc(users.username));
 
-            const distinctStatuses = await db
-                .selectDistinct({ status: permanentJourneyPlans.status })
-                .from(permanentJourneyPlans);
+            const rawAreas = await db
+                .selectDistinct({ area: permanentJourneyPlans.areaToBeVisited })
+                .from(permanentJourneyPlans)
+                .orderBy(asc(permanentJourneyPlans.areaToBeVisited));
+
+            const distinctAreas = rawAreas.map(a => a.area).filter(Boolean);
 
             return NextResponse.json({
-                salesmen: distinctSalesmen,
-                statuses: distinctStatuses.map(s => s.status).filter(Boolean).sort()
-            }, { status: 200 });
+                salesmen: distinctSalesmen.map(s => ({
+                    label: s.username || s.email,
+                    value: String(s.id)
+                })),
+                areas: distinctAreas.map(a => ({ label: a, value: a }))
+            });
         }
 
-        // --- Default Action: Fetch Paginated PJPs ---
+        // --- Action: Standard Server-Side Filtered Data Grid Fetch ---
         const page = Number(searchParams.get('page') ?? 0);
-        const pageSize = Math.min(Number(searchParams.get('pageSize') ?? 500), 500);
+        const pageSize = Math.min(Number(searchParams.get('pageSize') ?? 100), 500);
 
         const search = searchParams.get('search');
         const salesmanId = searchParams.get('salesmanId');
+        const area = searchParams.get('area');
         const status = searchParams.get('status');
         const verificationStatus = searchParams.get('verificationStatus');
-        const fromDate = searchParams.get('fromDate');
-        const toDate = searchParams.get('toDate');
+        const startDate = searchParams.get('startDate');
+        const endDate = searchParams.get('endDate');
 
-        const createdByUsers = aliasedTable(users, 'createdByUsers');
         const filters: SQL[] = [];
-
-        if (verificationStatus && verificationStatus !== 'all' && verificationStatus !== 'null') {
-            filters.push(ilike(permanentJourneyPlans.verificationStatus, verificationStatus));
-        }
 
         if (search) {
             filters.push(
                 or(
-                    ilike(users.username, `%${search}%`),
-                    ilike(permanentJourneyPlans.areaToBeVisited, `%${search}%`)
+                    ilike(permanentJourneyPlans.areaToBeVisited, `%${search}%`),
+                    ilike(permanentJourneyPlans.route, `%${search}%`),
+                    ilike(permanentJourneyPlans.description, `%${search}%`)
                 )!
             );
         }
 
-        if (salesmanId && salesmanId !== 'all') filters.push(eq(permanentJourneyPlans.userId, Number(salesmanId)));
-        if (status && status !== 'all') filters.push(ilike(permanentJourneyPlans.status, status));
-        if (fromDate) filters.push(gte(permanentJourneyPlans.planDate, fromDate));
-        if (toDate) filters.push(lte(permanentJourneyPlans.planDate, toDate));
+        if (salesmanId && salesmanId !== 'all') {
+            filters.push(eq(permanentJourneyPlans.userId, Number(salesmanId)));
+        }
+        if (area && area !== 'all') {
+            filters.push(eq(permanentJourneyPlans.areaToBeVisited, area));
+        }
+        if (status && status !== 'all') {
+            filters.push(eq(permanentJourneyPlans.status, status));
+        }
+        if (verificationStatus && verificationStatus !== 'all') {
+            filters.push(eq(permanentJourneyPlans.verificationStatus, verificationStatus));
+        }
+        if (startDate) {
+            filters.push(gte(permanentJourneyPlans.planDate, startDate));
+        }
+        if (endDate) {
+            filters.push(lte(permanentJourneyPlans.planDate, endDate));
+        }
 
         const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
-        const rawPlans = await db
+        const createdByUsers = aliasedTable(users, 'createdBy');
+
+        const rawResults = await db
             .select({
                 ...getTableColumns(permanentJourneyPlans),
-                salesmanUsername: users.username,
+                salesmanName: users.username,
                 salesmanEmail: users.email,
-                createdByUsername: createdByUsers.username,
+                createdByName: createdByUsers.username,
                 createdByEmail: createdByUsers.email,
-                dealerName: dealers.dealerPartyName, 
+                dealerName: dealers.dealerPartyName,
+                institutionName: institutions.institutionName,
+                influencerName: influencers.contactPersonName,
             })
             .from(permanentJourneyPlans)
             .leftJoin(users, eq(permanentJourneyPlans.userId, users.id))
             .leftJoin(createdByUsers, eq(permanentJourneyPlans.createdById, createdByUsers.id))
             .leftJoin(dealers, eq(permanentJourneyPlans.dealerId, dealers.id))
+            .leftJoin(institutions, eq(permanentJourneyPlans.institutionId, institutions.id))
+            .leftJoin(influencers, eq(permanentJourneyPlans.influencerId, influencers.id))
             .where(whereClause)
-            .orderBy(desc(permanentJourneyPlans.planDate), desc(permanentJourneyPlans.createdAt))
+            .orderBy(desc(permanentJourneyPlans.planDate))
             .limit(pageSize)
             .offset(page * pageSize);
 
         const totalCountResult = await db
             .select({ count: count() })
             .from(permanentJourneyPlans)
-            .leftJoin(users, eq(permanentJourneyPlans.userId, users.id))
             .where(whereClause);
 
-        const totalCount = Number(totalCountResult[0].count);
+        const totalCount = Number(totalCountResult[0]?.count ?? 0);
 
-        const formattedData = rawPlans.map((row) => {
-            const salesmanName = row.salesmanUsername || row.salesmanEmail || 'Unknown';
-            const createdByName = row.createdByUsername || row.createdByEmail || 'Unknown';
-
-            return {
-                ...row,
-                salesmanName,
-                createdByName,
-                planDate: getISTDate(row.planDate),
-                visitDealerName: row.dealerName ?? null, 
-                createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString(),
-                updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : new Date().toISOString(),
-            };
-        });
+        const formatted = rawResults.map((r) => ({
+            ...r,
+            planDate: r.planDate ? getISTDate(r.planDate) : '',
+            createdAt: r.createdAt ? getISTDate(r.createdAt) : '',
+            updatedAt: r.updatedAt ? getISTDate(r.updatedAt) : '',
+            salesmanName: r.salesmanName || r.salesmanEmail || 'Unknown',
+            createdByName: r.createdByName || r.createdByEmail || 'System',
+            targetPartyName: r.dealerName || r.institutionName || r.influencerName || null,
+            
+            noOfDealerVisits: r.noOfDealerVisits ?? 0,
+            noOfInstitutionVisits: r.noOfInstitutionVisits ?? 0,
+            noOfInfluencerVisits: r.noOfInfluencerVisits ?? 0,
+        }));
 
         return NextResponse.json({
-            data: formattedData,
+            data: formatted,
             totalCount,
             page,
             pageSize

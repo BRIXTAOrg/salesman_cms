@@ -25,9 +25,14 @@ export const SO_AOP_TARGETS = {
 
 export const ORG_ROLES = [ //fixed
   'Admin', 'Manager', 'Assistant-Manager',  
-  
+  'junior-executive', 'executive', 'senior-executive', 'area-manager', 'senior-area-manager',
+  'deputy-manager', 'regional-manager', 'senior-regional-manager', 'assistant-general-manager', 
+  'deputy-general-manager', 'general-manager', 'senior-general-manager', 'president', 'vice-president',
+  'director', 'chief-managing-director'
 ];
 
 export const JOB_ROLES = [ //can be multiple per ORG_ROLE
   'Admin', 'Manager', 'Assistant-Manager',
+  'Sales-Marketing', 'Finance', 'Accounts', 'Reports-MIS', 
+  'Logistics', 'Human-Resources', 'Factory-Operations'
 ];
