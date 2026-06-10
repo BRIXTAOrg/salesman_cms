@@ -34,7 +34,7 @@ const pjpSchema = z.object({
   additionalVisitRemarks: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   status: z.string(),
-  verificationStatus: z.string(),
+  verificationStatus: z.string().nullable().optional(),
   salesmanName: z.string(),
   createdByName: z.string(),
   targetPartyName: z.string().nullable().optional(),
@@ -178,7 +178,7 @@ export default function PjpList() {
       accessorKey: 'verificationStatus',
       header: 'Admin Verification',
       cell: ({ row }) => {
-        const val = row.original.verificationStatus.toUpperCase();
+        const val = (row.original.verificationStatus ?? 'PENDING').toUpperCase();
         if (val === 'APPROVED' || val === 'VERIFIED') return <Badge className="bg-green-100 text-green-800 border-green-200 shadow-none">Approved</Badge>;
         if (val === 'REJECTED' || val === 'FAILED') return <Badge variant="destructive" className="shadow-none">Rejected</Badge>;
         return <Badge variant="outline" className="text-amber-800 bg-amber-50 border-amber-200 shadow-none">Pending</Badge>;
