@@ -78,9 +78,9 @@ async function DashboardContent() {
       </div>
 
       {/* Bottom Row: Linear/Area Graphs (Sales, Techical-Sales, Reports-MIS) */}
-      <div className="w-full">
+      {/* <div className="w-full">
         <LinearGraphs jobRoles={jobRoles} permissions={permissions} />
-      </div>
+      </div> */}
     </div>
   );
 }

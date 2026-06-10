@@ -188,13 +188,43 @@ export default function UsersManagement({ adminUser }: Props) {
 
   const handleCopy = () => {
     if (!updatedCredentials) return;
-    let text = "User Credentials (Update):\n";
-    if (updatedCredentials.dashboardEmail) text += `\n[Web Dashboard]\nID: ${updatedCredentials.dashboardEmail}\nPassword: ${updatedCredentials.dashboardPassword}\n`;
-    if (updatedCredentials.salesmanId) text += `\n[Sales App]\nID: ${updatedCredentials.salesmanId}\nPassword: ${updatedCredentials.salesmanPassword}\n`;
 
-    navigator.clipboard.writeText(text.trim());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    let text = "User Credentials (Update):\n";
+
+    if (updatedCredentials.dashboardEmail) {
+      text += `\n[Web Dashboard]\nID: ${updatedCredentials.dashboardEmail}\nPassword: ${updatedCredentials.dashboardPassword}\n`;
+    }
+
+    if (updatedCredentials.salesmanId) {
+      text += `\n[Sales App]\nID: ${updatedCredentials.salesmanId}\nPassword: ${updatedCredentials.salesmanPassword}\n`;
+    }
+
+    try {
+      // Modern API
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text);
+      } else {
+        // Fallback for HTTP sites
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        document.execCommand("copy");
+
+        document.body.removeChild(textArea);
+      }
+
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Copy failed:", err);
+    }
   };
 
   const handleDoneUpdate = () => {
