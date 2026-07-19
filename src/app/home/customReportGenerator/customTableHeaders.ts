@@ -2,7 +2,7 @@
 
 import {
     LucideIcon, User, ClipboardCheck, BandageIcon, CalendarCheck, 
-    MapPin, Building2, ListChecks, Store, Users2
+    MapPin, Building2, ListChecks, Store, Users2, Receipt
 } from 'lucide-react';
 
 export interface TableColumn {
@@ -117,6 +117,16 @@ export const tablesMetadata: TableMeta[] = [
         columns: [
             'id', 'createdAt', 'salesmanName', 'approverName', 'leaveType',
             'startDate', 'endDate', 'reason', 'status', 'adminRemarks', 'updatedAt'
+        ],
+    },
+    {
+        id: 'tadaBills', 
+        title: 'TA/DA', 
+        icon: Receipt,
+        columns: [
+            'itemId', 'billId', 'salesmanName', 'salesmanEmail', 'zone', 'area', 
+            'billDate', 'status', 'fromLocation', 'toLocation', 'distanceTravelled', 'billTotalCost', 'billRemarks', 
+            'transportFare', 'lodgingFare', 'foodingFare', 'localConveyance', 'outOfPocketPaid', 'totalBillsAdded', 'itemRemarks', 'createdAt', 'updatedAt'
         ],
     },
     // {

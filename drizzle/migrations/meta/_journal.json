@@ -43,6 +43,13 @@
       "when": 1779683952153,
       "tag": "0005_productive_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784448627575,
+      "tag": "0006_sloppy_toad_men",
+      "breakpoints": true
     }
   ]
 }

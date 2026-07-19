@@ -440,3 +440,49 @@ export const syncState = myCustomSchema.table("sync_state", {
 }, (table) => [
 	check("one_row_only", sql`id = 1`),
 ]);
+
+// ---- TA DA ----
+export const tadaBills = myCustomSchema.table("ta_da_bills", {
+    id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+    userId: integer("user_id").notNull(),
+    billDate: date("bill_date").notNull(),
+    dailyAllowance: numeric("daily_allowance", { precision: 18, scale: 2 }).default('0'),
+    totalCost: numeric("total_cost", { precision: 18, scale: 2 }).default('0'),
+    status: varchar("status", { length: 50 }).default('PENDING'), 
+    remarks: text("remarks"),
+    createdAt: timestamp("created_at", { withTimezone: true, precision: 6 }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, precision: 6 }).defaultNow().notNull(),
+}, (t) => [
+    index("idx_ta_da_bills_user_id").on(t.userId),
+    foreignKey({
+        columns: [t.userId],
+        foreignColumns: [users.id],
+        name: "ta_da_bills_user_id_fkey",
+    }).onDelete("cascade"),
+]);
+
+export const tadaBillItems = myCustomSchema.table("ta_da_bill_items", {
+    id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+    billId: varchar("bill_id", { length: 255 }).notNull(),
+    
+    fromLocation: varchar("from_location", { length: 255 }),
+    toLocation: varchar("to_location", { length: 255 }),
+    distanceTravelled: numeric("distance_travelled_km", { precision: 18, scale: 2 }),
+    
+    transportFare: numeric("transport_fare", { precision: 18, scale: 2 }).default('0'),
+    lodgingFare: numeric("lodging_fare", { precision: 18, scale: 2 }).default('0'),
+    foodingFare: numeric("fooding_fare", { precision: 18, scale: 2 }).default('0'),
+    localConveyance: numeric("local_conveyance", { precision: 18, scale: 2 }).default('0'),
+    outOfPocketPaid: numeric("out_of_pocket_paid", { precision: 18, scale: 2 }).default('0'),
+    
+    totalBillsAdded: integer("total_bills_added").default(0),
+	billPhotoUrls: text("bill_photo_urls").array(),
+    remarks: text("remarks"),
+}, (t) => [
+    index("idx_ta_da_bill_items_bill_id").on(t.billId),
+    foreignKey({
+        columns: [t.billId],
+        foreignColumns: [tadaBills.id],
+        name: "ta_da_bill_items_bill_id_fkey",
+    }).onDelete("cascade"),
+]);

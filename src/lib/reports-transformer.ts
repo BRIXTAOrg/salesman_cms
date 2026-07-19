@@ -3,6 +3,7 @@ import { db } from '@/lib/drizzle';
 import {
   users, roles, userRoles, dealers, influencers, institutions, dailyVisitReports,
   permanentJourneyPlans, salesmanAttendance, salesmanLeaveApplications, journeyOps,
+  tadaBillItems, tadaBills
 } from '../../drizzle/schema';
 import { eq, desc, and, getTableColumns, aliasedTable, sql, SQL, lte, gte } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
@@ -537,6 +538,57 @@ export async function getFlattenedGeoTracking() {
   });
 }
 
+export async function getFlattenedTadaBills() {
+  const raw = await db
+    .select({
+      ...getTableColumns(tadaBillItems),
+      billDate: tadaBills.billDate,
+      billStatus: tadaBills.status,
+      billTotalCost: tadaBills.totalCost,
+      billRemarks: tadaBills.remarks,
+      userUsername: users.username,
+      userEmail: users.email,
+      userZone: users.zone,
+      userArea: users.area,
+      billCreatedAt: tadaBills.createdAt,
+      billUpdatedAt: tadaBills.updatedAt,
+    })
+    .from(tadaBillItems)
+    .leftJoin(tadaBills, eq(tadaBillItems.billId, tadaBills.id))
+    .leftJoin(users, eq(tadaBills.userId, users.id))
+    .orderBy(desc(tadaBills.billDate));
+
+  return raw.map((r) => ({
+    itemId: r.id, 
+    billId: r.billId,
+    salesmanName: formatUserName({ username: r.userUsername, email: r.userEmail }),
+    salesmanEmail: r.userEmail || '',
+    zone: r.userZone ?? '',
+    area: r.userArea ?? '',
+
+    billDate: r.billDate ? formatJustDate(r.billDate) : '',
+    status: r.billStatus ?? 'PENDING',
+    billTotalCost: toNum(r.billTotalCost) || 0,
+    billRemarks: r.billRemarks ?? '',
+
+    fromLocation: r.fromLocation ?? '',
+    toLocation: r.toLocation ?? '',
+    distanceTravelled: toNum(r.distanceTravelled) || 0,
+
+    transportFare: toNum(r.transportFare) || 0,
+    lodgingFare: toNum(r.lodgingFare) || 0,
+    foodingFare: toNum(r.foodingFare) || 0,
+    localConveyance: toNum(r.localConveyance) || 0,
+    outOfPocketPaid: toNum(r.outOfPocketPaid) || 0,
+    
+    totalBillsAdded: r.totalBillsAdded ?? 0,
+    itemRemarks: r.remarks ?? '',
+
+    createdAt: formatDateTimeIST(r.billCreatedAt),
+    updatedAt: formatDateTimeIST(r.billUpdatedAt),
+  }));
+}
+
 export const transformerMap = {
   // Core Report Models
   users: getFlattenedUsers,
@@ -552,4 +604,6 @@ export const transformerMap = {
   salesmanAttendance: getFlattenedSalesmanAttendance,
   salesmanLeaveApplications: getFlattenedSalesmanLeaveApplication,
   geoTracking: getFlattenedGeoTracking,
+
+  tadaBills: getFlattenedTadaBills,
 };

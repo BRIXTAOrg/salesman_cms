@@ -78,6 +78,10 @@ const menuItems: MenuItem[] = [
         title: "PJPs", 
         url: "/dashboard/permanentJourneyPlan",
       },
+      {
+        title: "TA/DA", 
+        url: "/dashboard/tadaBill",
+      },
       // {
       //   title: "Salesman Geotracking",
       //   url: "/dashboard/slmGeotracking",
