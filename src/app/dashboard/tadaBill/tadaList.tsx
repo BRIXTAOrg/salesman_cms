@@ -42,6 +42,8 @@ const tadaFrontendSchema = z.object({
     area: z.string().nullable().optional(),
     zone: z.string().nullable().optional(),
     billDate: z.string(),
+    fromDate: z.string(),
+    toDate: z.string(),
     totalCost: z.coerce.number().nullable().optional(),
     status: z.string(),
     remarks: z.string().nullable().optional(),
@@ -134,7 +136,9 @@ export default function TadaListPage() {
 
     const billColumns: ColumnDef<TadaRecord>[] = [
         { accessorKey: 'salesmanName', header: 'Employee', cell: ({ row }) => (<div className="flex flex-col"><span className="font-semibold">{row.original.salesmanName}</span><span className="text-xs text-muted-foreground">{row.original.zone || '-'} / {row.original.area || '-'}</span></div>) },
-        { accessorKey: 'billDate', header: 'Bill Date', cell: info => new Date(info.getValue() as string).toLocaleDateString('en-GB') },
+        { accessorKey: 'billDate', header: 'Bill Submit Date', cell: info => new Date(info.getValue() as string).toLocaleDateString('en-GB') },
+        { accessorKey: 'fromDate', header: 'TA/DA From Date', cell: info => new Date(info.getValue() as string).toLocaleDateString('en-GB') },
+        { accessorKey: 'toDate', header: 'TA/DA To Date', cell: info => new Date(info.getValue() as string).toLocaleDateString('en-GB') },
         { accessorKey: 'totalCost', header: 'Total Claim (₹)', cell: info => <span className="font-bold text-lg">₹{(info.getValue() as number || 0).toFixed(2)}</span> },
         {
             accessorKey: 'status', header: 'Status',

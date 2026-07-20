@@ -50,6 +50,13 @@
       "when": 1784448627575,
       "tag": "0006_sloppy_toad_men",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784549369544,
+      "tag": "0007_volatile_blur",
+      "breakpoints": true
     }
   ]
 }

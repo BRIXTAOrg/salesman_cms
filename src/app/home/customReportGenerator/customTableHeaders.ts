@@ -125,7 +125,7 @@ export const tablesMetadata: TableMeta[] = [
         icon: Receipt,
         columns: [
             'itemId', 'billId', 'salesmanName', 'salesmanEmail', 'zone', 'area', 
-            'billDate', 'status', 'fromLocation', 'toLocation', 'distanceTravelled', 'billTotalCost', 'billRemarks', 
+            'billSubmitDate', 'tadaFromDate', 'tadaTooDate', 'status', 'fromLocation', 'toLocation', 'distanceTravelled', 'billTotalCost', 'billRemarks', 
             'transportFare', 'lodgingFare', 'foodingFare', 'localConveyance', 'outOfPocketPaid', 'totalBillsAdded', 'itemRemarks', 'createdAt', 'updatedAt'
         ],
     },

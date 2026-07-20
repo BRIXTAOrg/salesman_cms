@@ -445,6 +445,8 @@ export const syncState = myCustomSchema.table("sync_state", {
 export const tadaBills = myCustomSchema.table("ta_da_bills", {
     id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
     userId: integer("user_id").notNull(),
+	fromDate: date("from_date"),
+	toDate: date("to_date"),
     billDate: date("bill_date").notNull(),
     dailyAllowance: numeric("daily_allowance", { precision: 18, scale: 2 }).default('0'),
     totalCost: numeric("total_cost", { precision: 18, scale: 2 }).default('0'),

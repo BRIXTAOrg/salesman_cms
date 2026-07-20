@@ -543,6 +543,8 @@ export async function getFlattenedTadaBills() {
     .select({
       ...getTableColumns(tadaBillItems),
       billDate: tadaBills.billDate,
+      fromDate: tadaBills.fromDate,
+      toDate: tadaBills.toDate,
       billStatus: tadaBills.status,
       billTotalCost: tadaBills.totalCost,
       billRemarks: tadaBills.remarks,
@@ -566,7 +568,9 @@ export async function getFlattenedTadaBills() {
     zone: r.userZone ?? '',
     area: r.userArea ?? '',
 
-    billDate: r.billDate ? formatJustDate(r.billDate) : '',
+    billSubmitDate: r.billDate ? formatJustDate(r.billDate) : '',
+    tadaFromDate: r.fromDate ? formatJustDate(r.fromDate) : '',
+    tadaToDate: r.toDate ? formatJustDate(r.toDate) : '',
     status: r.billStatus ?? 'PENDING',
     billTotalCost: toNum(r.billTotalCost) || 0,
     billRemarks: r.billRemarks ?? '',
