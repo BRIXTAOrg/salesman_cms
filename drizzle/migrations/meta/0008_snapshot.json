@@ -1,12 +1,12 @@
 {
-  "id": "5cdcfd9c-6808-447b-bfe9-2e108ce182ef",
-  "prevId": "ddf6f047-ba1a-4897-a00a-0ecaea358e6a",
+  "id": "ecf6c162-c73b-48f1-958c-60431a6e798a",
+  "prevId": "512a53e5-e173-460f-b7b4-9c00389b55fc",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "eurofoam.daily_visit_reports": {
+    "kamdhenu.daily_visit_reports": {
       "name": "daily_visit_reports",
-      "schema": "eurofoam",
+      "schema": "kamdhenu",
       "columns": {
         "id": {
           "name": "id",
@@ -21,8 +21,26 @@
           "primaryKey": false,
           "notNull": false
         },
+        "customer_type": {
+          "name": "customer_type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "dealer_type": {
           "name": "dealer_type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "institution_type": {
+          "name": "institution_type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "influencer_type": {
+          "name": "influencer_type",
           "type": "varchar(50)",
           "primaryKey": false,
           "notNull": false
@@ -211,7 +229,7 @@
           "name": "daily_visit_reports_user_id_fkey",
           "tableFrom": "daily_visit_reports",
           "tableTo": "users",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "user_id"
           ],
@@ -225,7 +243,7 @@
           "name": "daily_visit_reports_pjp_id_fkey",
           "tableFrom": "daily_visit_reports",
           "tableTo": "permanent_journey_plans",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "pjp_id"
           ],
@@ -239,7 +257,7 @@
           "name": "daily_visit_reports_dealer_id_fkey",
           "tableFrom": "daily_visit_reports",
           "tableTo": "dealers",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "dealer_id"
           ],
@@ -256,9 +274,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "eurofoam.dealers": {
+    "kamdhenu.dealers": {
       "name": "dealers",
-      "schema": "eurofoam",
+      "schema": "kamdhenu",
       "columns": {
         "id": {
           "name": "id",
@@ -329,6 +347,24 @@
         "pin_code": {
           "name": "pin_code",
           "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "numeric(10, 7)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "numeric(10, 7)",
           "primaryKey": false,
           "notNull": false
         },
@@ -423,9 +459,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "eurofoam.geo_tracking": {
+    "kamdhenu.geo_tracking": {
       "name": "geo_tracking",
-      "schema": "eurofoam",
+      "schema": "kamdhenu",
       "columns": {
         "id": {
           "name": "id",
@@ -515,7 +551,7 @@
         },
         "dealer_id": {
           "name": "dealer_id",
-          "type": "varchar(255)",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
@@ -642,7 +678,7 @@
           "name": "geo_tracking_user_id_fkey",
           "tableFrom": "geo_tracking",
           "tableTo": "users",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "user_id"
           ],
@@ -656,7 +692,7 @@
           "name": "geo_tracking_journey_id_fkey",
           "tableFrom": "geo_tracking",
           "tableTo": "journeys",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "journey_id"
           ],
@@ -670,7 +706,7 @@
           "name": "geo_tracking_dealer_id_fkey",
           "tableFrom": "geo_tracking",
           "tableTo": "dealers",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "dealer_id"
           ],
@@ -687,9 +723,346 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "eurofoam.journey_breadcrumbs": {
+    "kamdhenu.influencers": {
+      "name": "influencers",
+      "schema": "kamdhenu",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "contact_person_name": {
+          "name": "contact_person_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contact_person_number": {
+          "name": "contact_person_number",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "zone": {
+          "name": "zone",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "district": {
+          "name": "district",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "area": {
+          "name": "area",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "state": {
+          "name": "state",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pin_code": {
+          "name": "pin_code",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "numeric(10, 7)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "numeric(10, 7)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "is_verified": {
+          "name": "is_verified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        }
+      },
+      "indexes": {
+        "idx_influencer_verified_zone": {
+          "name": "idx_influencer_verified_zone",
+          "columns": [
+            {
+              "expression": "zone",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_influencer_verified_district": {
+          "name": "idx_influencer_verified_district",
+          "columns": [
+            {
+              "expression": "district",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_influencer_verified_pincode": {
+          "name": "idx_influencer_verified_pincode",
+          "columns": [
+            {
+              "expression": "pin_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "kamdhenu.instititions": {
+      "name": "instititions",
+      "schema": "kamdhenu",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "institution_name": {
+          "name": "institution_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contact_person_name": {
+          "name": "contact_person_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contact_person_number": {
+          "name": "contact_person_number",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gst_no": {
+          "name": "gst_no",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pan_no": {
+          "name": "pan_no",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "zone": {
+          "name": "zone",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "district": {
+          "name": "district",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "area": {
+          "name": "area",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "state": {
+          "name": "state",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pin_code": {
+          "name": "pin_code",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "numeric(10, 7)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "numeric(10, 7)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "is_verified": {
+          "name": "is_verified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        }
+      },
+      "indexes": {
+        "idx_institute_verified_zone": {
+          "name": "idx_institute_verified_zone",
+          "columns": [
+            {
+              "expression": "zone",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_institute_verified_district": {
+          "name": "idx_institute_verified_district",
+          "columns": [
+            {
+              "expression": "district",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_institute_verified_pincode": {
+          "name": "idx_institute_verified_pincode",
+          "columns": [
+            {
+              "expression": "pin_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_institute_verified_gst": {
+          "name": "idx_institute_verified_gst",
+          "columns": [
+            {
+              "expression": "gst_no",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "kamdhenu.journey_breadcrumbs": {
       "name": "journey_breadcrumbs",
-      "schema": "eurofoam",
+      "schema": "kamdhenu",
       "columns": {
         "id": {
           "name": "id",
@@ -792,7 +1165,7 @@
           "name": "journey_breadcrumbs_journey_id_fkey",
           "tableFrom": "journey_breadcrumbs",
           "tableTo": "journeys",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "journey_id"
           ],
@@ -809,9 +1182,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "eurofoam.journey_ops": {
+    "kamdhenu.journey_ops": {
       "name": "journey_ops",
-      "schema": "eurofoam",
+      "schema": "kamdhenu",
       "columns": {
         "server_seq": {
           "name": "server_seq",
@@ -930,7 +1303,7 @@
           "name": "fk_journey_ops_user",
           "tableFrom": "journey_ops",
           "tableTo": "users",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "user_id"
           ],
@@ -944,7 +1317,7 @@
           "name": "fk_journey_ops_journey",
           "tableFrom": "journey_ops",
           "tableTo": "journeys",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "journey_id"
           ],
@@ -969,9 +1342,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "eurofoam.journeys": {
+    "kamdhenu.journeys": {
       "name": "journeys",
-      "schema": "eurofoam",
+      "schema": "kamdhenu",
       "columns": {
         "id": {
           "name": "id",
@@ -993,7 +1366,7 @@
         },
         "dealer_id": {
           "name": "dealer_id",
-          "type": "varchar(255)",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
@@ -1105,7 +1478,7 @@
           "name": "journeys_user_id_fkey",
           "tableFrom": "journeys",
           "tableTo": "users",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "user_id"
           ],
@@ -1119,7 +1492,7 @@
           "name": "journeys_pjp_id_fkey",
           "tableFrom": "journeys",
           "tableTo": "permanent_journey_plans",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "pjp_id"
           ],
@@ -1133,7 +1506,7 @@
           "name": "journeys_dealer_id_fkey",
           "tableFrom": "journeys",
           "tableTo": "dealers",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "dealer_id"
           ],
@@ -1150,9 +1523,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "eurofoam.permanent_journey_plans": {
+    "kamdhenu.permanent_journey_plans": {
       "name": "permanent_journey_plans",
-      "schema": "eurofoam",
+      "schema": "kamdhenu",
       "columns": {
         "id": {
           "name": "id",
@@ -1208,6 +1581,36 @@
           "primaryKey": false,
           "notNull": false
         },
+        "route": {
+          "name": "route",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "diversion_reason": {
+          "name": "diversion_reason",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "no_of_dealer_visits": {
+          "name": "no_of_dealer_visits",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "no_of_institution_visits": {
+          "name": "no_of_institution_visits",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "no_of_influencer_visits": {
+          "name": "no_of_influencer_visits",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "dealer_id": {
           "name": "dealer_id",
           "type": "integer",
@@ -1220,27 +1623,21 @@
           "primaryKey": false,
           "notNull": false
         },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "influencer_id": {
+          "name": "influencer_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "idempotency_key": {
           "name": "idempotency_key",
           "type": "varchar(120)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "site_id": {
-          "name": "site_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "route": {
-          "name": "route",
-          "type": "varchar(500)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "diversion_reason": {
-          "name": "diversion_reason",
-          "type": "varchar(500)",
           "primaryKey": false,
           "notNull": false
         },
@@ -1320,11 +1717,26 @@
           "method": "btree",
           "with": {}
         },
-        "idx_pjp_site_id": {
-          "name": "idx_pjp_site_id",
+        "idx_pjp_institution_id": {
+          "name": "idx_pjp_institution_id",
           "columns": [
             {
-              "expression": "site_id",
+              "expression": "institution_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_pjp_influencer_id": {
+          "name": "idx_pjp_influencer_id",
+          "columns": [
+            {
+              "expression": "influencer_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1384,7 +1796,7 @@
           "name": "permanent_journey_plans_user_id_fkey",
           "tableFrom": "permanent_journey_plans",
           "tableTo": "users",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "user_id"
           ],
@@ -1398,7 +1810,7 @@
           "name": "permanent_journey_plans_created_by_id_fkey",
           "tableFrom": "permanent_journey_plans",
           "tableTo": "users",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "created_by_id"
           ],
@@ -1412,9 +1824,37 @@
           "name": "permanent_journey_plans_dealer_id_fkey",
           "tableFrom": "permanent_journey_plans",
           "tableTo": "dealers",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "dealer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "cascade"
+        },
+        "permanent_journey_plans_institution_id_fkey": {
+          "name": "permanent_journey_plans_institution_id_fkey",
+          "tableFrom": "permanent_journey_plans",
+          "tableTo": "instititions",
+          "schemaTo": "kamdhenu",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "cascade"
+        },
+        "permanent_journey_plans_influencer_id_fkey": {
+          "name": "permanent_journey_plans_influencer_id_fkey",
+          "tableFrom": "permanent_journey_plans",
+          "tableTo": "influencers",
+          "schemaTo": "kamdhenu",
+          "columnsFrom": [
+            "influencer_id"
           ],
           "columnsTo": [
             "id"
@@ -1429,9 +1869,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "eurofoam.roles": {
+    "kamdhenu.roles": {
       "name": "roles",
-      "schema": "eurofoam",
+      "schema": "kamdhenu",
       "columns": {
         "id": {
           "name": "id",
@@ -1487,9 +1927,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "eurofoam.salesman_attendance": {
+    "kamdhenu.salesman_attendance": {
       "name": "salesman_attendance",
-      "schema": "eurofoam",
+      "schema": "kamdhenu",
       "columns": {
         "id": {
           "name": "id",
@@ -1618,7 +2058,7 @@
           "name": "salesman_attendance_user_id_fkey",
           "tableFrom": "salesman_attendance",
           "tableTo": "users",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "user_id"
           ],
@@ -1635,9 +2075,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "eurofoam.salesman_leave_applications": {
+    "kamdhenu.salesman_leave_applications": {
       "name": "salesman_leave_applications",
-      "schema": "eurofoam",
+      "schema": "kamdhenu",
       "columns": {
         "id": {
           "name": "id",
@@ -1730,7 +2170,7 @@
           "name": "salesman_leave_applications_user_id_fkey",
           "tableFrom": "salesman_leave_applications",
           "tableTo": "users",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "user_id"
           ],
@@ -1747,9 +2187,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "eurofoam.sync_state": {
+    "kamdhenu.sync_state": {
       "name": "sync_state",
-      "schema": "eurofoam",
+      "schema": "kamdhenu",
       "columns": {
         "id": {
           "name": "id",
@@ -1779,9 +2219,254 @@
       },
       "isRLSEnabled": false
     },
-    "eurofoam.user_roles": {
+    "kamdhenu.ta_da_bill_items": {
+      "name": "ta_da_bill_items",
+      "schema": "kamdhenu",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "bill_id": {
+          "name": "bill_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_location": {
+          "name": "from_location",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_location": {
+          "name": "to_location",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "distance_travelled_km": {
+          "name": "distance_travelled_km",
+          "type": "numeric(18, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "transport_fare": {
+          "name": "transport_fare",
+          "type": "numeric(18, 2)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'0'"
+        },
+        "lodging_fare": {
+          "name": "lodging_fare",
+          "type": "numeric(18, 2)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'0'"
+        },
+        "fooding_fare": {
+          "name": "fooding_fare",
+          "type": "numeric(18, 2)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'0'"
+        },
+        "local_conveyance": {
+          "name": "local_conveyance",
+          "type": "numeric(18, 2)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'0'"
+        },
+        "out_of_pocket_paid": {
+          "name": "out_of_pocket_paid",
+          "type": "numeric(18, 2)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'0'"
+        },
+        "total_bills_added": {
+          "name": "total_bills_added",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "bill_photo_urls": {
+          "name": "bill_photo_urls",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "remarks": {
+          "name": "remarks",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_ta_da_bill_items_bill_id": {
+          "name": "idx_ta_da_bill_items_bill_id",
+          "columns": [
+            {
+              "expression": "bill_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "ta_da_bill_items_bill_id_fkey": {
+          "name": "ta_da_bill_items_bill_id_fkey",
+          "tableFrom": "ta_da_bill_items",
+          "tableTo": "ta_da_bills",
+          "schemaTo": "kamdhenu",
+          "columnsFrom": [
+            "bill_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "kamdhenu.ta_da_bills": {
+      "name": "ta_da_bills",
+      "schema": "kamdhenu",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_date": {
+          "name": "from_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_date": {
+          "name": "to_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bill_date": {
+          "name": "bill_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "daily_allowance": {
+          "name": "daily_allowance",
+          "type": "numeric(18, 2)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'0'"
+        },
+        "total_cost": {
+          "name": "total_cost",
+          "type": "numeric(18, 2)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'0'"
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'PENDING'"
+        },
+        "remarks": {
+          "name": "remarks",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (6) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp (6) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_ta_da_bills_user_id": {
+          "name": "idx_ta_da_bills_user_id",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "ta_da_bills_user_id_fkey": {
+          "name": "ta_da_bills_user_id_fkey",
+          "tableFrom": "ta_da_bills",
+          "tableTo": "users",
+          "schemaTo": "kamdhenu",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "kamdhenu.user_roles": {
       "name": "user_roles",
-      "schema": "eurofoam",
+      "schema": "kamdhenu",
       "columns": {
         "user_id": {
           "name": "user_id",
@@ -1802,7 +2487,7 @@
           "name": "user_roles_user_id_fkey",
           "tableFrom": "user_roles",
           "tableTo": "users",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "user_id"
           ],
@@ -1816,7 +2501,7 @@
           "name": "user_roles_role_id_fkey",
           "tableFrom": "user_roles",
           "tableTo": "roles",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "role_id"
           ],
@@ -1841,9 +2526,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "eurofoam.users": {
+    "kamdhenu.users": {
       "name": "users",
-      "schema": "eurofoam",
+      "schema": "kamdhenu",
       "columns": {
         "id": {
           "name": "id",
@@ -2017,7 +2702,7 @@
           "name": "users_reports_to_id_fkey",
           "tableFrom": "users",
           "tableTo": "users",
-          "schemaTo": "eurofoam",
+          "schemaTo": "kamdhenu",
           "columnsFrom": [
             "reports_to_id"
           ],
@@ -2045,7 +2730,7 @@
   },
   "enums": {},
   "schemas": {
-    "eurofoam": "eurofoam"
+    "kamdhenu": "kamdhenu"
   },
   "sequences": {},
   "roles": {},

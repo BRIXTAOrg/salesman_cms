@@ -38,6 +38,6 @@ jobs:
         with:
           context: .
           push: true
-          tags: goswamirohit/eurofoamdashb:v1
+          tags: goswamirohit/kamdhenudashb:v1
           secrets: |
             "DATABASE_URL=${{ secrets.DATABASE_URL }}"

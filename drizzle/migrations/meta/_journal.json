@@ -57,6 +57,13 @@
       "when": 1784549369544,
       "tag": "0007_volatile_blur",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785822143301,
+      "tag": "0008_swift_manta",
+      "breakpoints": true
     }
   ]
 }

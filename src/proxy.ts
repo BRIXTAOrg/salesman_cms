@@ -6,12 +6,9 @@ import { decrypt } from './lib/auth';
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3000/auth/callback',
-  'http://122.176.219.242',
-  'http://122.176.219.242/auth/callback',
-  'http://122.176.219.242:55002',
-  'http://122.176.219.242:55002/auth/callback',
+  
   'http://localhost:8000',
-  'https://brixta.site',
+  
 ];
 
 export async function proxy(request: NextRequest) {

@@ -6,7 +6,7 @@ import {
 } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
-export const myCustomSchema = pgSchema("eurofoam");
+export const myCustomSchema = pgSchema("kamdhenu");
 
 export const users = myCustomSchema.table("users", {
 	id: serial().primaryKey().notNull(),

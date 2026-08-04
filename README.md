@@ -1,1 +1,1 @@
-# salesman_cms for Eurofoam
+# salesman_cms for Kamdhenu

@@ -1,8 +1,8 @@
 services:
-  eurofoamdashb:
+  kamdhenudashb:
     # Use your Docker image name here
-    image: goswamirohit/eurofoamdashb:v1
-    container_name: eurofoamdashb
+    image: goswamirohit/kamdhenudashb:v1
+    container_name: kamdhenudashb
     restart: unless-stopped
     ports:
       - "55007:3000"
