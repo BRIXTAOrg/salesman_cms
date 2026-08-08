@@ -55,9 +55,19 @@ const menuItems: MenuItem[] = [
         url: "/dashboard/usersAndTeam",
         requiredJobRole: ['Admin']
       },
+      // {
+      //   title: "Dealers",
+      //   url: "/dashboard/dealerManagement",
+      //   requiredPerm: ['READ', 'WRITE', 'UPDATE']
+      // },
       {
-        title: "Dealers",
-        url: "/dashboard/dealerManagement",
+        title: "Distributors",
+        url: "/dashboard/distributorManagement",
+        requiredPerm: ['READ', 'WRITE', 'UPDATE']
+      },
+      {
+        title: "Outlets",
+        url: "/dashboard/outletManagement",
         requiredPerm: ['READ', 'WRITE', 'UPDATE']
       },
       {
@@ -82,10 +92,10 @@ const menuItems: MenuItem[] = [
         title: "TA/DA", 
         url: "/dashboard/tadaBill",
       },
-      // {
-      //   title: "Salesman Geotracking",
-      //   url: "/dashboard/slmGeotracking",
-      // },
+      {
+        title: "Salesman Geotracking",
+        url: "/dashboard/slmGeotracking",
+      },
       {
         title: "Salesman Leaves",
         url: "/dashboard/slmLeaves",
@@ -123,7 +133,7 @@ export function AppSidebar({ userRole, permissions = [], jobRoles = [] }: Props)
         if (response.ok) {
           const data = await response.json();
           // Since it's single tenant, you can hardcode the fallback to your actual brand name
-          setCompanyName(data.companyName || "Eurofoam"); 
+          setCompanyName(data.companyName || "Kamdhenu"); 
           
           // --- THIS IS THE FIX ---
           // Use data.username directly instead of combining firstName/lastName
@@ -190,7 +200,7 @@ export function AppSidebar({ userRole, permissions = [], jobRoles = [] }: Props)
         <SidebarHeader>
           <div className="flex items-center space-x-2">
             <Image
-              src="/eurofoam.webp"
+              src="/logo.webp"
               alt={companyName}
               width={32}
               height={32}

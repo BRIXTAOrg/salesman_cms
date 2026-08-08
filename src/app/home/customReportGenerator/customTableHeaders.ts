@@ -32,13 +32,35 @@ export const tablesMetadata: TableMeta[] = [
         requiredPerm: ['Admin'],
         requiredJobRole: ['Admin']
     },
+    // {
+    //     id: 'dealers',
+    //     title: 'Dealers',
+    //     icon: Building2,
+    //     columns: [
+    //         'id', 'dealerPartyName', 'contactPersonName', 'contactPersonNumber', 
+    //         'email', 'gstNo', 'panNo', 'zone', 'district', 'area', 'state', 'pinCode', 
+    //         'createdAt', 'updatedAt'
+    //     ],
+    // },
     {
-        id: 'dealers',
-        title: 'Dealers',
+        id: 'distributors',
+        title: 'Distributors',
         icon: Building2,
         columns: [
-            'id', 'dealerPartyName', 'contactPersonName', 'contactPersonNumber', 
-            'email', 'gstNo', 'panNo', 'zone', 'district', 'area', 'state', 'pinCode', 
+            'id', 'name', 'concernedPersonName', 'concernedPersonPhoneNum', 
+            'zone', 'district', 'area', 'state', 'city', 'address', 'pinCode', 
+            'gstNumber', 'latitude', 'longitude', 'salesmanName', 'salesmanEmail', 
+            'createdAt', 'updatedAt'
+        ],
+    },
+    {
+        id: 'outlets',
+        title: 'Outlets',
+        icon: Store,
+        columns: [
+            'id', 'name', 'distributorName', 'concernedPersonName', 'concernedPersonPhoneNum', 
+            'zone', 'district', 'area', 'state', 'city', 'address', 'pinCode', 
+            'gstNumber', 'latitude', 'longitude', 'salesmanName', 'salesmanEmail', 
             'createdAt', 'updatedAt'
         ],
     },

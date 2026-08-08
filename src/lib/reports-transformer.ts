@@ -1,7 +1,7 @@
 // src/lib/reports-transformer.ts
 import { db } from '@/lib/drizzle';
 import {
-  users, roles, userRoles, dealers, influencers, institutions, dailyVisitReports,
+  users, roles, userRoles, dealers, distributors, outlets, influencers, institutions, dailyVisitReports,
   permanentJourneyPlans, salesmanAttendance, salesmanLeaveApplications, journeyOps,
   tadaBillItems, tadaBills
 } from '../../drizzle/schema';
@@ -149,6 +149,87 @@ export async function getFlattenedDealers() {
     createdAt: d.createdAt ? new Date(d.createdAt).toISOString() : '',
     updatedAt: d.updatedAt ? new Date(d.updatedAt).toISOString() : '',
   }));
+}
+
+export async function getFlattenedDistributors() {
+  const raw = await db
+    .select({
+      ...getTableColumns(distributors),
+      userUsername: users.username,
+      userEmail: users.email,
+    })
+    .from(distributors)
+    .leftJoin(users, eq(distributors.userId, users.id))
+    .orderBy(desc(distributors.createdAt));
+
+  return raw.map((r) => {
+    return {
+      id: r.id,
+      name: r.name,
+      concernedPersonName: r.concernedPersonName,
+      concernedPersonPhoneNum: r.concernedPersonPhoneNum,
+      
+      zone: r.zone,
+      district: r.district,
+      area: r.area,
+      state: r.state,
+      city: r.city,
+      address: r.address,
+      pinCode: r.pinCode,
+      
+      gstNumber: r.gstNumber ?? '',
+      latitude: toNum(r.latitude) || 0,
+      longitude: toNum(r.longitude) || 0,
+      
+      salesmanName: formatUserName({ username: r.userUsername, email: r.userEmail }),
+      salesmanEmail: r.userEmail || '',
+      
+      createdAt: formatDateTimeIST(r.createdAt),
+      updatedAt: formatDateTimeIST(r.updatedAt),
+    };
+  });
+}
+
+export async function getFlattenedOutlets() {
+  const raw = await db
+    .select({
+      ...getTableColumns(outlets),
+      userUsername: users.username,
+      userEmail: users.email,
+      distributorName: distributors.name,
+    })
+    .from(outlets)
+    .leftJoin(users, eq(outlets.userId, users.id))
+    .leftJoin(distributors, eq(outlets.distributorId, distributors.id))
+    .orderBy(desc(outlets.createdAt));
+
+  return raw.map((r) => {
+    return {
+      id: r.id,
+      name: r.name,
+      distributorName: r.distributorName ?? 'Unlinked',
+      concernedPersonName: r.concernedPersonName,
+      concernedPersonPhoneNum: r.concernedPersonPhoneNum,
+      
+      zone: r.zone,
+      district: r.district,
+      area: r.area,
+      state: r.state,
+      city: r.city,
+      address: r.address,
+      pinCode: r.pinCode,
+      
+      gstNumber: r.gstNumber ?? '',
+      latitude: toNum(r.latitude) || 0,
+      longitude: toNum(r.longitude) || 0,
+      
+      salesmanName: formatUserName({ username: r.userUsername, email: r.userEmail }),
+      salesmanEmail: r.userEmail || '',
+      
+      createdAt: formatDateTimeIST(r.createdAt),
+      updatedAt: formatDateTimeIST(r.updatedAt),
+    };
+  });
 }
 
 export async function getFlattenedInstitutions() {
@@ -597,6 +678,8 @@ export const transformerMap = {
   // Core Report Models
   users: getFlattenedUsers,
   dealers: getFlattenedDealers,
+  distributors: getFlattenedDistributors,
+  outlets: getFlattenedOutlets,
   institutions: getFlattenedInstitutions,
   influencers: getFlattenedInfluencers,
   dailyVisitReports: getFlattenedDailyVisitReports,
