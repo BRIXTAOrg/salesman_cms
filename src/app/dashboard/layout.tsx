@@ -1,50 +1,76 @@
-// src/app/dashboard/layout.tsx
-import { Suspense } from 'react';
-import { redirect } from 'next/navigation';
-import type { Metadata } from "next";
-import { db } from '@/lib/drizzle';
-import { users } from '../../../drizzle';
-import { eq } from 'drizzle-orm';
-import DashboardShell from '@/app/dashboard/dashboardShell';
-import { connection } from 'next/server';
-import { verifySession } from '@/lib/auth';
-import { AlertCircle } from 'lucide-react';
-import { JOB_ROLES, ORG_ROLES } from '@/lib/Reusable-constants';
+import {
+  Suspense,
+  type ReactNode,
+} from "react";
+import {
+  redirect,
+} from "next/navigation";
+import type {
+  Metadata,
+} from "next";
+import {
+  connection,
+} from "next/server";
+import {
+  eq,
+} from "drizzle-orm";
+import {
+  AlertCircle,
+} from "lucide-react";
+
+import DashboardShell from "@/app/dashboard/dashboardShell";
+import {
+  db,
+} from "@/lib/drizzle";
+import {
+  verifySession,
+} from "@/lib/auth";
+import {
+  users,
+} from "../../../drizzle";
 
 export const metadata: Metadata = {
+  title: "Field Control",
   icons: {
     icon: "/favicon.ico",
   },
 };
 
-// 1. STATIC SHELL
 export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <Suspense fallback={<p className="text-muted-foreground mt-4">Loading...</p>}>
-      <AuthenticatedLayout>{children}</AuthenticatedLayout>
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-muted-foreground">
+          Loading Field Control...
+        </div>
+      }
+    >
+      <AuthenticatedLayout>
+        {children}
+      </AuthenticatedLayout>
     </Suspense>
   );
 }
 
-// 2. DYNAMIC LAYOUT
-export async function AuthenticatedLayout({
+async function AuthenticatedLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   await connection();
 
-  const session = await verifySession();
+  const session =
+    await verifySession();
 
-  if (!session || !session.userId) {
-    redirect('/');
+  if (!session?.userId) {
+    redirect("/");
   }
 
-  const result = await db
+  const [dbUser] = await db
     .select({
       id: users.id,
       email: users.email,
@@ -52,79 +78,104 @@ export async function AuthenticatedLayout({
       status: users.status,
     })
     .from(users)
-    .where(eq(users.id, session.userId))
+    .where(
+      eq(
+        users.id,
+        session.userId,
+      ),
+    )
     .limit(1);
 
-  const dbUser = result[0];
+  if (!dbUser) {
+    redirect("/api/auth/logout");
+  }
 
-  if (!dbUser) redirect('/api/auth/logout');
-
-  // --- EXTRACT ROLES & PERMISSIONS ---
-  const finalOrgRole = session.orgRole || '';
-  const userJobRoles = session.jobRoles || [];
-  const userPerms = session.permissions || [];
-
-  console.log('🎯 Org Role:', finalOrgRole);
-  console.log('🎯 Job Roles:', userJobRoles);
-  console.log('🎯 Permissions:', userPerms);
-
-  // --- NEW STRICT SAFETY CHECK ---
-  const hasValidOrgRole = ORG_ROLES.includes(finalOrgRole);
-  const hasValidJobRole = userJobRoles.some(role => JOB_ROLES.includes(role));
-  const hasPermissions = userPerms.length > 0;
-
-  // The user must have either a valid Org Role OR a valid Job Role, AND they must have actual permissions assigned.
-  if ((!hasValidOrgRole && !hasValidJobRole) || !hasPermissions) {
+  if (dbUser.status !== "active") {
     return (
-      <div className="flex h-screen items-center justify-center bg-background p-4">
-        <div className="text-center p-8 bg-card border border-border rounded-xl shadow-2xl max-w-md w-full">
-          <div className="flex justify-center mb-4">
-            <div className="bg-destructive/10 p-3 rounded-full">
-              <AlertCircle className="w-12 h-12 text-destructive" />
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold text-foreground mb-2">Access Denied</h1>
-          <p className="text-muted-foreground mb-8">
-            Your account does not have the necessary roles or permissions to view the data.
-          </p>
-
-          <form action="/api/auth/logout" method="post" className="w-full">
-            <button
-              type="submit"
-              className="w-full py-3 px-4 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
-            >
-              Return to Home Page
-            </button>
-          </form>
-        </div>
-      </div>
+      <AccessBlocked
+        title="Account inactive"
+        description="This dashboard account is not active. Contact an administrator."
+      />
     );
   }
 
-  // Extract the JobRole & OrgRole of user
-  const primaryJob = userJobRoles.length > 0 ? userJobRoles[0] : '';
+  const permissions =
+    session.permissions ?? [];
 
-  // Formats as "Manager:Technical-Sales" or just the Org role if no Job role exists
-  const primaryRoleDisplay = primaryJob && finalOrgRole ? `${finalOrgRole}:${primaryJob}`
-    : finalOrgRole || primaryJob || 'Team Member';
+  if (permissions.length === 0) {
+    return (
+      <AccessBlocked
+        title="Access not configured"
+        description="Your account exists, but no dashboard permissions have been assigned yet."
+      />
+    );
+  }
 
-  // Hydrate with 'READ' so the sidebar always renders tabs for authorized users
-  const hydratedPermissions = Array.from(new Set([...userPerms, 'READ']));
+  const primaryJob =
+    session.jobRoles?.[0] ?? "";
 
-  const mappedUser = {
-    id: dbUser.id,
-    email: dbUser.email,
-    username: dbUser.username,
-  };
+  const roleDisplay =
+    primaryJob &&
+    session.orgRole
+      ? `${session.orgRole}:${primaryJob}`
+      : session.orgRole ||
+        primaryJob ||
+        "Team Member";
 
   return (
     <DashboardShell
-      user={mappedUser}
-      role={primaryRoleDisplay}
-      permissions={hydratedPermissions}
-      jobRoles={userJobRoles}
+      user={{
+        id: dbUser.id,
+        email: dbUser.email,
+        username:
+          dbUser.username,
+      }}
+      role={roleDisplay}
+      permissions={permissions}
+      jobRoles={
+        session.jobRoles ?? []
+      }
     >
       {children}
     </DashboardShell>
+  );
+}
+
+function AccessBlocked({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
+      <div className="w-full max-w-md rounded-2xl border bg-card p-8 text-center shadow-xl">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+          <AlertCircle className="h-6 w-6 text-destructive" />
+        </div>
+
+        <h1 className="mt-4 text-2xl font-semibold">
+          {title}
+        </h1>
+
+        <p className="mt-2 text-sm text-muted-foreground">
+          {description}
+        </p>
+
+        <form
+          action="/api/auth/logout"
+          method="post"
+          className="mt-6"
+        >
+          <button
+            type="submit"
+            className="h-10 w-full rounded-xl bg-foreground px-4 text-sm font-medium text-background"
+          >
+            Sign out
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }

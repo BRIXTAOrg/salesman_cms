@@ -1,7 +1,42 @@
-// src/components/app-sidebar.tsx
+
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+} from "react";
+import Link from "next/link";
+import {
+  usePathname,
+} from "next/navigation";
+import {
+  BadgeCheck,
+  BarChart3,
+  Blocks,
+  Building2,
+  CalendarCheck2,
+  CalendarOff,
+  ClipboardList,
+  FileBarChart,
+  Gauge,
+  KeyRound,
+  Landmark,
+  LogOut,
+  MapPinned,
+  Network,
+  Receipt,
+  Route,
+  Settings2,
+  ShieldCheck,
+  Smartphone,
+  Store,
+  UserRoundCog,
+  Users,
+  Warehouse,
+} from "lucide-react";
+
 import {
   Sidebar,
   SidebarContent,
@@ -10,324 +45,346 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-} from "@/components/ui/sidebar"
-import Image from 'next/image';
-import { ExternalLink } from 'lucide-react';
+} from "@/components/ui/sidebar";
 
-interface Props {
-  userRole: string; 
-  permissions: string[]; 
-  jobRoles?: string[]; 
-}
+type Props = {
+  userRole: string;
+  permissions: string[];
+  jobRoles?: string[];
+};
 
-interface MenuItem {
-  title: string;
-  url?: string;
-  requiredPerm?: string | string[] | 'public' | 'logout';
-  requiredJobRole?: string[]; 
-  items?: MenuItem[];
-  newTab?: boolean;
-}
+type NavItem = {
+  label: string;
+  href: string;
+  icon: ComponentType<{
+    className?: string;
+  }>;
+  manageOnly?: boolean;
+};
 
-// Define menu items with the new nested structure
-const menuItems: MenuItem[] = [
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const groups: NavGroup[] = [
   {
-    title: "Home",
-    url: "/home",
-    requiredPerm: 'public',
+    label: "Control",
     items: [
       {
-        title: "Custom Report Generator",
-        url: "/home/customReportGenerator",
+        label: "Control Center",
+        href: "/dashboard",
+        icon: Gauge,
       },
     ],
   },
   {
-    title: "Business Dashboard",
-    url: "/dashboard",
-    requiredPerm: 'public',
+    label: "Workforce",
     items: [
       {
-        title: "Users & Team",
-        url: "/dashboard/usersAndTeam",
-        requiredJobRole: ['Admin']
-      },
-      // {
-      //   title: "Dealers",
-      //   url: "/dashboard/dealerManagement",
-      //   requiredPerm: ['READ', 'WRITE', 'UPDATE']
-      // },
-      {
-        title: "Distributors",
-        url: "/dashboard/distributorManagement",
-        requiredPerm: ['READ', 'WRITE', 'UPDATE']
+        label: "Employees",
+        href: "/dashboard/workforce/employees",
+        icon: Users,
       },
       {
-        title: "Outlets",
-        url: "/dashboard/outletManagement",
-        requiredPerm: ['READ', 'WRITE', 'UPDATE']
+        label: "Organization",
+        href: "/dashboard/workforce/organization",
+        icon: Network,
       },
       {
-        title: "Institution",
-        url: "/dashboard/institutionManagement",
-        requiredPerm: ['READ', 'WRITE', 'UPDATE']
+        label: "Attendance",
+        href: "/dashboard/slmAttendance",
+        icon: CalendarCheck2,
       },
       {
-        title: "Influencers",
-        url: "/dashboard/influencerManagement",
-        requiredPerm: ['READ', 'WRITE', 'UPDATE']
+        label: "Live Location",
+        href: "/dashboard/slmGeotracking",
+        icon: MapPinned,
       },
       {
-        title: "Reports",
-        url: "/dashboard/reports",
+        label: "Leave",
+        href: "/dashboard/slmLeaves",
+        icon: CalendarOff,
       },
       {
-        title: "PJPs", 
-        url: "/dashboard/permanentJourneyPlan",
-      },
-      {
-        title: "TA/DA", 
-        url: "/dashboard/tadaBill",
-      },
-      {
-        title: "Salesman Geotracking",
-        url: "/dashboard/slmGeotracking",
-      },
-      {
-        title: "Salesman Leaves",
-        url: "/dashboard/slmLeaves",
-      },
-      {
-        title: "Salesman Attendance",
-        url: "/dashboard/slmAttendance",
+        label: "Devices",
+        href: "/dashboard/workforce/devices",
+        icon: Smartphone,
+        manageOnly: true,
       },
     ],
   },
   {
-    title: "Account",
-    url: "/account",
-    requiredPerm: 'public',
+    label: "Workspace",
     items: [
       {
-        title: "Logout",
-        url: "/api/auth/logout",
-        requiredPerm: 'logout'
+        label: "Responsibilities",
+        href: "/dashboard/workspace/responsibilities",
+        icon: Blocks,
+        manageOnly: true,
+      },
+      {
+        label: "Assignments",
+        href: "/dashboard/workspace/assignments",
+        icon: ClipboardList,
+        manageOnly: true,
+      },
+      {
+        label: "Approvals",
+        href: "/dashboard/workspace/approvals",
+        icon: BadgeCheck,
+        manageOnly: true,
       },
     ],
   },
-]
+  {
+    label: "Field Operations",
+    items: [
+      {
+        label: "Journey Plans",
+        href: "/dashboard/permanentJourneyPlan",
+        icon: Route,
+      },
+      {
+        label: "Dealers",
+        href: "/dashboard/dealerManagement",
+        icon: Store,
+      },
+      {
+        label: "Distributors",
+        href: "/dashboard/distributorManagement",
+        icon: Warehouse,
+      },
+      {
+        label: "Outlets",
+        href: "/dashboard/outletManagement",
+        icon: Store,
+      },
+      {
+        label: "Institutions",
+        href: "/dashboard/institutionManagement",
+        icon: Landmark,
+      },
+      {
+        label: "Influencers",
+        href: "/dashboard/influencerManagement",
+        icon: Building2,
+      },
+    ],
+  },
+  {
+    label: "Money & Reports",
+    items: [
+      {
+        label: "TA / DA",
+        href: "/dashboard/tadaBill",
+        icon: Receipt,
+      },
+      {
+        label: "Operational Reports",
+        href: "/dashboard/reports",
+        icon: BarChart3,
+      },
+      {
+        label: "Custom Reports",
+        href: "/home/customReportGenerator",
+        icon: FileBarChart,
+      },
+    ],
+  },
+  {
+    label: "Administration",
+    items: [
+      {
+        label: "Dashboard Access",
+        href: "/dashboard/usersAndTeam",
+        icon: UserRoundCog,
+        manageOnly: true,
+      },
+      {
+        label: "Setup",
+        href: "/dashboard/administration/setup",
+        icon: Settings2,
+        manageOnly: true,
+      },
+    ],
+  },
+];
 
-export function AppSidebar({ userRole, permissions = [], jobRoles = [] }: Props) {
+export function AppSidebar({
+  permissions = [],
+}: Props) {
+  const pathname = usePathname();
+  const [userName, setUserName] =
+    useState("User");
+  const [companyName, setCompanyName] =
+    useState("Kamdhenu");
 
-  const [userName, setUserName] = useState<string>("Loading...");
-  const [companyName, setCompanyName] = useState<string>("Loading...");
+  const canManage =
+    permissions.includes("ALL_ACCESS") ||
+    permissions.includes("WRITE") ||
+    permissions.includes("UPDATE");
 
-  // Fetch data directly on mount
   useEffect(() => {
-    const fetchSidebarData = async () => {
-      try {
-        const response = await fetch('/api/me', { cache: 'no-store' });
-        if (response.ok) {
-          const data = await response.json();
-          // Since it's single tenant, you can hardcode the fallback to your actual brand name
-          setCompanyName(data.companyName || "Kamdhenu"); 
-          
-          // --- THIS IS THE FIX ---
-          // Use data.username directly instead of combining firstName/lastName
-          setUserName(data.username || "User Name");
-        } else {
-          setCompanyName("Session Expired");
-          setUserName("");
-        }
-      } catch (error) {
-        console.error("Failed to fetch sidebar info:", error);
-        setCompanyName("Error");
-        setUserName("");
-      }
-    };
+    let cancelled = false;
 
-    fetchSidebarData();
+    async function loadIdentity() {
+      try {
+        const response = await fetch(
+          "/api/me",
+          {
+            cache: "no-store",
+          },
+        );
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        if (!cancelled) {
+          setCompanyName(
+            data.companyName ||
+              "Kamdhenu",
+          );
+          setUserName(
+            data.username || "User",
+          );
+        }
+      } catch {
+        // Identity is decorative; navigation still works.
+      }
+    }
+
+    void loadIdentity();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Filter based on the 'permissions' array from the DB
-  const filterItems = useCallback((items: MenuItem[]): MenuItem[] => {
-    if (!permissions) return [];
-
-    const isAdmin = permissions.includes('ALL_ACCESS');
-
-    return items.reduce((acc, item) => {
-      const { requiredPerm, requiredJobRole } = item;
-
-      // 1. JOB ROLE CHECK
-      if (requiredJobRole && requiredJobRole.length > 0) {
-        // If user doesn't have ANY of the required job roles AND isn't an Admin, hide it
-        const hasRequiredRole = requiredJobRole.some(role => jobRoles.includes(role));
-        if (!hasRequiredRole && !isAdmin) {
-          return acc;
-        }
-      }
-
-      // 2. PERMISSIONS CHECK
-      if (!requiredPerm || requiredPerm === 'public' || requiredPerm === 'logout') {
-        acc.push(item.items ? { ...item, items: filterItems(item.items) } : item);
-        return acc;
-      }
-
-      // Handle Multiple Permissions (Check if user has ALL)
-      const requiredArray = Array.isArray(requiredPerm) ? requiredPerm : [requiredPerm];
-      const hasAllAccess = requiredArray.some(p => permissions.includes(p) || isAdmin);
-
-      if (hasAllAccess) {
-        if (item.items) {
-          acc.push({ ...item, items: filterItems(item.items) });
-        } else {
-          acc.push(item);
-        }
-      }
-
-      return acc;
-    }, [] as MenuItem[]);
-  }, [permissions, jobRoles]); // Re-run if permissions change
-
-  const accessibleMenuItems = useMemo(() => filterItems(menuItems), [filterItems]);
+  const visibleGroups = useMemo(
+    () =>
+      groups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter(
+            (item) =>
+              !item.manageOnly ||
+              canManage,
+          ),
+        }))
+        .filter(
+          (group) =>
+            group.items.length > 0,
+        ),
+    [canManage],
+  );
 
   return (
-    <Sidebar className="hidden md:flex w-64 shrink-0 border-r">
-      <SidebarContent>
-        <SidebarHeader>
-          <div className="flex items-center space-x-2">
-            <Image
-              src="/logo.webp"
-              alt={companyName}
-              width={32}
-              height={32}
-              className="rounded-lg object-cover"
-            />
-            <div>
-              <div className="text-sm font-bold">{companyName}</div>
-              <div className="text-xs text-gray-500">{userName}</div>
+    <Sidebar>
+      <SidebarHeader className="border-b px-3 py-4">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-3 rounded-xl px-2 py-1.5"
+        >
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-foreground text-background">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold">
+              {companyName}
+            </div>
+            <div className="truncate text-xs text-muted-foreground">
+              Field Control · {userName}
             </div>
           </div>
-        </SidebarHeader>
+        </Link>
+      </SidebarHeader>
 
-        <SidebarGroup>
-          <SidebarMenu>
-            {accessibleMenuItems.map((item: MenuItem) => {
-              if (item.items && item.items.length > 0) { 
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    {item.url ? (
-                      <SidebarMenuButton asChild>
-                        <a
-                          href={item.url}
-                          className="py-6.5 my-2 flex items-center gap-2"
-                          target={item.newTab ? "_blank" : undefined}
-                          rel={item.newTab ? "noopener noreferrer" : undefined}
-                        >
-                          {item.title}
-                          {item.newTab && <ExternalLink className="w-3 h-3 text-white!" />}
-                        </a>
-                      </SidebarMenuButton>
-                    ) : (
-                      <SidebarMenuButton>{item.title}</SidebarMenuButton>
-                    )}
-                    <SidebarMenuSub>
-                      {item.items.map((subItem: MenuItem) => {
-                        if (subItem.items) {
-                          return (
-                            <SidebarMenuSubItem key={subItem.title}>
-                              {subItem.url ? (
-                                <SidebarMenuSubButton asChild>
-                                  <a
-                                    href={subItem.url}
-                                    className="py-4 my-1 flex items-center gap-2"
-                                    target={subItem.newTab ? "_blank" : undefined}
-                                    rel={subItem.newTab ? "noopener noreferrer" : undefined}
-                                  >
-                                    {subItem.title}
-                                    {subItem.newTab && <ExternalLink className="w-3 h-3 text-white!" />}
-                                  </a>
-                                </SidebarMenuSubButton>
-                              ) : (
-                                <SidebarMenuSubButton>{subItem.title}</SidebarMenuSubButton>
-                              )}
-                              <SidebarMenuSub>
-                                {subItem.items.map((subSubItem: MenuItem) => (
-                                  <SidebarMenuSubItem key={subSubItem.title}>
-                                    <SidebarMenuSubButton asChild>
-                                      <a
-                                        href={subSubItem.url}
-                                        className="py-6.5 my-2 flex items-center gap-2"
-                                        target={subSubItem.newTab ? "_blank" : undefined}
-                                        rel={subSubItem.newTab ? "noopener noreferrer" : undefined}
-                                      >
-                                        {subSubItem.title}
-                                        {subItem.newTab && <ExternalLink className="w-3 h-3 text-white!" />}
-                                      </a>
-                                    </SidebarMenuSubButton>
-                                  </SidebarMenuSubItem>
-                                ))}
-                              </SidebarMenuSub>
-                            </SidebarMenuSubItem>
+      <SidebarContent className="px-2 py-3">
+        {visibleGroups.map(
+          (group) => (
+            <SidebarGroup
+              key={group.label}
+              className="py-2"
+            >
+              <div className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                {group.label}
+              </div>
+
+              <SidebarMenu>
+                {group.items.map(
+                  (item) => {
+                    const active =
+                      item.href ===
+                      "/dashboard"
+                        ? pathname ===
+                          "/dashboard"
+                        : pathname.startsWith(
+                            item.href,
                           );
-                        } else {
-                          return (
-                            <SidebarMenuSubItem key={subItem.title}>
-                              {subItem.title === "Logout" ? (
-                                <form action="/api/auth/logout" method="post" className="w-full">
-                                  <SidebarMenuSubButton asChild>
-                                    <button
-                                      type="submit"
-                                      className="w-full h-full justify-start items-center px-4 py-3 my-1 rounded-md bg-red-600/65 text-white"
-                                    >
-                                      {subItem.title}
-                                    </button>
-                                  </SidebarMenuSubButton>
-                                </form>
-                              ) : (
-                                <SidebarMenuSubButton asChild>
-                                  <a
-                                    href={subItem.url}
-                                    className="py-4 my-1 flex items-center gap-2"
-                                    target={subItem.newTab ? "_blank" : undefined}
-                                    rel={subItem.newTab ? "noopener noreferrer" : undefined}
-                                  >
-                                    {subItem.title}
-                                    {subItem.newTab && <ExternalLink className="w-3 h-3 text-white!" />}
-                                  </a>
-                                </SidebarMenuSubButton>
-                              )}
-                            </SidebarMenuSubItem>
-                          );
-                        }
-                      })}
-                    </SidebarMenuSub>
-                  </SidebarMenuItem>
-                );
-              } else if (item.url) { 
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <a
-                        href={item.url}
-                        className="py-3 my-1"
-                        target={item.newTab ? "_blank" : undefined}
-                        rel={item.newTab ? "noopener noreferrer" : undefined}
+
+                    const Icon =
+                      item.icon;
+
+                    return (
+                      <SidebarMenuItem
+                        key={item.href}
                       >
-                        {item.title}
-                      </a>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              }
-              return null; 
-            })}
+                        <SidebarMenuButton
+                          asChild
+                          className={
+                            active
+                              ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                              : ""
+                          }
+                        >
+                          <Link
+                            href={
+                              item.href
+                            }
+                          >
+                            <Icon className="h-4 w-4" />
+                            <span>
+                              {
+                                item.label
+                              }
+                            </span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  },
+                )}
+              </SidebarMenu>
+            </SidebarGroup>
+          ),
+        )}
+
+        <SidebarGroup className="mt-auto py-2">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <form
+                action="/api/auth/logout"
+                method="post"
+                className="w-full"
+              >
+                <SidebarMenuButton
+                  asChild
+                >
+                  <button
+                    type="submit"
+                    className="w-full"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Logout</span>
+                  </button>
+                </SidebarMenuButton>
+              </form>
+            </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
     </Sidebar>
-  )
+  );
 }
