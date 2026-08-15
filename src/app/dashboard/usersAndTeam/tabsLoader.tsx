@@ -1,42 +1,103 @@
-// src/app/dashboard/teamOverview/tabsLoader.tsx
-'use client';
+// src/app/dashboard/usersAndTeam/tabsLoader.tsx
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2 } from 'lucide-react';
+import {
+  useEffect,
+  useState,
+} from "react";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Loader2 } from "lucide-react";
 
-// Components
-import { TeamOverview } from './teamOverview';
-import UsersManagement from './userManagement';
+import { TeamOverview } from "./teamOverview";
+import UsersManagement from "./userManagement";
+import MobileWorkspace from "./mobileWorkspace";
 
 interface TabsProps {
   adminUser: any;
-  canSeeUsers: any;
+  canSeeUsers: boolean;
   canSeeTeamView: boolean;
+  canManageMobileWorkspace: boolean;
 }
 
-export function UsersAndTeamTabs({ adminUser, canSeeUsers, canSeeTeamView }: TabsProps) {
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => setIsMounted(true), []);
+export function UsersAndTeamTabs({
+  adminUser,
+  canSeeUsers,
+  canSeeTeamView,
+  canManageMobileWorkspace,
+}: TabsProps) {
+  const [
+    isMounted,
+    setIsMounted,
+  ] = useState(false);
 
-  if (!isMounted) return <Loader2 className="w-8 h-8 animate-spin mx-auto mt-10" />;
+  useEffect(
+    () => setIsMounted(true),
+    [],
+  );
+
+  if (!isMounted) {
+    return (
+      <Loader2 className="mx-auto mt-10 h-8 w-8 animate-spin" />
+    );
+  }
+
+  const defaultTab = canSeeUsers
+    ? "users"
+    : canSeeTeamView
+      ? "team"
+      : "mobile-workspace";
 
   return (
-    <Tabs defaultValue={canSeeUsers ? "users" : "team"} className="space-y-4">
+    <Tabs
+      defaultValue={defaultTab}
+      className="space-y-4"
+    >
       <TabsList>
-        {canSeeUsers && <TabsTrigger value="users">Users</TabsTrigger>}
-        {canSeeTeamView && <TabsTrigger value="team">Team Overview</TabsTrigger>}
+        {canSeeUsers && (
+          <TabsTrigger value="users">
+            Users
+          </TabsTrigger>
+        )}
+
+        {canSeeTeamView && (
+          <TabsTrigger value="team">
+            Team Overview
+          </TabsTrigger>
+        )}
+
+        {canManageMobileWorkspace && (
+          <TabsTrigger value="mobile-workspace">
+            Mobile Workspace
+          </TabsTrigger>
+        )}
       </TabsList>
 
       {canSeeUsers && (
         <TabsContent value="users">
-          <UsersManagement adminUser={adminUser} />
+          <UsersManagement
+            adminUser={adminUser}
+          />
         </TabsContent>
       )}
 
       {canSeeTeamView && (
         <TabsContent value="team">
-          <TeamOverview currentUserRole={adminUser.orgRole} />
+          <TeamOverview
+            currentUserRole={
+              adminUser.orgRole
+            }
+          />
+        </TabsContent>
+      )}
+
+      {canManageMobileWorkspace && (
+        <TabsContent value="mobile-workspace">
+          <MobileWorkspace />
         </TabsContent>
       )}
     </Tabs>
