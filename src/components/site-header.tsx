@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -128,6 +127,9 @@ function titleForPath(pathname: string) {
 export function SiteHeader() {
   const router = useRouter();
   const pathname = usePathname();
+
+  const searchRef =
+    useRef<HTMLDivElement>(null);
   const inputRef =
     useRef<HTMLInputElement>(null);
 
@@ -147,7 +149,13 @@ export function SiteHeader() {
           "k"
       ) {
         event.preventDefault();
+        setFocused(true);
         inputRef.current?.focus();
+      }
+
+      if (event.key === "Escape") {
+        setFocused(false);
+        inputRef.current?.blur();
       }
     }
 
@@ -162,6 +170,55 @@ export function SiteHeader() {
         onKeyDown,
       );
   }, []);
+
+  /*
+   * Expected search-popover behavior:
+   * clicking/tapping anywhere outside the search
+   * control closes the results immediately.
+   *
+   * pointerdown covers mouse, touch and pen input.
+   */
+  useEffect(() => {
+    function onPointerDown(
+      event: PointerEvent,
+    ) {
+      const container =
+        searchRef.current;
+      const target =
+        event.target as Node | null;
+
+      if (
+        !container ||
+        !target ||
+        container.contains(target)
+      ) {
+        return;
+      }
+
+      setFocused(false);
+      inputRef.current?.blur();
+    }
+
+    document.addEventListener(
+      "pointerdown",
+      onPointerDown,
+    );
+
+    return () =>
+      document.removeEventListener(
+        "pointerdown",
+        onPointerDown,
+      );
+  }, []);
+
+  /*
+   * A navigation should never leave the old
+   * command/search state hanging over the next page.
+   */
+  useEffect(() => {
+    setFocused(false);
+    setQuery("");
+  }, [pathname]);
 
   const results = useMemo(() => {
     const needle =
@@ -183,13 +240,15 @@ export function SiteHeader() {
   function go(href: string) {
     setQuery("");
     setFocused(false);
+    inputRef.current?.blur();
     router.push(href);
   }
 
   return (
-    <header className="sticky top-0 z-30 flex min-h-16 shrink-0 items-center border-b bg-background/95 backdrop-blur">
+    <header className="sticky top-0 z-30 flex min-h-16 shrink-0 items-center border-b bg-background">
       <div className="flex w-full items-center gap-3 px-4 lg:px-6">
         <SidebarTrigger className="-ml-1" />
+
         <Separator
           orientation="vertical"
           className="h-5"
@@ -199,9 +258,21 @@ export function SiteHeader() {
           {titleForPath(pathname)}
         </div>
 
-        <div className="relative ml-auto w-full max-w-xl">
-          <div className="flex h-10 items-center gap-2 rounded-xl border bg-muted/30 px-3">
+        <div
+          ref={searchRef}
+          className="relative ml-auto w-full max-w-xl"
+        >
+          <div
+            className={[
+              "flex h-10 items-center gap-2 rounded-md border bg-background px-3",
+              "transition-colors duration-150 ease-out",
+              focused
+                ? "border-primary ring-2 ring-primary/20 ring-offset-2 ring-offset-background"
+                : "border-border",
+            ].join(" ")}
+          >
             <Search className="h-4 w-4 text-muted-foreground" />
+
             <input
               ref={inputRef}
               value={query}
@@ -219,33 +290,27 @@ export function SiteHeader() {
                     "Enter" &&
                   results[0]
                 ) {
+                  event.preventDefault();
                   go(
                     results[0].href,
                   );
                 }
-
-                if (
-                  event.key ===
-                  "Escape"
-                ) {
-                  setFocused(false);
-                  inputRef.current?.blur();
-                }
               }}
               placeholder="Search employees, actions, reports..."
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="min-w-0 flex-1 bg-transparent text-sm leading-6 outline-none placeholder:text-muted-foreground"
             />
-            <div className="hidden items-center gap-1 rounded-md border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground sm:flex">
+
+            <div className="hidden items-center gap-1 rounded border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground sm:flex">
               <Command className="h-3 w-3" />
               K
             </div>
           </div>
 
           {focused && (
-            <div className="absolute left-0 right-0 top-12 overflow-hidden rounded-xl border bg-popover shadow-xl">
+            <div className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-md border bg-popover">
               {results.length ===
               0 ? (
-                <div className="p-4 text-sm text-muted-foreground">
+                <div className="p-4 text-sm leading-6 text-muted-foreground">
                   No matching action.
                 </div>
               ) : (
@@ -261,18 +326,27 @@ export function SiteHeader() {
                         onMouseDown={(
                           event,
                         ) => {
+                          /*
+                           * Keep the input from losing focus
+                           * before we process the result click.
+                           */
                           event.preventDefault();
                           go(
                             item.href,
                           );
                         }}
-                        className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-muted"
+                        className={[
+                          "flex w-full items-center justify-between px-4 py-3 text-left text-sm",
+                          "transition-colors duration-150 ease-out",
+                          "hover:bg-muted focus:bg-muted focus:outline-none",
+                        ].join(" ")}
                       >
                         <span>
                           {
                             item.label
                           }
                         </span>
+
                         <span className="text-xs text-muted-foreground">
                           Open
                         </span>
