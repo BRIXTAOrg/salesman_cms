@@ -1,16 +1,16 @@
 // src/app/api/dashboardPagesAPI/permanent-journey-plan/pjp-verification/[id]/route.ts
 import 'server-only';
 import { NextResponse, NextRequest } from 'next/server';
-import { db } from '@/lib/drizzle';
 import { permanentJourneyPlans, dealers } from '../../../../../../../drizzle/schema';
 import { eq } from 'drizzle-orm';
-import { verifySession, hasPermission } from '@/lib/auth';
+import { withTenantDb, hasPermission } from '@/lib/auth';
 
-async function verifyPJP(pjpId: string) {
+type RouteContext = { params: Promise<{ id: string }> };
+
+async function verifyPJP(db: any, pjpId: string) {
     if (!pjpId) {
         throw new Error("PJP ID is required.");
     }
-
     const results = await db
         .select()
         .from(permanentJourneyPlans)
@@ -18,26 +18,22 @@ async function verifyPJP(pjpId: string) {
         .limit(1);
 
     const pjpToUpdate = results[0];
-
     if (!pjpToUpdate) {
         return { error: 'PJP not found', status: 404 };
     }
-
     return { pjpToUpdate };
 }
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const PUT = withTenantDb<RouteContext>(async (request, db, session, context) => {
     try {
-        const { id: pjpId } = await params;
+        const { id: pjpId } = await context.params;
         if (!pjpId) return NextResponse.json({ error: 'Missing PJP ID' }, { status: 400 });
 
-        const session = await verifySession();
-        if (!session || !session.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         if (!hasPermission(session.permissions, ['UPDATE', 'WRITE'])) {
             return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
         }
 
-        const verificationResult = await verifyPJP(pjpId);
+        const verificationResult = await verifyPJP(db, pjpId);
         if (verificationResult.error) return NextResponse.json({ error: verificationResult.error }, { status: verificationResult.status });
 
         const body = await request.json();
@@ -66,20 +62,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         console.error('Error (PUT):', error);
         return NextResponse.json({ error: 'Failed to update PJP status', details: (error as Error).message }, { status: 500 });
     }
-}
+});
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = withTenantDb<RouteContext>(async (request, db, session, context) => {
     try {
-        const { id: pjpId } = await params;
+        const { id: pjpId } = await context.params;
         if (!pjpId) return NextResponse.json({ error: 'Missing PJP ID' }, { status: 400 });
 
-        const session = await verifySession();
-        if (!session || !session.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         if (!hasPermission(session.permissions, ['UPDATE', 'WRITE'])) {
             return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
         }
 
-        const verify = await verifyPJP(pjpId);
+        const verify = await verifyPJP(db, pjpId);
         if (verify.error) return NextResponse.json({ error: verify.error }, { status: verify.status });
 
         const body = await request.json();
@@ -123,4 +117,4 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         console.error('Error (PATCH):', error);
         return NextResponse.json({ error: 'Failed to modify PJP', details: (error as Error).message }, { status: 500 });
     }
-}
+});

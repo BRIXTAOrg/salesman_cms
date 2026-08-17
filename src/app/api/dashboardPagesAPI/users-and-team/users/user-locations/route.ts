@@ -1,19 +1,12 @@
 // src/app/api/dashboardPagesAPI/users-and-team/users/user-locations/route.ts
 import "server-only";
-import { connection, NextResponse } from "next/server";
-import { verifySession } from "@/lib/auth";
-import { db } from "@/lib/drizzle";
+import { NextResponse } from "next/server";
+import { withTenantDb } from "@/lib/auth";
 import { users } from "../../../../../../../drizzle/schema";
 import { isNotNull } from "drizzle-orm";
 
-export async function GET() {
-  await connection();
+export const GET = withTenantDb(async (request, db, session) => {
   try {
-    const session = await verifySession(); 
-    if (!session || !session.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     // DISTINCT zones
     const uniqueZones = await db
       .selectDistinct({ zone: users.zone })
@@ -34,9 +27,9 @@ export async function GET() {
       .map((a) => a.area ?? "")
       .filter(Boolean);
 
-    return NextResponse.json({ zones, areas }, { status: 200 }); // Swapped regions array to zones
+    return NextResponse.json({ zones, areas }, { status: 200 });
   } catch (error) {
     console.error("Error fetching user locations:", error);
     return NextResponse.json({ error: "Failed to fetch user locations" }, { status: 500 });
   }
-}
+});

@@ -2,7 +2,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { db } from "@/lib/drizzle";
+import { withTenantSchema } from "@/lib/drizzle";
 import { users } from "../../../drizzle";
 import { eq } from "drizzle-orm";
 import HomeShell from "@/app/home/homeShell";
@@ -37,21 +37,24 @@ export async function AuthenticatedHomeLayout({
   // 1. Verify custom session
   const session = await verifySession();
 
-  if (!session || !session.userId) {
+  if (!session || !session.userId || !session.schemaName) {
     redirect("/");
   }
 
-  // 2. Fetch User from DB using local integer ID
-  const result = await db
-    .select({
-      userId: users.id,
-      email: users.email,
-      status: users.status,
-      username: users.username,
-    })
-    .from(users)
-    .where(eq(users.id, session.userId))
-    .limit(1);
+  // 2. Fetch User from DB using local integer ID -- scoped to this
+  // session's tenant schema, same as every other tenant-table query.
+  const result = await withTenantSchema(session.schemaName, (db) =>
+    db
+      .select({
+        userId: users.id,
+        email: users.email,
+        status: users.status,
+        username: users.username,
+      })
+      .from(users)
+      .where(eq(users.id, session.userId))
+      .limit(1),
+  );
 
   const dbUser = result[0];
 

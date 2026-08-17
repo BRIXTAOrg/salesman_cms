@@ -20,7 +20,7 @@ import {
 
 import DashboardShell from "@/app/dashboard/dashboardShell";
 import {
-  db,
+  withTenantSchema,
 } from "@/lib/drizzle";
 import {
   verifySession,
@@ -66,25 +66,29 @@ async function AuthenticatedLayout({
   const session =
     await verifySession();
 
-  if (!session?.userId) {
+  if (!session?.userId || !session.schemaName) {
     redirect("/");
   }
 
-  const [dbUser] = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      username: users.username,
-      status: users.status,
-    })
-    .from(users)
-    .where(
-      eq(
-        users.id,
-        session.userId,
-      ),
-    )
-    .limit(1);
+  const result = await withTenantSchema(session.schemaName, (db) =>
+    db
+      .select({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        status: users.status,
+      })
+      .from(users)
+      .where(
+        eq(
+          users.id,
+          session.userId,
+        ),
+      )
+      .limit(1),
+  );
+
+  const dbUser = result[0];
 
   if (!dbUser) {
     redirect("/api/auth/logout");

@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,7 @@ import { AlertCircle, Loader2, LogIn } from 'lucide-react';
 import Image from 'next/image';
 
 export default function LoginPage() {
+    const [companyCode, setCompanyCode] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -24,7 +26,7 @@ export default function LoginPage() {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ companyCode, email, password }),
             });
 
             const data = await response.json();
@@ -74,6 +76,22 @@ export default function LoginPage() {
 
                     <form onSubmit={handleLogin} className="space-y-5">
                         <div className="space-y-2">
+                            <Label htmlFor="companyCode">Company Code</Label>
+                            <Input
+                                id="companyCode"
+                                type="text"
+                                value={companyCode}
+                                onChange={(e) => setCompanyCode(e.target.value)}
+                                placeholder="companyfirstname"
+                                required
+                                disabled={loading}
+                                className="h-11"
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
                             <Label htmlFor="email">Email Address</Label>
                             <Input
                                 id="email"
@@ -110,6 +128,13 @@ export default function LoginPage() {
                             {loading ? 'Authenticating...' : 'Sign In'}
                         </Button>
                     </form>
+
+                    <p className="mt-6 text-center text-sm text-muted-foreground">
+                        Setting up a new company?{' '}
+                        <Link href="/signup" className="font-medium text-primary hover:underline">
+                            Sign up
+                        </Link>
+                    </p>
                 </CardContent>
             </Card>
         </div>

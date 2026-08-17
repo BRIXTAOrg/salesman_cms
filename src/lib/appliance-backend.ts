@@ -1,4 +1,3 @@
-
 import "server-only";
 
 import { hasPermission, verifySession } from "@/lib/auth";
@@ -18,6 +17,17 @@ export async function requireApplianceSession(
       ok: false as const,
       status: 401,
       error: "Unauthorized",
+    };
+  }
+
+  if (!session.schemaName) {
+    // Session predates schemaName being part of the JWT -- force a clean
+    // re-login rather than forwarding x-tenant-schema: "undefined",
+    // which the backend would just reject with a confusing 403 instead.
+    return {
+      ok: false as const,
+      status: 401,
+      error: "Session expired. Please sign in again.",
     };
   }
 
@@ -44,6 +54,7 @@ export async function applianceBackendFetch(
   session: {
     userId: number;
     username?: string;
+    schemaName: string;
   },
   init: RequestInit = {},
 ) {
@@ -67,6 +78,7 @@ export async function applianceBackendFetch(
   const headers = new Headers(init.headers);
   headers.set("x-admin-service-secret", adminSecret);
   headers.set("x-admin-user-id", String(session.userId));
+  headers.set("x-tenant-schema", session.schemaName);
 
   if (session.username) {
     headers.set("x-admin-username", session.username);

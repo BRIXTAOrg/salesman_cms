@@ -1,19 +1,18 @@
 // src/app/api/dashboardPagesAPI/tadaBill/tada-verification/[id]/route.ts
 import 'server-only';
 import { NextResponse, NextRequest } from 'next/server';
-import { db } from '@/lib/drizzle';
 import { tadaBills } from '../../../../../../../drizzle/schema';
 import { eq } from 'drizzle-orm';
-import { verifySession, hasPermission } from '@/lib/auth';
+import { withTenantDb, hasPermission } from '@/lib/auth';
 import { revalidateTag } from 'next/cache';
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+type RouteContext = { params: Promise<{ id: string }> };
+
+export const PATCH = withTenantDb<RouteContext>(async (request, db, session, context) => {
     try {
-        const { id: billId } = await params;
+        const { id: billId } = await context.params;
         if (!billId) return NextResponse.json({ error: 'Missing Bill ID' }, { status: 400 });
 
-        const session = await verifySession();
-        if (!session || !session.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         if (!hasPermission(session.permissions, ['UPDATE', 'WRITE'])) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
         const body = await request.json();
@@ -32,11 +31,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             .where(eq(tadaBills.id, billId))
             .returning();
 
-        revalidateTag('tada-bills-global', 'hours');
+        revalidateTag(`tada-bills-global-${session.schemaName}`, 'hours');
 
         return NextResponse.json({ message: `Bill ${status}`, bill: updatedBill[0] }, { status: 200 });
     } catch (error) {
         console.error('Error modifying TA/DA:', error);
         return NextResponse.json({ error: 'Failed to modify bill', details: (error as Error).message }, { status: 500 });
     }
-}
+});

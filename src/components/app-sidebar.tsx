@@ -76,6 +76,11 @@ const groups: NavGroup[] = [
         href: "/dashboard",
         icon: Gauge,
       },
+      {
+        label: "Download Custom Reports",
+        href: "/home/customReportGenerator",
+        icon: FileBarChart,
+      },
     ],
   },
   {
@@ -145,11 +150,11 @@ const groups: NavGroup[] = [
         href: "/dashboard/permanentJourneyPlan",
         icon: Route,
       },
-      {
-        label: "Dealers",
-        href: "/dashboard/dealerManagement",
-        icon: Store,
-      },
+      // {
+      //   label: "Dealers",
+      //   href: "/dashboard/dealerManagement",
+      //   icon: Store,
+      // },
       {
         label: "Distributors",
         href: "/dashboard/distributorManagement",
@@ -184,11 +189,6 @@ const groups: NavGroup[] = [
         label: "Operational Reports",
         href: "/dashboard/reports",
         icon: BarChart3,
-      },
-      {
-        label: "Custom Reports",
-        href: "/home/customReportGenerator",
-        icon: FileBarChart,
       },
     ],
   },

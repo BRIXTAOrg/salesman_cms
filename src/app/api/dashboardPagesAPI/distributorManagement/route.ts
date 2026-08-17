@@ -2,12 +2,13 @@
 import 'server-only';
 import { NextResponse, NextRequest } from 'next/server';
 import { cacheTag, cacheLife } from 'next/cache';
-import { db } from '@/lib/drizzle';
+import { withTenantSchema } from '@/lib/drizzle';
 import { distributors } from '../../../../../drizzle/schema';
 import { eq, and, or, ilike, desc, count, SQL } from 'drizzle-orm';
 import { verifySession, hasPermission } from '@/lib/auth';
 
 async function getCachedDistributors(
+    schemaName: string,
     page: number,
     pageSize: number,
     search: string | null,
@@ -17,52 +18,54 @@ async function getCachedDistributors(
 ) {
     'use cache';
     cacheLife('days');
-    cacheTag('distributors-global');
-
+    cacheTag(`distributors-global-${schemaName}`);
+    
     const filterKey = `${search}-${zone}-${district}-${area}`;
-    cacheTag(`distributors-${page}-${filterKey}`);
+    cacheTag(`distributors-${schemaName}-${page}-${filterKey}`);
 
-    const filters: SQL[] = [];
+    return withTenantSchema(schemaName, async (db) => {
+        const filters: SQL[] = [];
 
-    if (search) {
-        filters.push(
-            or(
-                ilike(distributors.name, `%${search}%`),
-                ilike(distributors.concernedPersonName, `%${search}%`),
-                ilike(distributors.concernedPersonPhoneNum, `%${search}%`),
-                ilike(distributors.gstNumber, `%${search}%`)
-            )!
-        );
-    }
+        if (search) {
+            filters.push(
+                or(
+                    ilike(distributors.name, `%${search}%`),
+                    ilike(distributors.concernedPersonName, `%${search}%`),
+                    ilike(distributors.concernedPersonPhoneNum, `%${search}%`),
+                    ilike(distributors.gstNumber, `%${search}%`)
+                )!
+            );
+        }
 
-    if (zone) filters.push(eq(distributors.zone, zone));
-    if (district) filters.push(eq(distributors.district, district));
-    if (area) filters.push(eq(distributors.area, area));
+        if (zone) filters.push(eq(distributors.zone, zone));
+        if (district) filters.push(eq(distributors.district, district));
+        if (area) filters.push(eq(distributors.area, area));
 
-    const whereClause = filters.length > 0 ? and(...filters) : undefined;
+        const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
-    const rawDistributors = await db
-        .select()
-        .from(distributors)
-        .where(whereClause)
-        .orderBy(desc(distributors.createdAt))
-        .limit(pageSize)
-        .offset(page * pageSize);
+        const rawDistributors = await db
+            .select()
+            .from(distributors)
+            .where(whereClause)
+            .orderBy(desc(distributors.createdAt))
+            .limit(pageSize)
+            .offset(page * pageSize);
 
-    const totalCountResult = await db
-        .select({ count: count(distributors.id) })
-        .from(distributors)
-        .where(whereClause);
+        const totalCountResult = await db
+            .select({ count: count(distributors.id) })
+            .from(distributors)
+            .where(whereClause);
 
-    const totalCount = Number(totalCountResult[0]?.count ?? 0);
+        const totalCount = Number(totalCountResult[0]?.count ?? 0);
 
-    return { data: rawDistributors, totalCount };
+        return { data: rawDistributors, totalCount };
+    });
 }
 
 export async function GET(request: NextRequest) {
+    const session = await verifySession();
     try {
-        const session = await verifySession();
-        if (!session || !session.userId) {
+        if (!session || !session.userId || !session.schemaName) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         
@@ -80,6 +83,7 @@ export async function GET(request: NextRequest) {
         const area = searchParams.get('area');
 
         const result = await getCachedDistributors(
+            session.schemaName,
             page,
             pageSize,
             search,

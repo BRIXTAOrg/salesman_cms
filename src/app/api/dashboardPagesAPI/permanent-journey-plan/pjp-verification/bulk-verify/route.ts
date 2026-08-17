@@ -1,18 +1,12 @@
 // src/app/api/dashboardPagesAPI/permanent-journey-plan/pjp-verification/bulk-verify/route.ts
 import 'server-only';
 import { NextResponse, NextRequest } from 'next/server';
-import { db } from '@/lib/drizzle';
 import { permanentJourneyPlans } from '../../../../../../../drizzle/schema'; 
 import { inArray } from 'drizzle-orm';
-import { verifySession, hasPermission } from '@/lib/auth';
+import { withTenantDb, hasPermission } from '@/lib/auth';
 
-export async function PATCH(request: NextRequest) {
+export const PATCH = withTenantDb(async (request, db, session) => {
   try {
-    const session = await verifySession();
-    if (!session || !session.userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
     if (!hasPermission(session.permissions, ['UPDATE', 'WRITE'])) {
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
@@ -52,8 +46,8 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     console.error('Error in Bulk PJP Verification:', error);
     return NextResponse.json({ 
-      error: 'Bulk update failed', 
-      details: (error as Error).message 
-    }, { status: 500 });
+       error: 'Bulk update failed', 
+       details: (error as Error).message 
+     }, { status: 500 });
   }
-}
+});

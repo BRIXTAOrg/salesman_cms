@@ -2,12 +2,13 @@
 import 'server-only';
 import { NextResponse, NextRequest } from 'next/server';
 import { cacheTag, cacheLife } from 'next/cache';
-import { db } from '@/lib/drizzle';
+import { withTenantSchema } from '@/lib/drizzle';
 import { outlets, distributors } from '../../../../../drizzle/schema';
 import { eq, and, or, ilike, desc, count, SQL } from 'drizzle-orm';
 import { verifySession, hasPermission } from '@/lib/auth';
 
 async function getCachedOutlets(
+    schemaName: string,
     page: number,
     pageSize: number,
     search: string | null,
@@ -17,62 +18,64 @@ async function getCachedOutlets(
 ) {
     'use cache';
     cacheLife('days');
-    cacheTag('outlets-global');
-
+    cacheTag(`outlets-global-${schemaName}`);
+    
     const filterKey = `${search}-${zone}-${district}-${area}`;
-    cacheTag(`outlets-${page}-${filterKey}`);
+    cacheTag(`outlets-${schemaName}-${page}-${filterKey}`);
 
-    const filters: SQL[] = [];
+    return withTenantSchema(schemaName, async (db) => {
+        const filters: SQL[] = [];
 
-    if (search) {
-        filters.push(
-            or(
-                ilike(outlets.name, `%${search}%`),
-                ilike(outlets.concernedPersonName, `%${search}%`),
-                ilike(outlets.concernedPersonPhoneNum, `%${search}%`),
-                ilike(outlets.gstNumber, `%${search}%`)
-            )!
-        );
-    }
+        if (search) {
+            filters.push(
+                or(
+                    ilike(outlets.name, `%${search}%`),
+                    ilike(outlets.concernedPersonName, `%${search}%`),
+                    ilike(outlets.concernedPersonPhoneNum, `%${search}%`),
+                    ilike(outlets.gstNumber, `%${search}%`)
+                )!
+            );
+        }
 
-    if (zone) filters.push(eq(outlets.zone, zone));
-    if (district) filters.push(eq(outlets.district, district));
-    if (area) filters.push(eq(outlets.area, area));
+        if (zone) filters.push(eq(outlets.zone, zone));
+        if (district) filters.push(eq(outlets.district, district));
+        if (area) filters.push(eq(outlets.area, area));
 
-    const whereClause = filters.length > 0 ? and(...filters) : undefined;
+        const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
-    // Fetch outlets joined with their respective distributor details
-    const rawOutlets = await db
-        .select({
-            outlet: outlets,
-            distributor: {
-                id: distributors.id,
-                name: distributors.name,
-                concernedPersonName: distributors.concernedPersonName,
-                phone: distributors.concernedPersonPhoneNum,
-            }
-        })
-        .from(outlets)
-        .leftJoin(distributors, eq(outlets.distributorId, distributors.id))
-        .where(whereClause)
-        .orderBy(desc(outlets.createdAt))
-        .limit(pageSize)
-        .offset(page * pageSize);
+        // Fetch outlets joined with their respective distributor details
+        const rawOutlets = await db
+            .select({
+                outlet: outlets,
+                distributor: {
+                    id: distributors.id,
+                    name: distributors.name,
+                    concernedPersonName: distributors.concernedPersonName,
+                    phone: distributors.concernedPersonPhoneNum,
+                }
+            })
+            .from(outlets)
+            .leftJoin(distributors, eq(outlets.distributorId, distributors.id))
+            .where(whereClause)
+            .orderBy(desc(outlets.createdAt))
+            .limit(pageSize)
+            .offset(page * pageSize);
 
-    const totalCountResult = await db
-        .select({ count: count(outlets.id) })
-        .from(outlets)
-        .where(whereClause);
+        const totalCountResult = await db
+            .select({ count: count(outlets.id) })
+            .from(outlets)
+            .where(whereClause);
 
-    const totalCount = Number(totalCountResult[0]?.count ?? 0);
+        const totalCount = Number(totalCountResult[0]?.count ?? 0);
 
-    return { data: rawOutlets, totalCount };
+        return { data: rawOutlets, totalCount };
+    });
 }
 
 export async function GET(request: NextRequest) {
+    const session = await verifySession();
     try {
-        const session = await verifySession();
-        if (!session || !session.userId) {
+        if (!session || !session.userId || !session.schemaName) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         
@@ -90,6 +93,7 @@ export async function GET(request: NextRequest) {
         const area = searchParams.get('area');
 
         const result = await getCachedOutlets(
+            session.schemaName,
             page,
             pageSize,
             search,

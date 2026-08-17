@@ -1,23 +1,16 @@
 // src/app/api/dashboardPagesAPI/users-and-team/users/user-roles/route.ts
 import "server-only";
-import { connection, NextResponse } from "next/server";
-import { verifySession } from "@/lib/auth";
-import { db } from "@/lib/drizzle";
+import { NextResponse } from "next/server";
+import { withTenantDb } from "@/lib/auth";
 import { users, roles, userRoles } from "../../../../../../../drizzle/schema";
 import { eq } from "drizzle-orm";
 
-export async function GET() {
-  await connection();
+export const GET = withTenantDb(async (request, db, session) => {
   try {
-    const session = await verifySession();
-    if (!session || !session.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const rawRoles = await db
       .select({ 
-        orgRole: roles.orgRole,
-        jobRole: roles.jobRole
+         orgRole: roles.orgRole,
+         jobRole: roles.jobRole
       })
       .from(users)
       .innerJoin(userRoles, eq(users.id, userRoles.userId))
@@ -32,13 +25,13 @@ export async function GET() {
     });
 
     return NextResponse.json({ 
-      roles: Array.from(orgRoleSet),
-      orgRoles: Array.from(orgRoleSet), 
-      jobRoles: Array.from(jobRoleSet) 
-    }, { status: 200 });
+       roles: Array.from(orgRoleSet), // backward compatibility
+       orgRoles: Array.from(orgRoleSet), 
+       jobRoles: Array.from(jobRoleSet) 
+     }, { status: 200 });
 
   } catch (error) {
     console.error("Error fetching user roles:", error);
     return NextResponse.json({ error: "Failed to fetch user roles" }, { status: 500 });
   }
-}
+});

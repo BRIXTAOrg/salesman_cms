@@ -1,22 +1,17 @@
 // src/app/api/dashboardPagesAPI/permanent-journey-plan/route.ts
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/drizzle';
 import { users, permanentJourneyPlans, dealers, institutions, influencers } from '../../../../../drizzle/schema';
 import { eq, and, or, ilike, desc, asc, aliasedTable, getTableColumns, count, gte, lte, SQL } from 'drizzle-orm';
-import { verifySession, hasPermission } from '@/lib/auth';
+import { withTenantDb, hasPermission } from '@/lib/auth';
 
 const getISTDate = (date: string | Date | null) => {
     if (!date) return '';
     return new Date(date).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 };
 
-export async function GET(request: NextRequest) {
+export const GET = withTenantDb(async (request, db, session) => {
     try {
-        const session = await verifySession();
-        if (!session || !session.userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
         if (!hasPermission(session.permissions, "READ")) {
             return NextResponse.json({ error: 'Forbidden: READ access required' }, { status: 403 });
         }
@@ -36,7 +31,6 @@ export async function GET(request: NextRequest) {
                 .selectDistinct({ area: permanentJourneyPlans.areaToBeVisited })
                 .from(permanentJourneyPlans)
                 .orderBy(asc(permanentJourneyPlans.areaToBeVisited));
-
             const distinctAreas = rawAreas.map(a => a.area).filter(Boolean);
 
             return NextResponse.json({
@@ -92,7 +86,6 @@ export async function GET(request: NextRequest) {
         }
 
         const whereClause = filters.length > 0 ? and(...filters) : undefined;
-
         const createdByUsers = aliasedTable(users, 'createdBy');
 
         const rawResults = await db
@@ -132,7 +125,6 @@ export async function GET(request: NextRequest) {
             salesmanName: r.salesmanName || r.salesmanEmail || 'Unknown',
             createdByName: r.createdByName || r.createdByEmail || 'System',
             targetPartyName: r.dealerName || r.institutionName || r.influencerName || null,
-            
             noOfDealerVisits: r.noOfDealerVisits ?? 0,
             noOfInstitutionVisits: r.noOfInstitutionVisits ?? 0,
             noOfInfluencerVisits: r.noOfInfluencerVisits ?? 0,
@@ -149,20 +141,17 @@ export async function GET(request: NextRequest) {
         console.error('Error fetching permanent journey plans:', error);
         return NextResponse.json({ error: 'Failed to fetch', details: (error as Error).message }, { status: 500 });
     }
-}
+});
 
-export async function DELETE(request: NextRequest) {
+export const DELETE = withTenantDb(async (request, db, session) => {
     try {
-        const session = await verifySession();
-        if (!session || !session.userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
         if (!hasPermission(session.permissions, "DELETE")) {
             return NextResponse.json({ error: 'Forbidden: DELETE access required' }, { status: 403 });
         }
 
         const url = new URL(request.url);
         const pjpId = url.searchParams.get('id');
+
         if (!pjpId) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
 
         const pjpToDeleteResult = await db
@@ -182,4 +171,4 @@ export async function DELETE(request: NextRequest) {
         console.error('Error deleting PJP:', error);
         return NextResponse.json({ error: 'Failed to delete', details: (error as Error).message }, { status: 500 });
     }
-}
+});

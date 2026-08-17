@@ -1,36 +1,25 @@
 // src/app/actions/cache.ts
 'use server';
-import { NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
-import { db } from '@/lib/drizzle';
-import { users } from '../../../drizzle';
-import { eq } from 'drizzle-orm';
 import { verifySession } from '@/lib/auth';
 
 export async function refreshCompanyCache(cachePrefix: string) {
   try {
     const session = await verifySession();
-    if (!session || !session.userId) {
+    if (!session?.userId || !session.schemaName) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    const result = await db
-      .select({ userId: users.id })
-      .from(users)
-      .where(eq(users.id, session.userId))
-      .limit(1);
-
-    const currentUser = result[0];
-
-    if (!currentUser) throw new Error('User not found');
-
-    // Define tags that are global and shouldn't get a companyId attached
+    // Define tags that are global and shouldn't get a schema attached
     const globalTags = [''];
 
-    // If it's a global tag, use it exactly as is. Otherwise, append the companyId.
+    // Matches the tag format the cached route functions use (e.g.
+    // dealerManagement's `dealers-global-${schemaName}`) -- this used to
+    // key off userId instead of schemaName, which never matched those
+    // tags at all, so this action was silently a no-op.
     const targetTag = globalTags.includes(cachePrefix)
       ? cachePrefix
-      : `${cachePrefix}-${currentUser.userId}`;
+      : `${cachePrefix}-global-${session.schemaName}`;
 
     // Nuke the cache!
     revalidateTag(targetTag, { expire: 0 });

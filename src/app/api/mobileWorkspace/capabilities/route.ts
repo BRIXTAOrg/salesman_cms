@@ -6,14 +6,14 @@ import {
 } from "next/server";
 
 import {
+  applianceBackendFetch,
   forwardBackendJson,
-  mobileWorkspaceBackendFetch,
-  requireMobileWorkspaceAdmin,
-} from "@/lib/mobile-workspace-backend";
+  requireApplianceSession,
+} from "@/lib/appliance-backend";
 
 export async function GET() {
   const auth =
-    await requireMobileWorkspaceAdmin();
+    await requireApplianceSession();
 
   if (!auth.ok) {
     return NextResponse.json(
@@ -29,8 +29,9 @@ export async function GET() {
 
   try {
     const upstream =
-      await mobileWorkspaceBackendFetch(
-        "/api/admin/flow1/capabilities",
+      await applianceBackendFetch(
+        "/api/admin/appliance/capabilities",
+        auth.session,
       );
 
     return NextResponse.json(
@@ -64,7 +65,7 @@ export async function POST(
   request: NextRequest,
 ) {
   const auth =
-    await requireMobileWorkspaceAdmin();
+    await requireApplianceSession(true);
 
   if (!auth.ok) {
     return NextResponse.json(
@@ -82,8 +83,9 @@ export async function POST(
     const body = await request.json();
 
     const upstream =
-      await mobileWorkspaceBackendFetch(
-        "/api/admin/flow1/capabilities",
+      await applianceBackendFetch(
+        "/api/admin/appliance/capabilities",
+        auth.session,
         {
           method: "POST",
           body: JSON.stringify(body),

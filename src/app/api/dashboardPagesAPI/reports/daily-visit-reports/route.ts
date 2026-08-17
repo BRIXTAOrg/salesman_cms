@@ -2,7 +2,7 @@
 import 'server-only';
 import { connection, NextResponse, NextRequest } from 'next/server';
 import { cacheTag, cacheLife } from 'next/cache';
-import { db } from '@/lib/drizzle';
+import { withTenantSchema } from '@/lib/drizzle';
 import { users, dailyVisitReports, dealers } from '../../../../../../drizzle/schema';
 import { eq, desc, and, or, ilike, getTableColumns, count, SQL, gte, lte } from 'drizzle-orm';
 import { z } from 'zod';
@@ -22,7 +22,7 @@ const frontendDVRSchema = z.object({
   visitType: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   brandSelling: z.array(z.string()).nullable().optional(),
-  
+
   nameOfParty: z.string().nullable().optional(),
   contactNoOfParty: z.string().nullable().optional(),
   expectedActivationDate: z.string().nullable().optional(),
@@ -41,6 +41,7 @@ const frontendDVRSchema = z.object({
 }).passthrough();
 
 async function getCachedDailyVisitReports(
+  schemaName: string,
   page: number,
   pageSize: number,
   search: string | null,
@@ -51,95 +52,97 @@ async function getCachedDailyVisitReports(
 ) {
   'use cache';
   cacheLife('hours');
-  cacheTag(`daily-visit-reports-global`);
-
+  cacheTag(`daily-visit-reports-global-${schemaName}`);
   const filterKey = `${search}-${area}-${zone}-${startDate}-${endDate}`;
-  cacheTag(`daily-visit-reports-${page}-${filterKey}`);
+  cacheTag(`daily-visit-reports-${schemaName}-${page}-${filterKey}`);
 
   const filters: SQL[] = [];
 
-  if (search) {
-    const searchCondition = or(
-      ilike(users.username, `%${search}%`),
-      ilike(dealers.dealerPartyName, `%${search}%`),
-      ilike(dailyVisitReports.nameOfParty, `%${search}%`),
-      ilike(dailyVisitReports.location, `%${search}%`)
-    );
-    if (searchCondition) filters.push(searchCondition);
-  }
+  return withTenantSchema(schemaName, async (db) => {
+    const filters: SQL[] = [];
+    if (search) {
+      const searchCondition = or(
+        ilike(users.username, `%${search}%`),
+        ilike(dealers.dealerPartyName, `%${search}%`),
+        ilike(dailyVisitReports.nameOfParty, `%${search}%`),
+        ilike(dailyVisitReports.location, `%${search}%`)
+      );
+      if (searchCondition) filters.push(searchCondition);
+    }
 
-  if (area) filters.push(eq(users.area, area));
-  if (zone) filters.push(eq(users.zone, zone));
+    if (area) filters.push(eq(users.area, area));
+    if (zone) filters.push(eq(users.zone, zone));
 
-  if (startDate) filters.push(gte(dailyVisitReports.reportDate, startDate));
-  if (endDate) filters.push(lte(dailyVisitReports.reportDate, endDate));
+    if (startDate) filters.push(gte(dailyVisitReports.reportDate, startDate));
+    if (endDate) filters.push(lte(dailyVisitReports.reportDate, endDate));
 
-  const whereClause = filters.length > 0 ? and(...filters) : undefined;
+    const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
-  const results = await db
-    .select({
-      ...getTableColumns(dailyVisitReports),
-      userUsername: users.username,
-      userEmail: users.email,
-      userArea: users.area,
-      userZone: users.zone,
-      dealerNameStr: dealers.dealerPartyName,
-    })
-    .from(dailyVisitReports)
-    .leftJoin(users, eq(dailyVisitReports.userId, users.id))
-    .leftJoin(dealers, eq(dailyVisitReports.dealerId, dealers.id))
-    .where(whereClause)
-    .orderBy(desc(dailyVisitReports.reportDate))
-    .limit(pageSize)
-    .offset(page * pageSize);
+    const results = await db
+      .select({
+        ...getTableColumns(dailyVisitReports),
+        userUsername: users.username,
+        userEmail: users.email,
+        userArea: users.area,
+        userZone: users.zone,
+        dealerNameStr: dealers.dealerPartyName,
+      })
+      .from(dailyVisitReports)
+      .leftJoin(users, eq(dailyVisitReports.userId, users.id))
+      .leftJoin(dealers, eq(dailyVisitReports.dealerId, dealers.id))
+      .where(whereClause)
+      .orderBy(desc(dailyVisitReports.reportDate))
+      .limit(pageSize)
+      .offset(page * pageSize);
 
-  const totalCountResult = await db
-    .select({ count: count() })
-    .from(dailyVisitReports)
-    .leftJoin(users, eq(dailyVisitReports.userId, users.id))
-    .leftJoin(dealers, eq(dailyVisitReports.dealerId, dealers.id))
-    .where(whereClause);
+    const totalCountResult = await db
+      .select({ count: count() })
+      .from(dailyVisitReports)
+      .leftJoin(users, eq(dailyVisitReports.userId, users.id))
+      .leftJoin(dealers, eq(dailyVisitReports.dealerId, dealers.id))
+      .where(whereClause);
 
-  const totalCount = Number(totalCountResult[0].count);
+    const totalCount = Number(totalCountResult[0].count);
 
-  const formatted = results.map((row) => {
-    const salesmanName = row.userUsername || row.userEmail || 'Unknown';
+    const formatted = results.map((row) => {
+      const salesmanName = row.userUsername || row.userEmail || 'Unknown';
 
-    return {
-      ...row,
-      id: String(row.id),
-      salesmanName: salesmanName,
-      area: row.userArea || '',
-      zone: row.userZone || '',
-      reportDate: row.reportDate ? new Date(row.reportDate).toISOString().split('T')[0] : '',
-      dealerName: row.dealerNameStr ?? null,
+      return {
+        ...row,
+        id: String(row.id),
+        salesmanName: salesmanName,
+        area: row.userArea || '',
+        zone: row.userZone || '',
+        reportDate: row.reportDate ? new Date(row.reportDate).toISOString().split('T')[0] : '',
+        dealerName: row.dealerNameStr ?? null,
 
-      customerType: row.customerType ?? null,
-      dealerType: row.dealerType ?? null,
-      institutionType: row.institutionType ?? null,
-      influencerType: row.influencerType ?? null,
-      visitType: row.visitType ?? null,
-      location: row.location ?? null,
-      brandSelling: row.brandSelling ?? null,
+        customerType: row.customerType ?? null,
+        dealerType: row.dealerType ?? null,
+        institutionType: row.institutionType ?? null,
+        influencerType: row.influencerType ?? null,
+        visitType: row.visitType ?? null,
+        location: row.location ?? null,
+        brandSelling: row.brandSelling ?? null,
 
-      nameOfParty: row.nameOfParty ?? null,
-      contactNoOfParty: row.contactNoOfParty ?? null,
-      expectedActivationDate: row.expectedActivationDate ? new Date(row.expectedActivationDate).toISOString().split('T')[0] : null,
+        nameOfParty: row.nameOfParty ?? null,
+        contactNoOfParty: row.contactNoOfParty ?? null,
+        expectedActivationDate: row.expectedActivationDate ? new Date(row.expectedActivationDate).toISOString().split('T')[0] : null,
 
-      latitude: row.latitude?.toString() ?? null,
-      longitude: row.longitude?.toString() ?? null,
-      todayOrderQty: row.todayOrderQty?.toString() ?? null,
-      todayCollectionRupees: row.todayCollectionRupees?.toString() ?? null,
-      overdueAmount: row.overdueAmount?.toString() ?? null,
+        latitude: row.latitude?.toString() ?? null,
+        longitude: row.longitude?.toString() ?? null,
+        todayOrderQty: row.todayOrderQty?.toString() ?? null,
+        todayCollectionRupees: row.todayCollectionRupees?.toString() ?? null,
+        overdueAmount: row.overdueAmount?.toString() ?? null,
 
-      checkInTime: row.checkInTime ? new Date(row.checkInTime).toISOString() : '',
-      checkOutTime: row.checkOutTime ? new Date(row.checkOutTime).toISOString() : null,
-      createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString(),
-      updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : new Date().toISOString(),
-    };
+        checkInTime: row.checkInTime ? new Date(row.checkInTime).toISOString() : '',
+        checkOutTime: row.checkOutTime ? new Date(row.checkOutTime).toISOString() : null,
+        createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString(),
+        updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : new Date().toISOString(),
+      };
+    });
+
+    return { data: formatted, totalCount };
   });
-
-  return { data: formatted, totalCount };
 }
 
 export async function GET(request: NextRequest) {
@@ -160,12 +163,13 @@ export async function GET(request: NextRequest) {
 
     const search = searchParams.get('search');
     const area = searchParams.get('area');
-    const zone = searchParams.get('zone'); 
+    const zone = searchParams.get('zone');
 
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
     const result = await getCachedDailyVisitReports(
+      session.schemaName,
       page,
       pageSize,
       search,

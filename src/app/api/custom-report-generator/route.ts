@@ -1,6 +1,6 @@
 // src/app/api/custom-report-generator/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/drizzle';
+import { withTenantDb } from '@/lib/auth';
 import { users } from '../../../../drizzle';
 import { eq } from 'drizzle-orm';
 import { transformerMap } from '@/lib/reports-transformer';
@@ -22,31 +22,31 @@ interface FilterRule {
 type ReportTableId = keyof typeof transformerMap;
 
 // --- Auth Check ---
-async function getAuthClaims() {
-    const session = await verifySession();
-    if (!session || !session.userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+// async function getAuthClaims() {
+//     const session = await verifySession();
+//     if (!session || !session.userId) {
+//         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+//     }
 
-    const result = await db
-        .select({ role: users.role })
-        .from(users)
-        .where(eq(users.id, session.userId))
-        .limit(1);
+//     const result = await db
+//         .select({ role: users.role })
+//         .from(users)
+//         .where(eq(users.id, session.userId))
+//         .limit(1);
 
-    const currentUser = result[0];
+//     const currentUser = result[0];
 
-    if (!currentUser) {
-        return new NextResponse('User not found', { status: 404 });
-    }
-    return { session, currentUser };
-}
+//     if (!currentUser) {
+//         return new NextResponse('User not found', { status: 404 });
+//     }
+//     return { session, currentUser };
+// }
 
 // Helper to safely parse dates, especially the en-IN DD/MM/YYYY format from the transformer
 function parseDateSafely(val: any): Date {
     if (!val) return new Date(NaN);
     if (val instanceof Date) return val;
-    
+
     const valStr = String(val).trim();
     if (!valStr) return new Date(NaN);
 
@@ -64,7 +64,7 @@ function parseDateSafely(val: any): Date {
     // 2. Fallback for formatDateTimeIST (e.g., "27 Mar 2026, 10:30 AM")
     const d = new Date(valStr);
     if (!isNaN(d.getTime())) return d;
-    
+
     return new Date(NaN);
 }
 
@@ -93,15 +93,15 @@ function applyFilters(rows: any[], filters: FilterRule[]): any[] {
             if (isDateColumn && filterValueStr.includes(',')) {
                 const [startStr, endStr] = filterValueStr.split(',');
 
-                const cellDate = parseDateSafely(rawValue); 
+                const cellDate = parseDateSafely(rawValue);
                 if (isNaN(cellDate.getTime())) return false;
 
                 // Start at 00:00:00
                 const startDate = new Date(`${startStr}T00:00:00`);
-                
+
                 // End at 23:59:59. If no end date (single day pick), make the end date the same day.
-                const endDate = endStr 
-                    ? new Date(`${endStr}T23:59:59.999`) 
+                const endDate = endStr
+                    ? new Date(`${endStr}T23:59:59.999`)
                     : new Date(`${startStr}T23:59:59.999`);
 
                 if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
@@ -186,15 +186,24 @@ function buildSheetsPayload(
 }
 
 // POST HANDLER 
-export async function POST(req: NextRequest) {
-    // 1. Auth Check
-    const authResult = await getAuthClaims();
-    if (authResult instanceof NextResponse) return authResult;
-    const { currentUser } = authResult;
+export const POST = withTenantDb(async (req, db, session) => {
+    // 1. Auth Check -- role lookup now runs on the tenant-scoped db
+    // withTenantDb already opened, instead of a separate getAuthClaims()
+    // call against the unscoped singleton.
+    const result = await db
+        .select({ role: users.role })
+        .from(users)
+        .where(eq(users.id, session.userId))
+        .limit(1);
+
+    const currentUser = result[0];
+
+    if (!currentUser) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
     try {
         // 2. Parse Payload
-        // ADDED: filters destructuring
         const { columns, format, limit, filters } = await req.json() as {
             columns: TableColumn[];
             format: 'xlsx' | 'csv' | 'json';
@@ -226,8 +235,10 @@ export async function POST(req: NextRequest) {
             }
             const fetcher = transformerMap[previewTableId as ReportTableId];
 
-            // Fetch full data using the transformer
-            let rows = await (fetcher as any)();
+            // Fetch full data using the transformer -- db is the
+            // tenant-scoped connection every transformer function now
+            // requires as its first argument.
+            let rows = await (fetcher as any)(db);
 
             // ADDED: Apply filters to preview data server-side (optional but good for consistency)
             // Note: In your current UI, you filter preview client-side, but this ensures API correctness.
@@ -255,7 +266,7 @@ export async function POST(req: NextRequest) {
             if (table in transformerMap) {
                 const fn = transformerMap[table as ReportTableId];
                 // A. Fetch Raw Data
-                const rawRows = await (fn as any)();
+                const rawRows = await (fn as any)(db);
                 // B. Apply Filters
                 dataPerTable[table] = applyFilters(rawRows, filters || []);
             }
@@ -303,4 +314,4 @@ export async function POST(req: NextRequest) {
         console.error('Custom report route error:', e);
         return NextResponse.json({ error: 'Failed to process report request. Check data format in transformers.' }, { status: 500 });
     }
-}
+});

@@ -1,12 +1,11 @@
 // src/app/api/dashboardPagesAPI/slm-geotracking/slmLiveLocation/route.ts
 import 'server-only';
-import { connection, NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { withTenantDb } from '@/lib/auth';
 
-// FIREBASE URL HERE (Do not include a trailing slash)
-const FIREBASE_DB_URL = "https://eurofoam-5a36a-default-rtdb.firebaseio.com/";
+const FIREBASE_DB_URL = "https://eurofoam-5a36a-default-rtdb.firebaseio.com";
 
-export async function GET(request: NextRequest) {
-  await connection();
+export const GET = withTenantDb(async (request, db, session) => {
   try {
     // 1. Fetch the raw JSON from Firebase. 
     // We MUST use 'no-store' so Next.js doesn't cache the GPS coordinates!
@@ -27,21 +26,20 @@ export async function GET(request: NextRequest) {
 
     const now = Date.now();
 
-    // 2. Firebase returns an object of objects: { "userId_1": {...}, "userId_2": {...} }
-    // We need to map this into an array that matches your Zod schema.
+    // 2. Map into an array that matches the Zod schema.
     const mappedLocations = Object.keys(data).map((userId) => {
       const loc = data[userId];
-
-      // Smart Feature: If they haven't moved in 60 minutes, mark them as inactive
+      
+      // If they haven't moved in 60 minutes, mark them as inactive
       const isStale = (now - loc.timestamp) > (60 * 60 * 1000); 
 
       return {
         userId: userId,
         salesmanName: loc.name || 'Unknown',
         employeeId: userId,
-        role: loc.role || 'sales', // Maps to the role we injected in Flutter
-        zone: null, // Nullable in your schema
-        area: null,   // Nullable in your schema
+        role: loc.role || 'sales', 
+        zone: null, 
+        area: null,   
         latitude: loc.lat,
         longitude: loc.lng,
         recordedAt: new Date(loc.timestamp).toISOString(),
@@ -50,9 +48,8 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(mappedLocations, { status: 200 });
-
   } catch (error) {
     console.error("Live Location Fetch Error:", error);
     return NextResponse.json({ error: "Failed to fetch locations" }, { status: 500 });
   }
-}
+});

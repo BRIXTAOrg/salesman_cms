@@ -6,10 +6,10 @@ import {
 } from "next/server";
 
 import {
+  applianceBackendFetch,
   forwardBackendJson,
-  mobileWorkspaceBackendFetch,
-  requireMobileWorkspaceAdmin,
-} from "@/lib/mobile-workspace-backend";
+  requireApplianceSession,
+} from "@/lib/appliance-backend";
 
 export async function PUT(
   request: NextRequest,
@@ -20,7 +20,7 @@ export async function PUT(
   },
 ) {
   const auth =
-    await requireMobileWorkspaceAdmin();
+    await requireApplianceSession(true);
 
   if (!auth.ok) {
     return NextResponse.json(
@@ -52,8 +52,9 @@ export async function PUT(
     const body = await request.json();
 
     const upstream =
-      await mobileWorkspaceBackendFetch(
-        `/api/admin/flow1/employees/${id}/capabilities`,
+      await applianceBackendFetch(
+        `/api/admin/appliance/employees/${id}/capabilities`,
+        auth.session,
         {
           method: "PUT",
           body: JSON.stringify(body),

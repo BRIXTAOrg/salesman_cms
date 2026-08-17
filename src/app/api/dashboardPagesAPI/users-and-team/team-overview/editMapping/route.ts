@@ -1,11 +1,10 @@
 // src/app/api/dashboardPagesAPI/users-and-team/team-overview/editMapping/route.ts
 import 'server-only';
 import { NextResponse, NextRequest } from 'next/server';
-import { db } from '@/lib/drizzle';
 import { users, roles, userRoles } from '../../../../../../../drizzle/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
-import { verifySession, hasPermission } from '@/lib/auth';
+import { withTenantDb, hasPermission } from '@/lib/auth';
 import { getRoleWeight, isSuperUser } from '@/lib/roleHierarchy';
 
 const editMappingSchema = z.object({
@@ -14,12 +13,8 @@ const editMappingSchema = z.object({
   managesIds: z.array(z.number()).optional().default([]),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withTenantDb(async (request, db, session) => {
   try {
-    const session = await verifySession();
-    if (!session || !session.userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     if (!hasPermission(session.permissions, ['UPDATE', 'WRITE'])) {
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
@@ -33,9 +28,9 @@ export async function POST(request: NextRequest) {
 
     const targetUserQuery = await db
       .select({ 
-        reportsToId: users.reportsToId,
-        orgRole: roles.orgRole 
-      })
+         reportsToId: users.reportsToId,
+         orgRole: roles.orgRole 
+       })
       .from(users)
       .leftJoin(userRoles, eq(users.id, userRoles.userId))
       .leftJoin(roles, eq(userRoles.roleId, roles.id))
@@ -48,7 +43,6 @@ export async function POST(request: NextRequest) {
 
     const targetUser = targetUserQuery[0];
     const targetOrgRole = targetUser.orgRole || 'Unassigned';
-
     const currentUserRole = session.orgRole; 
     const currentWeight = getRoleWeight(currentUserRole);
     const targetWeight = getRoleWeight(targetOrgRole);
@@ -65,7 +59,7 @@ export async function POST(request: NextRequest) {
         .leftJoin(roles, eq(userRoles.roleId, roles.id))
         .where(eq(users.id, reportsToId))
         .limit(1);
-      
+        
       if (newManagerQuery.length === 0) {
         return NextResponse.json({ error: "Target manager not found" }, { status: 404 });
       }
@@ -82,19 +76,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await db.transaction(async (tx) => {
-      await tx.update(users).set({ reportsToId: null }).where(eq(users.reportsToId, userId));
-
-      if (managesIds.length > 0) {
-        await tx.update(users).set({ reportsToId: userId }).where(inArray(users.id, managesIds));
-      }
-
-      await tx.update(users).set({ reportsToId }).where(eq(users.id, userId));
-    });
+    // Atomic queries via withTenantDb without a nested transaction[cite: 5]
+    await db.update(users).set({ reportsToId: null }).where(eq(users.reportsToId, userId));
+    
+    if (managesIds.length > 0) {
+      await db.update(users).set({ reportsToId: userId }).where(inArray(users.id, managesIds));
+    }
+    
+    await db.update(users).set({ reportsToId }).where(eq(users.id, userId));
 
     return NextResponse.json({ message: 'Mapping updated successfully' }, { status: 200 });
+
   } catch (error: any) {
     console.error('Mapping Error:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
-}
+});

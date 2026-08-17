@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KAMDHENU SALES CMS",
+  title: "SALESAPP SALES CMS",
   description: "Made by Brixta",
   icons: {
     icon: "/favicon.ico",

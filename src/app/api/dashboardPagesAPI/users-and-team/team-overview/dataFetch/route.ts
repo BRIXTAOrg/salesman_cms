@@ -1,19 +1,12 @@
 // src/app/api/dashboardPagesAPI/users-and-team/team-overview/dataFetch/route.ts
 import 'server-only';
-import { NextResponse, NextRequest, connection } from 'next/server';
-import { db } from '@/lib/drizzle';
+import { NextResponse, NextRequest } from 'next/server';
 import { users, roles, userRoles } from '../../../../../../../drizzle/schema';
 import { eq } from 'drizzle-orm';
-import { verifySession, hasPermission } from '@/lib/auth';
+import { withTenantDb, hasPermission } from '@/lib/auth';
 
-export async function GET(request: NextRequest) {
-  if (typeof connection === 'function') await connection();
-
+export const GET = withTenantDb(async (request, db, session) => {
   try {
-    const session = await verifySession();
-    if (!session || !session.userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     if (!hasPermission(session.permissions, "READ")) {
       return NextResponse.json({ error: 'Forbidden: READ access required' }, { status: 403 });
     }
@@ -34,6 +27,7 @@ export async function GET(request: NextRequest) {
 
     // 2. Aggregate the multiple role rows per user
     const usersMap = new Map();
+
     for (const row of allCompanyUsersRaw) {
       if (!usersMap.has(row.user.id)) {
         usersMap.set(row.user.id, {
@@ -42,6 +36,7 @@ export async function GET(request: NextRequest) {
           jobRoles: new Set<string>(),
         });
       }
+
       const u = usersMap.get(row.user.id);
       if (row.jobRole) u.jobRoles.add(row.jobRole);
       if (row.orgRole && u.orgRole === 'Unassigned') u.orgRole = row.orgRole;
@@ -54,14 +49,14 @@ export async function GET(request: NextRequest) {
 
     // 3. Filter by selected role
     const filteredUsers = roleFilter 
-      ? allUsers.filter(u => u.orgRole === roleFilter) 
-      : allUsers;
+       ? allUsers.filter(u => u.orgRole === roleFilter) 
+       : allUsers;
 
     // 4. Build the hierarchy
     const formattedTeamData = filteredUsers.map(member => {
       const manager = member.reportsToId ? allUsers.find(u => u.id === member.reportsToId) : null;
       const managerName = manager ? (manager.username || 'Unknown') : 'none';
-
+      
       const directReports = allUsers.filter(u => u.reportsToId === member.id);
       const manages = directReports.map(r => r.username || 'Unknown').filter(Boolean).join(', ') || 'None';
 
@@ -86,4 +81,4 @@ export async function GET(request: NextRequest) {
     console.error("Team Overview Fetch Error:", error);
     return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
   }
-}
+});

@@ -16,6 +16,7 @@ export default function SignedOutHomePage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
+    companyCode: '',
     email: '',
     password: '',
   });
@@ -107,6 +108,21 @@ export default function SignedOutHomePage() {
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
+              <Label htmlFor="companyCode">Company Code</Label>
+              <Input
+                id="companyCode"
+                type="text"
+                placeholder="companyfirstname"
+                value={formData.companyCode}
+                onChange={(e) => setFormData({ ...formData, companyCode: e.target.value })}
+                required
+                className="h-11 bg-background"
+                autoCapitalize="none"
+                autoCorrect="off"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="email">Email or Login ID</Label>
               <Input
                 id="email"
@@ -151,6 +167,13 @@ export default function SignedOutHomePage() {
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
             </Button>
           </form>
+
+          <p className="text-center text-sm text-muted-foreground">
+            Setting up a new company?{' '}
+            <Link href="/signup" className="font-medium text-primary hover:underline">
+              Sign up
+            </Link>
+          </p>
 
         </div>
       </div>

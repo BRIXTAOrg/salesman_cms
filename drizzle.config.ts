@@ -10,7 +10,11 @@ if (!process.env.DATABASE_URL) {
 
 export default defineConfig({
   // This tells Drizzle where to find your schema
-  schema: './drizzle/schema.ts',
+  schema: [
+    "./src/db/schema.ts",
+    "./src/db/applianceSchema.ts",
+    "./src/db/publicSchema.ts",
+  ],
   
   // This tells Drizzle where to put the migration files
   out: './drizzle/migrations', 
@@ -20,7 +24,7 @@ export default defineConfig({
     // This securely reads your database connection string
     url: process.env.DATABASE_URL,
   },
-  schemaFilter: ["kamdhenu"], 
+  //schemaFilter: [process.env.DB_SCHEMA ?? "public"],
   verbose: true,
   strict: true,
 });

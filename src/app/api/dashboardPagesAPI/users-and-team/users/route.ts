@@ -1,22 +1,17 @@
 // src/app/api/dashboardPagesAPI/users-and-team/users/route.ts
 import "server-only";
-import { connection, NextRequest, NextResponse } from "next/server";
-import { verifySession, hasPermission } from "@/lib/auth";
-import { db } from "@/lib/drizzle";
+import { NextRequest, NextResponse } from "next/server";
+import { withTenantDb, hasPermission } from "@/lib/auth";
 import { users, roles as rolesTable, userRoles } from "../../../../../../drizzle/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
-import { generateRandomPassword } from "./helpers";
+import bcrypt from "bcryptjs";
 
 // =================
 // POST ROUTE 
 // =================
 
-export async function POST(request: NextRequest) {
+export const POST = withTenantDb(async (request, db, session) => {
     try {
-        const session = await verifySession();
-        if (!session || !session.userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
         if (!hasPermission(session.permissions, "WRITE")) {
             return NextResponse.json({ error: 'Forbidden: WRITE access required' }, { status: 403 });
         }
@@ -46,106 +41,114 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'User with this email already exists' }, { status: 409 });
         }
 
-        // --- 3. TRANSACTIONAL INSERT (User + Roles) ---
-        const { newUser, generatedCredentials } = await db.transaction(async (tx) => {
+        // --- 3. INSERT (User + Roles) ---
+        // Note: No nested db.transaction() is needed here because withTenantDb 
+        // already wraps this entire execution block in a transaction.
+        const newUserData: any = {
+            email,
+            username,
+            phoneNumber,
 
-            const newUserData: any = {
-                email,
-                username,
-                phoneNumber,
+            // BACKWARD COMPATIBILITY save orgRole to legacy role column
+            role: orgRole || 'junior-executive',
 
-                // BACKWARD COMPATIBILITY save orgRole to legacy role column
-                role: orgRole || 'junior-executive',
+            zone,
+            area,
+            status: "active",
+            isDashboardUser: !!isDashboardUser,
+            isSalesAppUser: !!isSalesAppUser,
+        };
 
-                zone,
-                area,
-                status: "active",
-                isDashboardUser: !!isDashboardUser,
-                isSalesAppUser: !!isSalesAppUser,
-            };
+        const credentials: any = {};
+        const emailLocalPart = email.split('@')[0];
+        
+        // Reusable logic for "firstname@123"
+        let defaultGeneratedPassword = "";
+        if (emailLocalPart.includes('.')) {
+            defaultGeneratedPassword = emailLocalPart.split('.')[0] + '@123';
+        } else {
+            defaultGeneratedPassword = emailLocalPart.substring(0, 6) + '@123';
+        }
 
-            const credentials: any = {};
+        // Credential Generation Logic
+        if (newUserData.isDashboardUser) {
+            // NOTE: dashboardHashedPassword is plaintext here despite the
+            // column name -- matches app/api/auth/login/route.ts's
+            // comparison (`user.dashboardHashedPassword !== password`),
+            // which is also plaintext. This is a pre-existing pattern on
+            // the dashboard-login side, left as-is here since fixing it
+            // requires changing both sides together, not just this route.
+            newUserData.dashboardLoginId = email;
+            newUserData.dashboardHashedPassword = defaultGeneratedPassword;
+            credentials.dashboardEmail = email;
+            credentials.dashboardPassword = defaultGeneratedPassword;
+        }
 
-            // Credential Generation Logic
-            if (newUserData.isDashboardUser) {
-                const emailLocalPart = email.split('@')[0];
-                let dashPassword = "";
+        if (newUserData.isSalesAppUser) {
+            // ID becomes the phone number, password uses the identical dashboard logic
+            const salesmanId = phoneNumber;
+            const salesPassword = defaultGeneratedPassword;
 
-                // if email is user.abc@mail.com, pass is user@123
-                if (emailLocalPart.includes('.')) {
-                    dashPassword = emailLocalPart.split('.')[0] + '@123';
-                    // if email is userabc@mail.com, pass is userab@123
-                } else {
-                    dashPassword = emailLocalPart.substring(0, 6) + '@123';
-                }
-                newUserData.dashboardLoginId = email;
-                newUserData.dashboardHashedPassword = dashPassword;
-                credentials.dashboardEmail = email;
-                credentials.dashboardPassword = dashPassword;
+            // Actually hash it here, matching the backend's bcrypt.compare
+            // against salesAppPasswordHash in salesapp_backend/src/auth/login.ts.
+            // Previously this saved the plaintext password into
+            // salesAppPassword -- that field still exists as a legacy
+            // fallback the backend auto-migrates on first login, but
+            // there's no reason to rely on that path for brand-new users
+            // when we can just hash it correctly up front.
+            const salesPasswordHash = await bcrypt.hash(salesPassword, 12);
+
+            newUserData.salesmanLoginId = salesmanId;
+            newUserData.salesAppPasswordHash = salesPasswordHash;
+            newUserData.salesAppPassword = null;
+            credentials.salesmanId = salesmanId;
+            credentials.salesmanPassword = salesPassword;
+        }
+
+        // A. Insert User
+        const inserted = await db.insert(users).values(newUserData).returning();
+        const createdUser = inserted[0];
+
+        // B. Map and Insert Job Roles into userRoles table
+        if (jobRolesArray.length > 0) {
+            const dbRoles = await db
+                .select({ id: rolesTable.id })
+                .from(rolesTable)
+                .where(
+                    and(
+                        eq(rolesTable.orgRole, newUserData.role),
+                        inArray(rolesTable.jobRole, jobRolesArray)
+                    )
+                );
+
+            if (dbRoles.length > 0) {
+                const roleLinks = dbRoles.map(r => ({
+                    userId: createdUser.id,
+                    roleId: r.id
+                }));
+                await db.insert(userRoles).values(roleLinks);
             }
-
-            if (newUserData.isSalesAppUser) {
-                let salesmanId = `EMP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-                const salesPassword = generateRandomPassword();
-                newUserData.salesmanLoginId = salesmanId;
-                newUserData.salesAppPassword = salesPassword; // Swapped to new schema column name
-                credentials.salesmanId = salesmanId;
-                credentials.salesmanPassword = salesPassword;
-            }
-
-            // A. Insert User
-            const inserted = await tx.insert(users).values(newUserData).returning();
-            const createdUser = inserted[0];
-
-            // B. Map and Insert Job Roles into userRoles table
-            if (jobRolesArray.length > 0) {
-                const dbRoles = await tx
-                    .select({ id: rolesTable.id })
-                    .from(rolesTable)
-                    .where(
-                        and(
-                            eq(rolesTable.orgRole, newUserData.role),
-                            inArray(rolesTable.jobRole, jobRolesArray)
-                        )
-                    );
-
-                if (dbRoles.length > 0) {
-                    const roleLinks = dbRoles.map(r => ({
-                        userId: createdUser.id,
-                        roleId: r.id
-                    }));
-                    await tx.insert(userRoles).values(roleLinks);
-                }
-            }
-
-            return { newUser: createdUser, generatedCredentials: credentials };
-        });
+        }
 
         // 4. Return Data (No email sending)
         return NextResponse.json({
             message: 'User created successfully',
-            user: newUser,
-            credentials: generatedCredentials
+            user: createdUser,
+            credentials
         }, { status: 201 });
 
     } catch (error: any) {
         console.error('Error creating user:', error);
         return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
     }
-}
+});
 
 // =======================================================
 // GET
 // =======================================================
 
-export async function GET(request: NextRequest) {
-    if (typeof connection === 'function') await connection();
-
+export const GET = withTenantDb(async (request, db, session) => {
     try {
-        const session = await verifySession();
-        if (!session || !session.userId) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
         if (!hasPermission(session.permissions, "READ")) {
             return NextResponse.json({ error: 'Forbidden: READ access required' }, { status: 403 });
         }
@@ -228,4 +231,4 @@ export async function GET(request: NextRequest) {
         console.error('Error fetching users:', error);
         return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
-}
+});

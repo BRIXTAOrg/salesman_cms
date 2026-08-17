@@ -2,12 +2,13 @@
 import 'server-only';
 import { NextResponse, NextRequest } from 'next/server';
 import { cacheTag, cacheLife } from 'next/cache';
-import { db } from '@/lib/drizzle';
+import { withTenantSchema } from '@/lib/drizzle';
 import { institutions } from '../../../../../drizzle/schema';
 import { eq, and, or, ilike, desc, count, SQL } from 'drizzle-orm';
 import { verifySession, hasPermission } from '@/lib/auth';
 
 async function getCachedInstitutions(
+    schemaName: string,
     page: number,
     pageSize: number,
     search: string | null,
@@ -17,54 +18,55 @@ async function getCachedInstitutions(
 ) {
     'use cache';
     cacheLife('days');
-    cacheTag('institutions-global');
-
-    // Unique cache tag based on active filters and pagination
+    cacheTag(`institutions-global-${schemaName}`);
+    
     const filterKey = `${search}-${zone}-${district}-${area}`;
-    cacheTag(`institutions-${page}-${filterKey}`);
+    cacheTag(`institutions-${schemaName}-${page}-${filterKey}`);
 
-    const filters: SQL[] = [];
+    return withTenantSchema(schemaName, async (db) => {
+        const filters: SQL[] = [];
 
-    if (search) {
-        filters.push(
-            or(
-                ilike(institutions.institutionName, `%${search}%`),
-                ilike(institutions.contactPersonName, `%${search}%`),
-                ilike(institutions.contactPersonNumber, `%${search}%`),
-                ilike(institutions.email, `%${search}%`),
-                ilike(institutions.gstNo, `%${search}%`)
-            )!
-        );
-    }
+        if (search) {
+            filters.push(
+                or(
+                    ilike(institutions.institutionName, `%${search}%`),
+                    ilike(institutions.contactPersonName, `%${search}%`),
+                    ilike(institutions.contactPersonNumber, `%${search}%`),
+                    ilike(institutions.email, `%${search}%`),
+                    ilike(institutions.gstNo, `%${search}%`)
+                )!
+            );
+        }
 
-    if (zone) filters.push(eq(institutions.zone, zone));
-    if (district) filters.push(eq(institutions.district, district));
-    if (area) filters.push(eq(institutions.area, area));
+        if (zone) filters.push(eq(institutions.zone, zone));
+        if (district) filters.push(eq(institutions.district, district));
+        if (area) filters.push(eq(institutions.area, area));
 
-    const whereClause = filters.length > 0 ? and(...filters) : undefined;
+        const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
-    const rawInstitutions = await db
-        .select()
-        .from(institutions)
-        .where(whereClause)
-        .orderBy(desc(institutions.createdAt))
-        .limit(pageSize)
-        .offset(page * pageSize);
+        const rawInstitutions = await db
+            .select()
+            .from(institutions)
+            .where(whereClause)
+            .orderBy(desc(institutions.createdAt))
+            .limit(pageSize)
+            .offset(page * pageSize);
 
-    const totalCountResult = await db
-        .select({ count: count(institutions.id) })
-        .from(institutions)
-        .where(whereClause);
+        const totalCountResult = await db
+            .select({ count: count(institutions.id) })
+            .from(institutions)
+            .where(whereClause);
 
-    const totalCount = Number(totalCountResult[0]?.count ?? 0);
+        const totalCount = Number(totalCountResult[0]?.count ?? 0);
 
-    return { data: rawInstitutions, totalCount };
+        return { data: rawInstitutions, totalCount };
+    });
 }
 
 export async function GET(request: NextRequest) {
+    const session = await verifySession();
     try {
-        const session = await verifySession();
-        if (!session || !session.userId) {
+        if (!session || !session.userId || !session.schemaName) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         
@@ -81,8 +83,8 @@ export async function GET(request: NextRequest) {
         const district = searchParams.get('district');
         const area = searchParams.get('area');
 
-        // Fetch using the cached function
         const result = await getCachedInstitutions(
+            session.schemaName,
             page,
             pageSize,
             search,
