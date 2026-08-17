@@ -104,17 +104,17 @@ export default function SignupPage() {
                         </div>
                         <div>
                             <CardTitle className="text-2xl font-bold tracking-tight">
-                                Company registered
+                                Company created
                             </CardTitle>
                             <CardDescription className="mt-2">
-                                <span className="font-mono font-medium">{schemaName}</span> is on the list. You&apos;ll be able to sign in once your workspace is set up.
+                                <span className="font-mono font-medium">{schemaName}</span> is ready. Sign in with your company code and admin credentials.
                             </CardDescription>
                         </div>
                     </CardHeader>
                     <CardContent>
                         <Link href="/login">
-                            <Button variant="outline" className="w-full h-11 text-base font-semibold">
-                                Back to sign in
+                            <Button className="w-full h-11 text-base font-semibold">
+                                Go to sign in
                             </Button>
                         </Link>
                     </CardContent>

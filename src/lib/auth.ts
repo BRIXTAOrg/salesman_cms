@@ -1,9 +1,11 @@
 // src/lib/auth.ts
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
-import { connection, NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { JWT_KEY } from './Reusable-constants';
 import { withTenantSchema, type AppDatabase } from './drizzle';
+
+export type { AppDatabase };
 
 // In production, MUST use a strong, random 32+ character string in your .env
 const key = new TextEncoder().encode(JWT_KEY);
@@ -31,6 +33,7 @@ export type Session = {
   token: string;
   userId: number;
   schemaName: string;
+  companyName: string;
   username: string;
   email: string;
   orgRole: string;
@@ -39,7 +42,6 @@ export type Session = {
 };
 
 export async function verifySession(): Promise<Session | null> {
-  await connection()
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value;
   if (!token) return null;
@@ -52,6 +54,7 @@ export async function verifySession(): Promise<Session | null> {
     token,
     userId: payload.userId as number,
     schemaName: payload.schemaName as string,
+    companyName: (payload.companyName as string) || 'Company',
     username: payload.username as string,
     email: payload.email as string,
     orgRole: (payload.orgRole as string) || '',
@@ -107,14 +110,14 @@ export function withTenantDb<Ctx = unknown>(
 ) {
   return async (req: NextRequest, context: Ctx) => {
     const session = await verifySession();
- 
+
     if (!session?.schemaName) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 },
       );
     }
- 
+
     try {
       return await withTenantSchema(session.schemaName, (db) =>
         handler(req, db, session, context),

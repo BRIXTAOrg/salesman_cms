@@ -9,48 +9,45 @@ import { organizations } from '../../../../../drizzle/publicSchema';
 
 const SCHEMA_NAME_PATTERN = /^[a-z][a-z0-9_]{0,62}$/;
 
-// Generated fresh via `npx drizzle-kit generate` against the current
+// Generated via `npx drizzle-kit generate` against the current
 // (schema-less) schema.ts + applianceSchema.ts. Statements are separated
-// by drizzle-kit's own "--> statement-breakpoint" marker.
+// by drizzle-kit's own "--> statement-breakpoint" marker. Regenerate this
+// file any time the schema changes.
 const PROVISION_SQL_PATH = path.join(
   process.cwd(),
   'drizzle',
   'provision-schema.sql',
 );
 
+// Matches the org_role/job_role pairing already in use -- see the
+// reference SQL this was ported from. Kept intentionally small: three
+// starter roles, everything else is meant to be configured per-company
+// later through the dashboard, not hardcoded here.
+const DEFAULT_ROLES = [
+  {
+    orgRole: 'Admin',
+    jobRole: 'Admin',
+    grantedPerms: ['READ', 'WRITE', 'UPDATE', 'DELETE', 'MANAGE_USERS', 'ALL_ACCESS'],
+    permDescription: 'Super Administrator with ALL PERMS',
+  },
+  {
+    orgRole: 'Manager',
+    jobRole: 'Manager',
+    grantedPerms: ['READ', 'WRITE', 'UPDATE'],
+    permDescription: 'Common Manager level user',
+  },
+  {
+    orgRole: 'Assistant-Manager',
+    jobRole: 'Assistant-Manager',
+    grantedPerms: ['READ', 'WRITE', 'UPDATE'],
+    permDescription: 'Common Assistant-Manager level user',
+  },
+];
+
 const DEFAULT_CAPABILITIES = [
-  {
-    key: 'attendance',
-    title: 'Attendance',
-    type: 'native',
-    description: 'Check in / check out',
-    icon: 'clock',
-  },
-  {
-    key: 'dealer_visit',
-    title: 'Dealer Visit',
-    type: 'form',
-    description: 'Record a dealer visit',
-    icon: 'map-pin',
-    config: {
-      fields: [
-        { key: 'notes', label: 'Notes', type: 'textarea', required: false },
-        { key: 'photo', label: 'Photo', type: 'photo', required: true },
-      ],
-    },
-  },
-  {
-    key: 'leave',
-    title: 'Leave',
-    type: 'form',
-    description: 'Request time off',
-    icon: 'calendar',
-    config: {
-      fields: [
-        { key: 'reason', label: 'Reason', type: 'textarea', required: true },
-      ],
-    },
-  },
+  { key: 'attendance', title: 'Attendance', type: 'native' },
+  { key: 'leave', title: 'Leave', type: 'native' },
+  { key: 'journey_plan', title: 'Journey Plan', type: 'native' },
 ];
 
 async function runProvisionSql(tx: AppDatabase) {
@@ -60,7 +57,7 @@ async function runProvisionSql(tx: AppDatabase) {
     fileContents = await readFile(PROVISION_SQL_PATH, 'utf8');
   } catch {
     throw new Error(
-      `Missing ${PROVISION_SQL_PATH}. Generate it with "npx drizzle-kit generate" ` +
+      `Missing ${PROVISION_SQL_PATH}. Regenerate it with "npx drizzle-kit generate" ` +
         'against the current schema.ts before company signup can run.',
     );
   }
@@ -121,9 +118,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Password must be at least 6 characters.' }, { status: 400 });
   }
 
-  // 1. Reserve the schema name. Checked against public.organizations
-  // first (cheap, friendly error) -- the schema's own unique index is the
-  // real guard against a race between two concurrent signups.
+  // Reserve the schema name. Checked against public.organizations first
+  // (cheap, friendly error) -- the schema's own CREATE SCHEMA below is
+  // the real guard against a race between two concurrent signups (it
+  // fails loudly if the schema already exists).
   const [existing] = await db
     .select({ id: organizations.id })
     .from(organizations)
@@ -137,65 +135,70 @@ export async function POST(request: NextRequest) {
   let schemaCreated = false;
 
   try {
-    // 2. Create the schema itself. Deliberately a plain pool query, not
+    // 1. Create the schema itself. Deliberately a plain pool query, not
     // inside withTenantSchema -- search_path can't usefully point at a
     // schema that doesn't exist yet.
     await pool.query(`CREATE SCHEMA "${schemaName}"`);
     schemaCreated = true;
 
-    // 3. Build every table inside it, then seed defaults, all inside one
-    // transaction with search_path locked to the new schema.
+    // 2. Build every table, seed defaults, and create the admin user --
+    // all inside one transaction with search_path locked to the new
+    // schema, so it's all-or-nothing.
     await withTenantSchema(schemaName, async (tx) => {
       await runProvisionSql(tx);
 
-      const [adminRole] = await tx
+      const insertedRoles = await tx
         .insert(roles)
-        .values({
-          orgRole: 'Admin',
-          jobRole: 'Administrator',
-          grantedPerms: ['ALL_ACCESS'],
-          permDescription: 'Full system access',
-        })
+        .values(DEFAULT_ROLES)
         .returning();
+
+      const adminRole = insertedRoles.find((role) => role.orgRole === 'Admin');
+
+      if (!adminRole) {
+        // Should be unreachable given DEFAULT_ROLES above, but guards
+        // against silently linking the new user to the wrong role if
+        // that list is ever edited without updating this lookup.
+        throw new Error('Admin role was not created during provisioning.');
+      }
 
       await tx.insert(mobileCapabilities).values(
         DEFAULT_CAPABILITIES.map((capability) => ({
           key: capability.key,
           title: capability.title,
           type: capability.type,
-          description: capability.description,
-          icon: capability.icon,
-          config: capability.config ?? {},
           isActive: true,
         })),
       );
 
+      // NOTE: dashboardHashedPassword is plaintext here despite the
+      // column name -- matches app/api/auth/login/route.ts's comparison
+      // (`user.dashboardHashedPassword !== password`), which is also
+      // plaintext. Same pre-existing pattern as the users-and-team
+      // create/update routes.
       const [adminUser] = await tx
         .insert(users)
         .values({
           email: String(adminEmail).trim(),
           username: String(adminName).trim(),
           displayName: String(adminName).trim(),
-          role: 'ADMIN',
+          role: adminRole.orgRole ?? 'Admin',
           status: 'active',
           isDashboardUser: true,
           dashboardLoginId: String(adminEmail).trim(),
-          // NOTE: matches the existing (plaintext) comparison in
-          // app/api/auth/login/route.ts -- not actually hashed despite
-          // the column name. Pre-existing behavior, not something this
-          // signup route introduces.
           dashboardHashedPassword: String(adminPassword),
           isSalesAppUser: false,
         })
         .returning();
 
+      // The user who registers the company is the Admin, by default and
+      // automatically -- no separate "assign a role" step for this one.
       await tx.insert(userRoles).values({
         userId: adminUser.id,
         roleId: adminRole.id,
       });
     });
 
-    // 4. Register the tenant. Last step, deliberately -- a company only
+    // 3. Register the tenant. Last step, deliberately -- a company only
     // becomes "real" (loggable-into) once provisioning fully succeeded.
     await db.insert(organizations).values({
       name: String(companyName).trim(),
@@ -203,6 +206,9 @@ export async function POST(request: NextRequest) {
       phoneNumber: String(contactNumber).trim(),
       email: companyEmail ? String(companyEmail).trim() : null,
       officeAddress: String(officeAddress).trim(),
+      adminName: String(adminName).trim(),
+      adminEmail: String(adminEmail).trim(),
+      isProvisioned: true,
     });
 
     return NextResponse.json({

@@ -1,5 +1,6 @@
 // src/lib/reports-transformer.ts
 import { db } from '@/lib/drizzle';
+import { AppDatabase } from '@/lib/drizzle';
 import {
   users, roles, userRoles, dealers, distributors, outlets, influencers, institutions, dailyVisitReports,
   permanentJourneyPlans, salesmanAttendance, salesmanLeaveApplications, journeyOps,
@@ -72,7 +73,7 @@ type RawUserRow = InferSelectModel<typeof users> & {
   jobRole: string | null;
 };
 
-export async function getFlattenedUsers() {
+export async function getFlattenedUsers(db: AppDatabase) {
   const reportsToUsers = aliasedTable(users, 'reportsTo');
 
   const rawUsers = (await db
@@ -127,7 +128,7 @@ export async function getFlattenedUsers() {
   });
 }
 
-export async function getFlattenedDealers() {
+export async function getFlattenedDealers(db: AppDatabase) {
   const rawDealers = await db
     .select()
     .from(dealers)
@@ -151,7 +152,7 @@ export async function getFlattenedDealers() {
   }));
 }
 
-export async function getFlattenedDistributors() {
+export async function getFlattenedDistributors(db: AppDatabase) {
   const raw = await db
     .select({
       ...getTableColumns(distributors),
@@ -190,7 +191,7 @@ export async function getFlattenedDistributors() {
   });
 }
 
-export async function getFlattenedOutlets() {
+export async function getFlattenedOutlets(db: AppDatabase) {
   const raw = await db
     .select({
       ...getTableColumns(outlets),
@@ -232,7 +233,7 @@ export async function getFlattenedOutlets() {
   });
 }
 
-export async function getFlattenedInstitutions() {
+export async function getFlattenedInstitutions(db: AppDatabase) {
   const raw = await db
     .select()
     .from(institutions)
@@ -265,7 +266,7 @@ export async function getFlattenedInstitutions() {
   });
 }
 
-export async function getFlattenedInfluencers() {
+export async function getFlattenedInfluencers(db: AppDatabase) {
   const raw = await db
     .select()
     .from(influencers)
@@ -295,7 +296,7 @@ export async function getFlattenedInfluencers() {
   });
 }
 
-export async function getFlattenedDailyVisitReports() {
+export async function getFlattenedDailyVisitReports(db: AppDatabase) {
   const raw = await db
     .select({
       ...getTableColumns(dailyVisitReports),
@@ -356,7 +357,7 @@ export async function getFlattenedDailyVisitReports() {
   });
 }
 
-export async function getFlattenedSoPerformanceMetrics(
+export async function getFlattenedSoPerformanceMetrics(db: AppDatabase,
   startDate?: Date,
   endDate?: Date
 ) {
@@ -413,7 +414,7 @@ export async function getFlattenedSoPerformanceMetrics(
   });
 }
 
-export async function getFlattenedPermanentJourneyPlans() {
+export async function getFlattenedPermanentJourneyPlans(db: AppDatabase) {
   const createdByUsers = aliasedTable(users, 'createdBy');
 
   const rawReports = await db
@@ -469,7 +470,7 @@ export async function getFlattenedPermanentJourneyPlans() {
   });
 }
 
-export async function getFlattenedSalesmanAttendance() {
+export async function getFlattenedSalesmanAttendance(db: AppDatabase) {
   const rawReports = await db
     .select({
       ...getTableColumns(salesmanAttendance),
@@ -519,7 +520,7 @@ export const formatToShortTextDate = (date: Date | string | null | undefined): s
   return `${day}-${month}-${year}`;
 };
 
-export async function getFlattenedSalesmanLeaveApplication(
+export async function getFlattenedSalesmanLeaveApplication(db: AppDatabase,
   startDate?: Date,
   endDate?: Date
 ) {
@@ -569,7 +570,7 @@ export async function getFlattenedSalesmanLeaveApplication(
   }));
 }
 
-export async function getFlattenedGeoTracking() {
+export async function getFlattenedGeoTracking(db: AppDatabase) {
   const rawReports = await db
     .select({
       opId: journeyOps.opId,
@@ -619,7 +620,7 @@ export async function getFlattenedGeoTracking() {
   });
 }
 
-export async function getFlattenedTadaBills() {
+export async function getFlattenedTadaBills(db: AppDatabase) {
   const raw = await db
     .select({
       ...getTableColumns(tadaBillItems),

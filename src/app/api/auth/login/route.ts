@@ -22,7 +22,10 @@ export async function POST(request: NextRequest) {
     // see, regardless of search_path, because there's no tenant to
     // resolve into yet at this point.
     const [org] = await db
-      .select({ schemaName: organizations.schemaName })
+      .select({
+        schemaName: organizations.schemaName,
+        name: organizations.name,
+      })
       .from(organizations)
       .where(eq(organizations.schemaName, String(companyCode).trim().toLowerCase()))
       .limit(1);
@@ -118,6 +121,7 @@ export async function POST(request: NextRequest) {
     const sessionData = {
       userId: user.id,
       schemaName: org.schemaName,
+      companyName: org.name,
       email: user.email,
       username: user.username,
       orgRole: primaryOrgRole,
