@@ -1,1 +1,1 @@
-# salesman_cms for Kamdhenu
+# salesman_cms for Generalised FieldForce SalesApp

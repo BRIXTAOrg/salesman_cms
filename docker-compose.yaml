@@ -1,11 +1,11 @@
 services:
-  kamdhenudashb:
+  salesappdashboard:
     # Use your Docker image name here
-    image: goswamirohit/kamdhenudashb:v1
-    container_name: kamdhenudashb
+    image: goswamirohit/salesappdashboard:v1
+    container_name: salesappdashboard
     restart: unless-stopped
     ports:
-      - "55007:3000"
+      - "55010:3000"
     # This is the key line that tells Docker to read the variables from the .env file
     env_file:
       - .env.production
@@ -16,3 +16,6 @@ services:
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
       - NODE_OPTIONS=--max-old-space-size=1536
       - JWT_SECRET=${JWT_SECRET}
+      - SALESAPP_BACKEND_URL=${SALESAPP_BACKEND_URL}
+      - FLOW1_ADMIN_SECRET=${FLOW1_ADMIN_SECRET}
+      - ADMIN_SERVICE_SECRET=${ADMIN_SERVICE_SECRET}
