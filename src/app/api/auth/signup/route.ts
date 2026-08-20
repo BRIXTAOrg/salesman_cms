@@ -1,69 +1,146 @@
-// src/app/api/auth/signup/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
-import { sql, eq } from 'drizzle-orm';
-import { db, pool, withTenantSchema, type AppDatabase } from '@/lib/drizzle';
-import { users, roles, userRoles, mobileCapabilities } from '../../../../../drizzle/schema';
-import { organizations } from '../../../../../drizzle/publicSchema';
+import { NextRequest, NextResponse } from "next/server";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { sql, eq } from "drizzle-orm";
+
+import {
+  db,
+  pool,
+  withTenantSchema,
+  type AppDatabase,
+} from "@/lib/drizzle";
+
+import {
+  users,
+  roles,
+  userRoles,
+  mobileCapabilities,
+} from "../../../../../drizzle/schema";
+
+import {
+  organizationEntitlements,
+  organizations,
+} from "../../../../../drizzle/publicSchema";
+
+import { ENTITLEMENT_KEYS } from "@/lib/entitlements";
 
 const SCHEMA_NAME_PATTERN = /^[a-z][a-z0-9_]{0,62}$/;
 
-// Generated via `npx drizzle-kit generate` against the current
-// (schema-less) schema.ts + applianceSchema.ts. Statements are separated
-// by drizzle-kit's own "--> statement-breakpoint" marker. Regenerate this
-// file any time the schema changes.
-const PROVISION_SQL_PATH = path.join(
+const CORE_PROVISION_SQL_PATH = path.join(
   process.cwd(),
-  'drizzle',
-  'provision-schema.sql',
+  "drizzle",
+  "provision-schema.sql",
 );
 
-// Matches the org_role/job_role pairing already in use -- see the
-// reference SQL this was ported from. Kept intentionally small: three
-// starter roles, everything else is meant to be configured per-company
-// later through the dashboard, not hardcoded here.
+const WORKFLOW_PROVISION_SQL_PATH = path.join(
+  process.cwd(),
+  "drizzle",
+  "workflow-provision.sql",
+);
+
 const DEFAULT_ROLES = [
   {
-    orgRole: 'Admin',
-    jobRole: 'Admin',
-    grantedPerms: ['READ', 'WRITE', 'UPDATE', 'DELETE', 'MANAGE_USERS', 'ALL_ACCESS'],
-    permDescription: 'Super Administrator with ALL PERMS',
+    orgRole: "Admin",
+    jobRole: "Admin",
+    grantedPerms: [
+      "READ",
+      "WRITE",
+      "UPDATE",
+      "DELETE",
+      "MANAGE_USERS",
+      "ALL_ACCESS",
+    ],
+    permDescription: "Super Administrator with ALL PERMS",
   },
   {
-    orgRole: 'Manager',
-    jobRole: 'Manager',
-    grantedPerms: ['READ', 'WRITE', 'UPDATE'],
-    permDescription: 'Common Manager level user',
+    orgRole: "Manager",
+    jobRole: "Manager",
+    grantedPerms: ["READ", "WRITE", "UPDATE"],
+    permDescription: "Common Manager level user",
   },
   {
-    orgRole: 'Assistant-Manager',
-    jobRole: 'Assistant-Manager',
-    grantedPerms: ['READ', 'WRITE', 'UPDATE'],
-    permDescription: 'Common Assistant-Manager level user',
+    orgRole: "Assistant-Manager",
+    jobRole: "Assistant-Manager",
+    grantedPerms: ["READ", "WRITE", "UPDATE"],
+    permDescription: "Common Assistant-Manager level user",
   },
 ];
 
 const DEFAULT_CAPABILITIES = [
-  { key: 'attendance', title: 'Attendance', type: 'native' },
-  { key: 'leave', title: 'Leave', type: 'native' },
-  { key: 'journey_plan', title: 'Journey Plan', type: 'native' },
+  {
+    key: "attendance",
+    title: "Attendance",
+    type: "native",
+    config: {
+      origin: "builtin",
+      nativeKey: "attendance",
+    },
+  },
+  {
+    key: "leave",
+    title: "Leave",
+    type: "native",
+    config: {
+      origin: "builtin",
+      nativeKey: "leave",
+    },
+  },
+  {
+    key: "journey_plan",
+    title: "Journey Plan",
+    type: "native",
+    config: {
+      origin: "builtin",
+      nativeKey: "journey_plan",
+    },
+  },
 ];
 
-async function runProvisionSql(tx: AppDatabase) {
+const DEFAULT_ENTITLEMENTS = [
+  {
+    featureKey: ENTITLEMENT_KEYS.ATTENDANCE_USE,
+    enabled: true,
+  },
+  {
+    featureKey: ENTITLEMENT_KEYS.LEAVE_USE,
+    enabled: true,
+  },
+  {
+    featureKey: ENTITLEMENT_KEYS.JOURNEY_PLAN_USE,
+    enabled: true,
+  },
+  {
+    featureKey: ENTITLEMENT_KEYS.VISIT_REPORT_USE,
+    enabled: true,
+  },
+
+  // Paid / controlled features start OFF.
+  {
+    featureKey: ENTITLEMENT_KEYS.RESPONSIBILITY_CREATE,
+    enabled: false,
+  },
+  {
+    featureKey: ENTITLEMENT_KEYS.WORKFLOW_CUSTOMIZE,
+    enabled: false,
+  },
+];
+
+async function runSqlFile(
+  tx: AppDatabase,
+  filePath: string,
+) {
   let fileContents: string;
 
   try {
-    fileContents = await readFile(PROVISION_SQL_PATH, 'utf8');
+    fileContents = await readFile(filePath, "utf8");
   } catch {
     throw new Error(
-      `Missing ${PROVISION_SQL_PATH}. Regenerate it with "npx drizzle-kit generate" ` +
-        'against the current schema.ts before company signup can run.',
+      `Missing provisioning SQL: ${filePath}`,
     );
   }
 
   const statements = fileContents
-    .split('--> statement-breakpoint')
+    .split("--> statement-breakpoint")
     .map((statement) => statement.trim())
     .filter(Boolean);
 
@@ -76,7 +153,10 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
 
   if (!body) {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
   }
 
   const {
@@ -100,28 +180,35 @@ export async function POST(request: NextRequest) {
     !adminPassword
   ) {
     return NextResponse.json(
-      { error: 'Company name, code, office address, contact number, and admin details are required.' },
+      {
+        error:
+          "Company name, code, office address, contact number, and admin details are required.",
+      },
       { status: 400 },
     );
   }
 
-  const schemaName = String(rawSchemaName).trim().toLowerCase();
+  const schemaName = String(rawSchemaName)
+    .trim()
+    .toLowerCase();
 
   if (!SCHEMA_NAME_PATTERN.test(schemaName)) {
     return NextResponse.json(
-      { error: 'Company code must start with a letter and contain only lowercase letters, numbers and underscores.' },
+      {
+        error:
+          "Company code must start with a letter and contain only lowercase letters, numbers and underscores.",
+      },
       { status: 400 },
     );
   }
 
   if (String(adminPassword).length < 6) {
-    return NextResponse.json({ error: 'Password must be at least 6 characters.' }, { status: 400 });
+    return NextResponse.json(
+      { error: "Password must be at least 6 characters." },
+      { status: 400 },
+    );
   }
 
-  // Reserve the schema name. Checked against public.organizations first
-  // (cheap, friendly error) -- the schema's own CREATE SCHEMA below is
-  // the real guard against a race between two concurrent signups (it
-  // fails loudly if the schema already exists).
   const [existing] = await db
     .select({ id: organizations.id })
     .from(organizations)
@@ -129,107 +216,153 @@ export async function POST(request: NextRequest) {
     .limit(1);
 
   if (existing) {
-    return NextResponse.json({ error: 'That company code is already taken.' }, { status: 409 });
+    return NextResponse.json(
+      { error: "That company code is already taken." },
+      { status: 409 },
+    );
   }
 
   let schemaCreated = false;
 
   try {
-    // 1. Create the schema itself. Deliberately a plain pool query, not
-    // inside withTenantSchema -- search_path can't usefully point at a
-    // schema that doesn't exist yet.
+    // 1. Physical tenant schema.
     await pool.query(`CREATE SCHEMA "${schemaName}"`);
     schemaCreated = true;
 
-    // 2. Build every table, seed defaults, and create the admin user --
-    // all inside one transaction with search_path locked to the new
-    // schema, so it's all-or-nothing.
-    await withTenantSchema(schemaName, async (tx) => {
-      await runProvisionSql(tx);
+    // 2. Build the tenant substrate.
+    await withTenantSchema(
+      schemaName,
+      async (tx) => {
+        await runSqlFile(
+          tx,
+          CORE_PROVISION_SQL_PATH,
+        );
 
-      const insertedRoles = await tx
-        .insert(roles)
-        .values(DEFAULT_ROLES)
-        .returning();
+        // Workflow tables are provisioned after the existing application
+        // tables because they reference users, roles and capabilities.
+        await runSqlFile(
+          tx,
+          WORKFLOW_PROVISION_SQL_PATH,
+        );
 
-      const adminRole = insertedRoles.find((role) => role.orgRole === 'Admin');
+        const insertedRoles = await tx
+          .insert(roles)
+          .values(DEFAULT_ROLES)
+          .returning();
 
-      if (!adminRole) {
-        // Should be unreachable given DEFAULT_ROLES above, but guards
-        // against silently linking the new user to the wrong role if
-        // that list is ever edited without updating this lookup.
-        throw new Error('Admin role was not created during provisioning.');
-      }
+        const adminRole = insertedRoles.find(
+          (role) => role.orgRole === "Admin",
+        );
 
-      await tx.insert(mobileCapabilities).values(
-        DEFAULT_CAPABILITIES.map((capability) => ({
-          key: capability.key,
-          title: capability.title,
-          type: capability.type,
-          isActive: true,
-        })),
-      );
+        if (!adminRole) {
+          throw new Error(
+            "Admin role was not created during provisioning.",
+          );
+        }
 
-      // NOTE: dashboardHashedPassword is plaintext here despite the
-      // column name -- matches app/api/auth/login/route.ts's comparison
-      // (`user.dashboardHashedPassword !== password`), which is also
-      // plaintext. Same pre-existing pattern as the users-and-team
-      // create/update routes.
-      const [adminUser] = await tx
-        .insert(users)
+        await tx
+          .insert(mobileCapabilities)
+          .values(
+            DEFAULT_CAPABILITIES.map(
+              (capability) => ({
+                ...capability,
+                isActive: true,
+              }),
+            ),
+          );
+
+        /**
+         * NOTE:
+         * This retains the repository's current dashboard-password
+         * behavior so this patch stays scoped to access/workflow work.
+         * Move dashboard auth to bcrypt/Argon2 in the next security patch.
+         */
+        const [adminUser] = await tx
+          .insert(users)
+          .values({
+            email: String(adminEmail).trim(),
+            username: String(adminName).trim(),
+            displayName: String(adminName).trim(),
+            role: adminRole.orgRole ?? "Admin",
+            status: "active",
+            isDashboardUser: true,
+            dashboardLoginId: String(adminEmail).trim(),
+            dashboardHashedPassword: String(adminPassword),
+            isSalesAppUser: false,
+          })
+          .returning();
+
+        await tx.insert(userRoles).values({
+          userId: adminUser.id,
+          roleId: adminRole.id,
+        });
+      },
+    );
+
+    // 3. Register tenant + feature entitlements atomically in public.
+    await db.transaction(async (tx) => {
+      const [organization] = await tx
+        .insert(organizations)
         .values({
-          email: String(adminEmail).trim(),
-          username: String(adminName).trim(),
-          displayName: String(adminName).trim(),
-          role: adminRole.orgRole ?? 'Admin',
-          status: 'active',
-          isDashboardUser: true,
-          dashboardLoginId: String(adminEmail).trim(),
-          dashboardHashedPassword: String(adminPassword),
-          isSalesAppUser: false,
+          name: String(companyName).trim(),
+          schemaName,
+          phoneNumber: String(contactNumber).trim(),
+          email: companyEmail
+            ? String(companyEmail).trim()
+            : null,
+          officeAddress: String(officeAddress).trim(),
+          adminName: String(adminName).trim(),
+          adminEmail: String(adminEmail).trim(),
+          isProvisioned: true,
         })
-        .returning();
+        .returning({
+          id: organizations.id,
+        });
 
-      // The user who registers the company is the Admin, by default and
-      // automatically -- no separate "assign a role" step for this one.
-      await tx.insert(userRoles).values({
-        userId: adminUser.id,
-        roleId: adminRole.id,
-      });
+      await tx
+        .insert(organizationEntitlements)
+        .values(
+          DEFAULT_ENTITLEMENTS.map(
+            (entitlement) => ({
+              organizationId: organization.id,
+              featureKey: entitlement.featureKey,
+              enabled: entitlement.enabled,
+              source: "signup_default",
+            }),
+          ),
+        );
     });
 
-    // 3. Register the tenant. Last step, deliberately -- a company only
-    // becomes "real" (loggable-into) once provisioning fully succeeded.
-    await db.insert(organizations).values({
-      name: String(companyName).trim(),
-      schemaName,
-      phoneNumber: String(contactNumber).trim(),
-      email: companyEmail ? String(companyEmail).trim() : null,
-      officeAddress: String(officeAddress).trim(),
-      adminName: String(adminName).trim(),
-      adminEmail: String(adminEmail).trim(),
-      isProvisioned: true,
-    });
-
-    return NextResponse.json({
-      message: 'Company created',
-      schemaName,
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        message: "Company created",
+        schemaName,
+      },
+      { status: 201 },
+    );
   } catch (error) {
-    console.error('Signup error:', error);
+    console.error("Signup error:", error);
 
-    // Best-effort cleanup so a failed signup doesn't leave an orphaned,
-    // half-built schema with no registry row pointing at it.
     if (schemaCreated) {
       try {
-        await pool.query(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
+        await pool.query(
+          `DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`,
+        );
       } catch (cleanupError) {
-        console.error('Signup cleanup failed:', cleanupError);
+        console.error(
+          "Signup cleanup failed:",
+          cleanupError,
+        );
       }
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to create company.' },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to create company.",
+      },
       { status: 500 },
     );
   }

@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -7,13 +6,14 @@ import {
   useState,
   type ComponentType,
 } from "react";
+
 import Link from "next/link";
 import {
   usePathname,
 } from "next/navigation";
+
 import {
   BadgeCheck,
-  BarChart3,
   Blocks,
   Building2,
   CalendarCheck2,
@@ -21,7 +21,7 @@ import {
   ClipboardList,
   FileBarChart,
   Gauge,
-  KeyRound,
+  GitBranch,
   Landmark,
   LogOut,
   MapPinned,
@@ -47,237 +47,101 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
+import type {
+  WorkspaceManifest,
+} from "@/lib/workspace-types";
+
 type Props = {
   userRole: string;
   permissions: string[];
   jobRoles?: string[];
 };
 
-type NavItem = {
-  label: string;
-  href: string;
-  icon: ComponentType<{
+const icons: Record<
+  string,
+  ComponentType<{
     className?: string;
-  }>;
-  manageOnly?: boolean;
+  }>
+> = {
+  gauge: Gauge,
+  users: Users,
+  network: Network,
+  "calendar-check": CalendarCheck2,
+  "calendar-off": CalendarOff,
+  "map-pin": MapPinned,
+  smartphone: Smartphone,
+  blocks: Blocks,
+  "clipboard-list": ClipboardList,
+  "badge-check": BadgeCheck,
+  "git-branch": GitBranch,
+  route: Route,
+  warehouse: Warehouse,
+  store: Store,
+  landmark: Landmark,
+  building: Building2,
+  receipt: Receipt,
+  "file-chart": FileBarChart,
+  "user-cog": UserRoundCog,
+  settings: Settings2,
 };
 
-type NavGroup = {
-  label: string;
-  items: NavItem[];
-};
-
-const groups: NavGroup[] = [
-  {
-    label: "Control",
-    items: [
-      {
-        label: "Control Center",
-        href: "/dashboard",
-        icon: Gauge,
-      },
-      {
-        label: "Download Custom Reports",
-        href: "/home/customReportGenerator",
-        icon: FileBarChart,
-      },
-    ],
-  },
-  {
-    label: "Workforce",
-    items: [
-      {
-        label: "Employees",
-        href: "/dashboard/workforce/employees",
-        icon: Users,
-      },
-      {
-        label: "Organization",
-        href: "/dashboard/workforce/organization",
-        icon: Network,
-      },
-      {
-        label: "Attendance",
-        href: "/dashboard/slmAttendance",
-        icon: CalendarCheck2,
-      },
-      {
-        label: "Live Location",
-        href: "/dashboard/slmGeotracking",
-        icon: MapPinned,
-      },
-      {
-        label: "Leave",
-        href: "/dashboard/slmLeaves",
-        icon: CalendarOff,
-      },
-      {
-        label: "Devices",
-        href: "/dashboard/workforce/devices",
-        icon: Smartphone,
-        manageOnly: true,
-      },
-    ],
-  },
-  {
-    label: "Workspace",
-    items: [
-      {
-        label: "Responsibilities",
-        href: "/dashboard/workspace/responsibilities",
-        icon: Blocks,
-        manageOnly: true,
-      },
-      {
-        label: "Assignments",
-        href: "/dashboard/workspace/assignments",
-        icon: ClipboardList,
-        manageOnly: true,
-      },
-      {
-        label: "Approvals",
-        href: "/dashboard/workspace/approvals",
-        icon: BadgeCheck,
-        manageOnly: true,
-      },
-    ],
-  },
-  {
-    label: "Field Operations",
-    items: [
-      {
-        label: "Journey Plans",
-        href: "/dashboard/permanentJourneyPlan",
-        icon: Route,
-      },
-      // {
-      //   label: "Dealers",
-      //   href: "/dashboard/dealerManagement",
-      //   icon: Store,
-      // },
-      {
-        label: "Distributors",
-        href: "/dashboard/distributorManagement",
-        icon: Warehouse,
-      },
-      {
-        label: "Outlets",
-        href: "/dashboard/outletManagement",
-        icon: Store,
-      },
-      {
-        label: "Institutions",
-        href: "/dashboard/institutionManagement",
-        icon: Landmark,
-      },
-      {
-        label: "Influencers",
-        href: "/dashboard/influencerManagement",
-        icon: Building2,
-      },
-    ],
-  },
-  {
-    label: "Money & Reports",
-    items: [
-      {
-        label: "TA / DA",
-        href: "/dashboard/tadaBill",
-        icon: Receipt,
-      },
-      {
-        label: "Operational Reports",
-        href: "/dashboard/reports",
-        icon: BarChart3,
-      },
-    ],
-  },
-  {
-    label: "Administration",
-    items: [
-      {
-        label: "Dashboard Access",
-        href: "/dashboard/usersAndTeam",
-        icon: UserRoundCog,
-        manageOnly: true,
-      },
-      {
-        label: "Setup",
-        href: "/dashboard/administration/setup",
-        icon: Settings2,
-        manageOnly: true,
-      },
-    ],
-  },
-];
-
-export function AppSidebar({
-  permissions = [],
-}: Props) {
+export function AppSidebar(
+  _props: Props,
+) {
   const pathname = usePathname();
-  const [userName, setUserName] =
-    useState("User");
-  const [companyName, setCompanyName] =
-    useState("Kamdhenu");
 
-  const canManage =
-    permissions.includes("ALL_ACCESS") ||
-    permissions.includes("WRITE") ||
-    permissions.includes("UPDATE");
+  const [
+    manifest,
+    setManifest,
+  ] = useState<WorkspaceManifest | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadIdentity() {
+    async function load() {
       try {
         const response = await fetch(
-          "/api/me",
+          "/api/workspace/manifest",
           {
             cache: "no-store",
           },
         );
 
-        if (!response.ok) return;
+        if (!response.ok) {
+          return;
+        }
 
-        const data = await response.json();
+        const body = await response.json();
 
         if (!cancelled) {
-          setCompanyName(
-            data.companyName ||
-              "Kamdhenu",
-          );
-          setUserName(
-            data.username || "User",
+          setManifest(
+            body.manifest ?? null,
           );
         }
       } catch {
-        // Identity is decorative; navigation still works.
+        // The shell remains usable; the manifest endpoint
+        // is the canonical source of business navigation.
       }
     }
 
-    void loadIdentity();
+    void load();
+
+    const timer = window.setInterval(
+      () => void load(),
+      60_000,
+    );
 
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
   }, []);
 
-  const visibleGroups = useMemo(
-    () =>
-      groups
-        .map((group) => ({
-          ...group,
-          items: group.items.filter(
-            (item) =>
-              !item.manageOnly ||
-              canManage,
-          ),
-        }))
-        .filter(
-          (group) =>
-            group.items.length > 0,
-        ),
-    [canManage],
+  const groups = useMemo(
+    () => manifest?.navigation ?? [],
+    [manifest],
   );
 
   return (
@@ -290,76 +154,77 @@ export function AppSidebar({
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-foreground text-background">
             <ShieldCheck className="h-5 w-5" />
           </div>
+
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold">
-              {companyName}
+              {manifest?.identity
+                .companyName ??
+                "Field Control"}
             </div>
+
             <div className="truncate text-xs text-muted-foreground">
-              Field Control · {userName}
+              {manifest
+                ? `Field Control · ${manifest.identity.username}`
+                : "Loading workspace..."}
             </div>
           </div>
         </Link>
       </SidebarHeader>
 
       <SidebarContent className="px-2 py-3">
-        {visibleGroups.map(
-          (group) => (
-            <SidebarGroup
-              key={group.label}
-              className="py-2"
-            >
-              <div className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {group.label}
-              </div>
+        {groups.map((group) => (
+          <SidebarGroup
+            key={group.key}
+            className="py-2"
+          >
+            <div className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {group.label}
+            </div>
 
-              <SidebarMenu>
-                {group.items.map(
-                  (item) => {
-                    const active =
-                      item.href ===
-                      "/dashboard"
-                        ? pathname ===
-                          "/dashboard"
-                        : pathname.startsWith(
-                            item.href,
-                          );
+            <SidebarMenu>
+              {group.items.map(
+                (item) => {
+                  const active =
+                    item.href ===
+                    "/dashboard"
+                      ? pathname ===
+                        "/dashboard"
+                      : pathname.startsWith(
+                          item.href,
+                        );
 
-                    const Icon =
-                      item.icon;
+                  const Icon =
+                    icons[item.icon] ??
+                    Blocks;
 
-                    return (
-                      <SidebarMenuItem
-                        key={item.href}
+                  return (
+                    <SidebarMenuItem
+                      key={item.key}
+                    >
+                      <SidebarMenuButton
+                        asChild
+                        className={
+                          active
+                            ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                            : ""
+                        }
                       >
-                        <SidebarMenuButton
-                          asChild
-                          className={
-                            active
-                              ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                              : ""
-                          }
+                        <Link
+                          href={item.href}
                         >
-                          <Link
-                            href={
-                              item.href
-                            }
-                          >
-                            <Icon className="h-4 w-4" />
-                            <span>
-                              {
-                                item.label
-                              }
-                            </span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  },
-                )}
-              </SidebarMenu>
-            </SidebarGroup>
-          ),
-        )}
+                          <Icon className="h-4 w-4" />
+                          <span>
+                            {item.label}
+                          </span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                },
+              )}
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
 
         <SidebarGroup className="mt-auto py-2">
           <SidebarMenu>
@@ -377,7 +242,9 @@ export function AppSidebar({
                     className="w-full"
                   >
                     <LogOut className="h-4 w-4" />
-                    <span>Logout</span>
+                    <span>
+                      Logout
+                    </span>
                   </button>
                 </SidebarMenuButton>
               </form>

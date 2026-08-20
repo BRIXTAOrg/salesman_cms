@@ -1,34 +1,30 @@
-
 "use client";
 
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState,
 } from "react";
+
 import Link from "next/link";
+
 import {
   AlertTriangle,
   ArrowRight,
-  BadgeCheck,
-  CalendarCheck2,
   CheckCircle2,
-  ClipboardList,
+  GitBranch,
   RefreshCw,
-  Settings2,
-  Smartphone,
-  UserPlus,
-  Users,
 } from "lucide-react";
 
 import type {
-  AdminHome,
-} from "@/lib/appliance-types";
+  WorkspaceManifest,
+} from "@/lib/workspace-types";
+
 import {
   apiJson,
   cx,
 } from "./client";
+
 import {
   EmptyState,
   PageIntro,
@@ -38,54 +34,19 @@ import {
   Stat,
 } from "./primitives";
 
-const actionRoutes: Record<
-  string,
-  string
-> = {
-  employees:
-    "/dashboard/workforce/employees",
-  attendance:
-    "/dashboard/slmAttendance",
-  live_location:
-    "/dashboard/slmGeotracking",
-  approvals:
-    "/dashboard/workspace/approvals",
-  responsibilities:
-    "/dashboard/workspace/responsibilities",
-  assignments:
-    "/dashboard/workspace/assignments",
-  leave:
-    "/dashboard/slmLeaves",
-  ta_da:
-    "/dashboard/tadaBill",
-  journey_plans:
-    "/dashboard/permanentJourneyPlan",
-  reports:
-    "/dashboard/reports",
-  devices:
-    "/dashboard/workforce/devices",
-};
-
-function greeting() {
-  const hour =
-    new Date().getHours();
-
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
-}
-
 export default function ControlCenterClient() {
-  const [home, setHome] =
-    useState<AdminHome | null>(
-      null,
-    );
+  const [
+    manifest,
+    setManifest,
+  ] = useState<WorkspaceManifest | null>(
+    null,
+  );
+
   const [loading, setLoading] =
     useState(true);
+
   const [error, setError] =
-    useState<string | null>(
-      null,
-    );
+    useState<string | null>(null);
 
   const load = useCallback(
     async () => {
@@ -96,12 +57,12 @@ export default function ControlCenterClient() {
         const body =
           await apiJson<{
             success: boolean;
-            home: AdminHome;
+            manifest: WorkspaceManifest;
           }>(
-            "/api/appliance/home",
+            "/api/workspace/manifest",
           );
 
-        setHome(body.home);
+        setManifest(body.manifest);
       } catch (error) {
         setError(
           error instanceof Error
@@ -128,46 +89,20 @@ export default function ControlCenterClient() {
       window.clearInterval(timer);
   }, [load]);
 
-  const quickActions = useMemo(
-    () => [
-      {
-        label: "Employees",
-        description:
-          "Add or manage people",
-        href: "/dashboard/workforce/employees",
-        icon: UserPlus,
-      },
-      {
-        label: "Assign Work",
-        description:
-          "Give someone a task",
-        href: "/dashboard/workspace/assignments",
-        icon: ClipboardList,
-      },
-      {
-        label: "Responsibilities",
-        description:
-          "Control what appears in the app",
-        href: "/dashboard/workspace/responsibilities",
-        icon: BadgeCheck,
-      },
-      {
-        label: "Live Location",
-        description:
-          "See the field team",
-        href: "/dashboard/slmGeotracking",
-        icon: Smartphone,
-      },
-    ],
-    [],
-  );
-
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
       <PageIntro
         eyebrow="Control Center"
-        title={greeting()}
-        description="What needs attention, what is happening today, and the actions you use most."
+        title={
+          manifest?.controlCenter
+            .title ??
+          "Operations"
+        }
+        description={
+          manifest?.controlCenter
+            .subtitle ??
+          "The workspace is being resolved from your active responsibilities and workflows."
+        }
         action={
           <SecondaryButton
             type="button"
@@ -194,7 +129,9 @@ export default function ControlCenterClient() {
             <AlertTriangle className="mt-0.5 h-5 w-5 text-red-600" />
             <div>
               <div className="font-medium">
-                Control Center could not connect
+                Control Center could
+                not resolve the
+                workspace
               </div>
               <div className="mt-1 text-sm text-muted-foreground">
                 {error}
@@ -204,7 +141,7 @@ export default function ControlCenterClient() {
         </Panel>
       )}
 
-      {!home && loading ? (
+      {!manifest && loading ? (
         <div className="grid gap-4 md:grid-cols-4">
           {[1, 2, 3, 4].map(
             (item) => (
@@ -215,294 +152,341 @@ export default function ControlCenterClient() {
             ),
           )}
         </div>
-      ) : home ? (
+      ) : manifest ? (
         <>
-          <Panel>
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <div className="text-lg font-semibold">
-                  Needs your attention
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Problems first. Action beside the problem.
-                </div>
-              </div>
-              <Pill
-                tone={
-                  home.needsAttention
-                    .length
-                    ? "warning"
-                    : "good"
-                }
-              >
-                {home.needsAttention
-                  .length
-                  ? `${home.needsAttention.length} open`
-                  : "All clear"}
-              </Pill>
-            </div>
-
-            {home.needsAttention
-              .length === 0 ? (
-              <div className="flex items-center gap-3 rounded-xl bg-emerald-500/5 p-4">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+          {manifest.controlCenter
+            .attention.length > 0 && (
+            <Panel>
+              <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <div className="font-medium">
-                    Nothing urgent right now
+                  <div className="text-lg font-semibold">
+                    Needs attention
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    The control plane has no open attention items.
+                    Only issues
+                    generated by the
+                    active flows are
+                    shown here.
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="divide-y">
-                {home.needsAttention.map(
-                  (item) => {
-                    const href =
-                      actionRoutes[
-                        item.actionKey ??
-                          ""
-                      ] ??
-                      "/dashboard";
 
-                    return (
+                <Pill tone="warning">
+                  {
+                    manifest
+                      .controlCenter
+                      .attention
+                      .length
+                  }{" "}
+                  open
+                </Pill>
+              </div>
+
+              <div className="divide-y divide-border">
+                {manifest
+                  .controlCenter
+                  .attention.map(
+                    (item) => (
                       <Link
-                        href={href}
-                        key={
-                          item.key
+                        href={
+                          item.href ??
+                          "/dashboard"
                         }
+                        key={item.key}
                         className="flex items-center gap-4 py-3 first:pt-0 last:pb-0"
                       >
                         <div
                           className={cx(
                             "h-2.5 w-2.5 shrink-0 rounded-full",
                             item.severity ===
-                              "warning"
-                              ? "bg-amber-500"
+                              "danger"
+                              ? "bg-red-500"
                               : item.severity ===
-                                  "danger"
-                                ? "bg-red-500"
+                                  "warning"
+                                ? "bg-amber-500"
                                 : "bg-blue-500",
                           )}
                         />
+
                         <div className="min-w-0 flex-1">
                           <div className="font-medium">
-                            {
-                              item.title
-                            }
+                            {item.title}
                           </div>
+
                           {item.body && (
-                            <div className="truncate text-sm text-muted-foreground">
-                              {
-                                item.body
-                              }
+                            <div className="text-sm text-muted-foreground">
+                              {item.body}
                             </div>
                           )}
                         </div>
-                        <span className="hidden text-sm font-medium sm:block">
-                          Open
-                        </span>
+
                         <ArrowRight className="h-4 w-4 text-muted-foreground" />
                       </Link>
-                    );
-                  },
-                )}
+                    ),
+                  )}
+              </div>
+            </Panel>
+          )}
+
+          <div>
+            <div className="mb-3 text-sm font-semibold">
+              Flow metrics
+            </div>
+
+            {manifest.controlCenter
+              .stats.length === 0 ? (
+              <div className="rounded-xl border bg-card p-5 text-sm text-muted-foreground">
+                No flow metrics are
+                available yet.
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {manifest
+                  .controlCenter
+                  .stats.map(
+                    (metric) => (
+                      <Link
+                        href={
+                          metric.href ??
+                          "/dashboard"
+                        }
+                        key={metric.key}
+                      >
+                        <Stat
+                          value={
+                            metric.value
+                          }
+                          label={
+                            metric.label
+                          }
+                          hint={
+                            metric.hint ??
+                            undefined
+                          }
+                        />
+                      </Link>
+                    ),
+                  )}
               </div>
             )}
-          </Panel>
-
-          <div>
-            <div className="mb-3 text-sm font-semibold">
-              Today
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <Stat
-                value={
-                  home.today
-                    .activeEmployees
-                }
-                label="Active employees"
-              />
-              <Stat
-                value={
-                  home.today.present
-                }
-                label="Present"
-              />
-              <Stat
-                value={
-                  home.today
-                    .notCheckedIn
-                }
-                label="Not checked in"
-              />
-              <Stat
-                value={
-                  home.today.onLeave
-                }
-                label="On leave"
-              />
-              <Stat
-                value={
-                  home.today
-                    .pendingApprovals
-                }
-                label="Approvals waiting"
-              />
-            </div>
           </div>
 
-          <div>
-            <div className="mb-3 text-sm font-semibold">
-              Quick actions
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {quickActions.map(
-                (item) => {
-                  const Icon =
-                    item.icon;
-
-                  return (
-                    <Link
-                      href={
-                        item.href
-                      }
-                      key={
-                        item.href
-                      }
-                      className="group rounded-2xl border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                    >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <div className="mt-3 font-medium">
-                        {
-                          item.label
-                        }
-                      </div>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        {
-                          item.description
-                        }
-                      </div>
-                    </Link>
-                  );
-                },
-              )}
-            </div>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Panel>
-              <div className="mb-4">
-                <div className="text-lg font-semibold">
-                  Your frequent
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Stable navigation stays stable; frequently used actions rise here.
-                </div>
+          {manifest.workflows.length >
+          0 ? (
+            <div>
+              <div className="mb-3 text-sm font-semibold">
+                Active flows
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-2">
-                {home.frequentActions.map(
-                  (item) => (
-                    <Link
-                      href={
-                        actionRoutes[
-                          item.key
-                        ] ??
-                        item.href ??
-                        "/dashboard"
-                      }
+              <div className="space-y-4">
+                {manifest.workflows.map(
+                  (workflow) => (
+                    <Panel
                       key={
-                        item.key
+                        workflow.id
                       }
-                      className="flex items-center justify-between rounded-xl border px-4 py-3 hover:bg-muted/50"
                     >
-                      <span className="font-medium">
-                        {
-                          item.label
-                        }
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {item.pinned && (
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <GitBranch className="h-5 w-5" />
+                            <div className="text-lg font-semibold">
+                              {
+                                workflow.name
+                              }
+                            </div>
+                            <Pill tone="good">
+                              Published v
+                              {
+                                workflow.version
+                              }
+                            </Pill>
+                          </div>
+
+                          {workflow.description && (
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              {
+                                workflow.description
+                              }
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2 text-sm">
                           <Pill tone="info">
-                            Pinned
+                            {
+                              workflow
+                                .runtime
+                                .active
+                            }{" "}
+                            active
                           </Pill>
-                        )}
-                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+
+                          <Pill tone="good">
+                            {
+                              workflow
+                                .runtime
+                                .completed
+                            }{" "}
+                            completed
+                          </Pill>
+                        </div>
                       </div>
-                    </Link>
+
+                      <div className="mt-6 overflow-x-auto">
+                        <div className="flex min-w-max items-stretch gap-3">
+                          {workflow.steps.map(
+                            (
+                              step,
+                              index,
+                            ) => (
+                              <div
+                                key={
+                                  step.id
+                                }
+                                className="flex items-center gap-3"
+                              >
+                                <div className="w-56 rounded-xl border bg-muted/20 p-4">
+                                  <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                                    Step{" "}
+                                    {index +
+                                      1}
+                                  </div>
+
+                                  <div className="mt-1 font-medium">
+                                    {
+                                      step.title
+                                    }
+                                  </div>
+
+                                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                                    <span>
+                                      Ready{" "}
+                                      {
+                                        step
+                                          .runtime
+                                          .ready
+                                      }
+                                    </span>
+                                    <span>
+                                      Blocked{" "}
+                                      {
+                                        step
+                                          .runtime
+                                          .blocked
+                                      }
+                                    </span>
+                                    <span>
+                                      Waiting{" "}
+                                      {
+                                        step
+                                          .runtime
+                                          .pendingApproval
+                                      }
+                                    </span>
+                                    <span>
+                                      Done{" "}
+                                      {
+                                        step
+                                          .runtime
+                                          .completed
+                                      }
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {index <
+                                  workflow
+                                    .steps
+                                    .length -
+                                    1 && (
+                                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                )}
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    </Panel>
                   ),
                 )}
               </div>
-            </Panel>
+            </div>
+          ) : (
+            <EmptyState
+              title="No active workflow"
+              description="Create and publish a workflow. The Control Center and sidebar will rebuild themselves from it."
+            />
+          )}
 
-            <Panel>
-              <div className="mb-4 flex items-start justify-between gap-3">
+          {manifest.controlCenter
+            .quickActions.length >
+            0 && (
+            <div>
+              <div className="mb-3 text-sm font-semibold">
+                Relevant actions
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {manifest
+                  .controlCenter
+                  .quickActions.map(
+                    (item) => (
+                      <Link
+                        href={item.href}
+                        key={item.key}
+                        className="rounded-xl border bg-card p-4 transition hover:bg-muted/40"
+                      >
+                        <div className="font-medium">
+                          {item.label}
+                        </div>
+
+                        {item.description && (
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            {
+                              item.description
+                            }
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex items-center gap-1 text-sm font-medium">
+                          Open
+                          <ArrowRight className="h-4 w-4" />
+                        </div>
+                      </Link>
+                    ),
+                  )}
+              </div>
+            </div>
+          )}
+
+          {manifest.controlCenter
+            .attention.length ===
+            0 &&
+            manifest.workflows.length >
+              0 && (
+              <div className="flex items-center gap-3 rounded-xl border bg-card p-4">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                 <div>
-                  <div className="text-lg font-semibold">
-                    Setup health
+                  <div className="font-medium">
+                    No flow bottlenecks
+                    detected
                   </div>
+
                   <div className="text-sm text-muted-foreground">
-                    The system tells you when something important is incomplete.
+                    The currently
+                    tracked workflow
+                    instances have no
+                    blocked or pending
+                    attention states.
                   </div>
                 </div>
-                <Pill
-                  tone={
-                    home.setupHealth
-                      .ready
-                      ? "good"
-                      : "warning"
-                  }
-                >
-                  {home.setupHealth
-                    .ready
-                    ? "Ready"
-                    : "Needs setup"}
-                </Pill>
               </div>
-
-              <div className="space-y-2">
-                {home.setupHealth.checks.map(
-                  (check) => (
-                    <div
-                      key={
-                        check.key
-                      }
-                      className="flex items-start gap-3 rounded-xl bg-muted/35 px-3 py-3"
-                    >
-                      {check.status ===
-                      "good" ? (
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />
-                      ) : (
-                        <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
-                      )}
-                      <div className="text-sm">
-                        {
-                          check.label
-                        }
-                      </div>
-                    </div>
-                  ),
-                )}
-              </div>
-
-              <Link
-                href="/dashboard/administration/setup"
-                className="mt-4 inline-flex items-center gap-2 text-sm font-medium"
-              >
-                <Settings2 className="h-4 w-4" />
-                Open setup
-              </Link>
-            </Panel>
-          </div>
+            )}
         </>
       ) : (
         <EmptyState
-          title="Control Center unavailable"
-          description="Start the sales app backend and make sure the CMS server can reach it."
+          title="Workspace unavailable"
+          description="The workspace manifest could not be resolved."
         />
       )}
     </div>
