@@ -1,18 +1,39 @@
 import "server-only";
 
-import { hasPermission, verifySession } from "@/lib/auth";
+import {
+  eq,
+} from "drizzle-orm";
+
+import {
+  hasPermission,
+  verifySession,
+  type Session,
+} from "@/lib/auth";
+import {
+  withTenantSchema,
+} from "@/lib/drizzle";
+import {
+  roles,
+  userRoles,
+  users,
+} from "../../drizzle/schema";
 
 const rawBackendUrl = process.env.SALESAPP_BACKEND_URL;
 const adminSecret =
   process.env.ADMIN_SERVICE_SECRET ??
   process.env.FLOW1_ADMIN_SECRET;
 
+/**
+ * Resolve dashboard authorization from the tenant database on every BFF
+ * request. The JWT identifies the user + tenant; it is not the authority for
+ * current status/roles/permissions.
+ */
 export async function requireApplianceSession(
   write = false,
 ) {
-  const session = await verifySession();
+  const tokenSession = await verifySession();
 
-  if (!session?.userId) {
+  if (!tokenSession?.userId) {
     return {
       ok: false as const,
       status: 401,
@@ -20,10 +41,7 @@ export async function requireApplianceSession(
     };
   }
 
-  if (!session.schemaName) {
-    // Session predates schemaName being part of the JWT -- force a clean
-    // re-login rather than forwarding x-tenant-schema: "undefined",
-    // which the backend would just reject with a confusing 403 instead.
+  if (!tokenSession.schemaName) {
     return {
       ok: false as const,
       status: 401,
@@ -31,17 +49,106 @@ export async function requireApplianceSession(
     };
   }
 
+  const fresh = await withTenantSchema(
+    tokenSession.schemaName,
+    async (db) => {
+      const [user] = await db
+        .select({
+          id: users.id,
+          status: users.status,
+          isDashboardUser: users.isDashboardUser,
+          username: users.username,
+          email: users.email,
+        })
+        .from(users)
+        .where(eq(users.id, tokenSession.userId))
+        .limit(1);
+
+      if (!user) {
+        return null;
+      }
+
+      const roleRows = await db
+        .select({
+          orgRole: roles.orgRole,
+          jobRole: roles.jobRole,
+          grantedPerms: roles.grantedPerms,
+        })
+        .from(userRoles)
+        .innerJoin(roles, eq(userRoles.roleId, roles.id))
+        .where(eq(userRoles.userId, tokenSession.userId));
+
+      return {
+        user,
+        roleRows,
+      };
+    },
+  );
+
+  if (!fresh?.user || !fresh.user.isDashboardUser) {
+    return {
+      ok: false as const,
+      status: 403,
+      error: "Dashboard access is not enabled for this account.",
+    };
+  }
+
+  if (fresh.user.status !== "active") {
+    return {
+      ok: false as const,
+      status: 403,
+      error: "This dashboard account is not active.",
+    };
+  }
+
+  const permissions = Array.from(
+    new Set(
+      fresh.roleRows.flatMap((row) =>
+        Array.isArray(row.grantedPerms)
+          ? row.grantedPerms
+          : [],
+      ),
+    ),
+  );
+
+  const orgRole =
+    fresh.roleRows
+      .map((row) => row.orgRole)
+      .find((value): value is string => Boolean(value)) ??
+    "";
+
+  const jobRoles = Array.from(
+    new Set(
+      fresh.roleRows
+        .map((row) => row.jobRole)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+
   const required = write
     ? ["WRITE", "UPDATE", "ALL_ACCESS"]
     : ["READ", "WRITE", "UPDATE", "ALL_ACCESS"];
 
-  if (!hasPermission(session.permissions, required)) {
+  if (!hasPermission(permissions, required)) {
     return {
       ok: false as const,
       status: 403,
       error: "Forbidden: insufficient permissions",
     };
   }
+
+  const session: Session = {
+    ...tokenSession,
+    username:
+      fresh.user.username ??
+      tokenSession.username,
+    email:
+      fresh.user.email ??
+      tokenSession.email,
+    orgRole,
+    jobRoles,
+    permissions,
+  };
 
   return {
     ok: true as const,

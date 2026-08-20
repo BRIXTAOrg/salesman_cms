@@ -1,157 +1,201 @@
-// src/app/api/auth/login/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { db, withTenantSchema } from '@/lib/drizzle';
-import { users, roles, userRoles } from '../../../../../drizzle/schema';
-import { organizations } from '../../../../../drizzle/publicSchema';
-import { eq } from 'drizzle-orm';
-import { encrypt } from '@/lib/auth';
-import { cookies } from 'next/headers';
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
+import {
+  cookies,
+} from "next/headers";
+import {
+  eq,
+} from "drizzle-orm";
+
+import {
+  encrypt,
+} from "@/lib/auth";
+import {
+  db,
+  withTenantSchema,
+} from "@/lib/drizzle";
+import {
+  roles,
+  userRoles,
+  users,
+} from "../../../../../drizzle/schema";
+import {
+  organizations,
+} from "../../../../../drizzle/publicSchema";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { companyCode, email, password } = body;
+    const companyCode = String(body?.companyCode ?? "").trim().toLowerCase();
+    const email = String(body?.email ?? "").trim();
+    const password = String(body?.password ?? "");
 
     if (!companyCode || !email || !password) {
-      return NextResponse.json({ error: 'Company code, email and password are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Company code, email and password are required" },
+        { status: 400 },
+      );
     }
 
-    // 1. Resolve tenant. Same as the backend's mobile login: this is the
-    // ONE query that deliberately runs against the unscoped `db` --
-    // public.organizations is the one thing every deployment can always
-    // see, regardless of search_path, because there's no tenant to
-    // resolve into yet at this point.
+    // Tenant resolution is the only deliberately public-schema query.
     const [org] = await db
       .select({
         schemaName: organizations.schemaName,
         name: organizations.name,
       })
       .from(organizations)
-      .where(eq(organizations.schemaName, String(companyCode).trim().toLowerCase()))
+      .where(eq(organizations.schemaName, companyCode))
       .limit(1);
 
     if (!org) {
-      return NextResponse.json({ error: 'Invalid company code' }, { status: 401 });
+      return NextResponse.json(
+        { error: "Invalid company code" },
+        { status: 401 },
+      );
     }
 
-    // 2. Now that we know the schema, do everything else inside a
-    // transaction with search_path locked to it.
-    const result = await withTenantSchema(org.schemaName, async (tx) => {
-      // Find user by Dashboard Login ID
-      const userResult = await tx
-        .select({
-          user: users,
-        })
-        .from(users)
-        .where(eq(users.dashboardLoginId, email))
-        .limit(1);
+    const result = await withTenantSchema(
+      org.schemaName,
+      async (tx) => {
+        const [user] = await tx
+          .select()
+          .from(users)
+          .where(eq(users.dashboardLoginId, email))
+          .limit(1);
 
-      const row = userResult[0];
-
-      if (!row || !row.user) {
-        return { ok: false as const, status: 401, error: 'Invalid email or password' };
-      }
-
-      const user = row.user;
-
-      // Check if they are allowed to use the dashboard
-      if (!user.isDashboardUser) {
-        return { ok: false as const, status: 403, error: 'Invalid email or ID' };
-      }
-
-      // Check if the password is correct
-      if (user.dashboardHashedPassword !== password) {
-        return { ok: false as const, status: 401, error: 'Invalid password' };
-      }
-
-      // Fetch assigned Job Roles and the associated CRUD permissions
-      const userRolesResult = await tx
-        .select({
-          orgRole: roles.orgRole,
-          jobRole: roles.jobRole,
-          rawPermissions: roles.grantedPerms
-        })
-        .from(userRoles)
-        .leftJoin(roles, eq(userRoles.roleId, roles.id))
-        .where(eq(userRoles.userId, user.id));
-
-      const orgRolesList = userRolesResult.map(r => r.orgRole).filter(Boolean) as string[];
-      const primaryOrgRole = orgRolesList.length > 0 ? orgRolesList[0] : '';
-      const jobRoleNames = Array.from(new Set(userRolesResult.map(r => r.jobRole).filter(Boolean))) as string[];
-
-      // Safely extract and flatten the permissions
-      let extractedPerms: string[] = [];
-      userRolesResult.forEach(row => {
-        if (Array.isArray(row.rawPermissions)) {
-          extractedPerms.push(...row.rawPermissions);
-        } else if (typeof row.rawPermissions === 'string') {
-          try {
-            const parsed = JSON.parse(row.rawPermissions);
-            if (Array.isArray(parsed)) extractedPerms.push(...parsed);
-          } catch (e) {
-            console.error("Failed to parse permissions string:", row.rawPermissions);
-          }
+        if (!user) {
+          return {
+            ok: false as const,
+            status: 401,
+            error: "Invalid email or password",
+          };
         }
-      });
 
-      const allPerms = Array.from(new Set(extractedPerms));
+        if (!user.isDashboardUser) {
+          return {
+            ok: false as const,
+            status: 403,
+            error: "Dashboard access is not enabled for this account",
+          };
+        }
 
-      // Update Status if needed
-      if (user.status !== 'active') {
-        await tx.update(users).set({ status: 'active' }).where(eq(users.id, user.id));
-      }
+        // IMPORTANT: login must never reactivate a suspended/inactive user.
+        if (user.status !== "active") {
+          return {
+            ok: false as const,
+            status: 403,
+            error: "This dashboard account is not active",
+          };
+        }
 
-      return {
-        ok: true as const,
-        user,
-        primaryOrgRole,
-        jobRoleNames,
-        allPerms,
-      };
-    });
+        // Transitional compatibility: existing dashboard credentials are
+        // still stored in the current dashboardHashedPassword column format.
+        // Password-hash migration should be performed separately so existing
+        // tenants are not locked out by this platform/UI refactor.
+        if (user.dashboardHashedPassword !== password) {
+          return {
+            ok: false as const,
+            status: 401,
+            error: "Invalid email or password",
+          };
+        }
+
+        const roleRows = await tx
+          .select({
+            orgRole: roles.orgRole,
+            jobRole: roles.jobRole,
+            grantedPerms: roles.grantedPerms,
+          })
+          .from(userRoles)
+          .innerJoin(roles, eq(userRoles.roleId, roles.id))
+          .where(eq(userRoles.userId, user.id));
+
+        const permissions = Array.from(
+          new Set(
+            roleRows.flatMap((row) =>
+              Array.isArray(row.grantedPerms)
+                ? row.grantedPerms
+                : [],
+            ),
+          ),
+        );
+
+        if (permissions.length === 0) {
+          return {
+            ok: false as const,
+            status: 403,
+            error: "Dashboard permissions are not configured for this account",
+          };
+        }
+
+        const orgRole =
+          roleRows
+            .map((row) => row.orgRole)
+            .find((value): value is string => Boolean(value)) ?? "";
+
+        const jobRoles = Array.from(
+          new Set(
+            roleRows
+              .map((row) => row.jobRole)
+              .filter((value): value is string => Boolean(value)),
+          ),
+        );
+
+        return {
+          ok: true as const,
+          user,
+          orgRole,
+          jobRoles,
+          permissions,
+        };
+      },
+    );
 
     if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: result.status });
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.status },
+      );
     }
 
-    const { user, primaryOrgRole, jobRoleNames, allPerms } = result;
-
-    // 3. Create the JWT payload -- schemaName rides along on every
-    // request from here, same as the mobile JWT.
-    const sessionData = {
-      userId: user.id,
+    const token = await encrypt({
+      userId: result.user.id,
       schemaName: org.schemaName,
       companyName: org.name,
-      email: user.email,
-      username: user.username,
-      orgRole: primaryOrgRole,
-      jobRoles: jobRoleNames,
-      permissions: allPerms,
-    };
-
-    // 4. Encrypt and set cookie
-    const token = await encrypt(sessionData);
-    const cookieStore = await cookies();
-
-    cookieStore.set('auth_token', token, {
-      httpOnly: true,
-      //secure: process.env.NODE_ENV === 'production',
-      secure: false,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/',
+      email: result.user.email,
+      username: result.user.username,
+      orgRole: result.orgRole,
+      jobRoles: result.jobRoles,
+      permissions: result.permissions,
     });
 
-    return NextResponse.json({
-      message: 'Login successful',
-      user: {
-        isDashboardUser: user.isDashboardUser,
-        isSalesAppUser: user.isSalesAppUser
-      }
-    }, { status: 200 });
+    const cookieStore = await cookies();
+    cookieStore.set("auth_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
 
+    return NextResponse.json(
+      {
+        message: "Login successful",
+        redirect: "/dashboard",
+        user: {
+          isDashboardUser: result.user.isDashboardUser,
+          isSalesAppUser: result.user.isSalesAppUser,
+        },
+      },
+      { status: 200 },
+    );
   } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("Login error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

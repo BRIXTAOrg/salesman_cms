@@ -14,7 +14,6 @@ import {
   users,
   roles,
   userRoles,
-  mobileCapabilities,
 } from "../../../../../drizzle/schema";
 
 import {
@@ -66,62 +65,23 @@ const DEFAULT_ROLES = [
   },
 ];
 
-const DEFAULT_CAPABILITIES = [
-  {
-    key: "attendance",
-    title: "Attendance",
-    type: "native",
-    config: {
-      origin: "builtin",
-      nativeKey: "attendance",
-    },
-  },
-  {
-    key: "leave",
-    title: "Leave",
-    type: "native",
-    config: {
-      origin: "builtin",
-      nativeKey: "leave",
-    },
-  },
-  {
-    key: "journey_plan",
-    title: "Journey Plan",
-    type: "native",
-    config: {
-      origin: "builtin",
-      nativeKey: "journey_plan",
-    },
-  },
-];
-
+/**
+ * A new BRIXTA tenant starts as a blank platform workspace.
+ *
+ * We deliberately do NOT seed Attendance, Leave, Journey Plan, Dealer, etc.
+ * A tenant manufactures its application by defining Responsibilities and
+ * connecting them with Workflows.
+ *
+ * Existing tenants keep their existing public entitlement rows unchanged.
+ */
 const DEFAULT_ENTITLEMENTS = [
   {
-    featureKey: ENTITLEMENT_KEYS.ATTENDANCE_USE,
-    enabled: true,
-  },
-  {
-    featureKey: ENTITLEMENT_KEYS.LEAVE_USE,
-    enabled: true,
-  },
-  {
-    featureKey: ENTITLEMENT_KEYS.JOURNEY_PLAN_USE,
-    enabled: true,
-  },
-  {
-    featureKey: ENTITLEMENT_KEYS.VISIT_REPORT_USE,
-    enabled: true,
-  },
-
-  // Paid / controlled features start OFF.
-  {
     featureKey: ENTITLEMENT_KEYS.RESPONSIBILITY_CREATE,
-    enabled: false,
+    enabled: true,
   },
   {
     featureKey: ENTITLEMENT_KEYS.WORKFLOW_CUSTOMIZE,
-    enabled: false,
+    enabled: true,
   },
 ];
 
@@ -233,13 +193,19 @@ export async function POST(request: NextRequest) {
     await withTenantSchema(
       schemaName,
       async (tx) => {
+        /**
+         * `provision-schema.sql` remains the repository's physical baseline
+         * for this transition. It still contains historical tables so we do
+         * not accidentally produce destructive Drizzle migrations for old
+         * tenants. They are inert: Platform Core does not seed or expose the
+         * old business applications.
+         */
         await runSqlFile(
           tx,
           CORE_PROVISION_SQL_PATH,
         );
 
-        // Workflow tables are provisioned after the existing application
-        // tables because they reference users, roles and capabilities.
+        // Workflow tables are provisioned after users/roles/capabilities.
         await runSqlFile(
           tx,
           WORKFLOW_PROVISION_SQL_PATH,
@@ -260,22 +226,15 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        await tx
-          .insert(mobileCapabilities)
-          .values(
-            DEFAULT_CAPABILITIES.map(
-              (capability) => ({
-                ...capability,
-                isActive: true,
-              }),
-            ),
-          );
+        // No domain-specific Responsibilities are seeded here.
+        // The first admin creates the tenant's actual work model in CMS.
 
         /**
          * NOTE:
-         * This retains the repository's current dashboard-password
-         * behavior so this patch stays scoped to access/workflow work.
-         * Move dashboard auth to bcrypt/Argon2 in the next security patch.
+         * This retains the repository's current dashboard-password storage
+         * behavior so existing dashboard identities remain compatible.
+         * Password hashing migration must be handled separately for all
+         * existing tenant rows, not silently during this platform refactor.
          */
         const [adminUser] = await tx
           .insert(users)
@@ -299,7 +258,7 @@ export async function POST(request: NextRequest) {
       },
     );
 
-    // 3. Register tenant + feature entitlements atomically in public.
+    // 3. Register tenant + platform-authoring entitlements atomically in public.
     await db.transaction(async (tx) => {
       const [organization] = await tx
         .insert(organizations)

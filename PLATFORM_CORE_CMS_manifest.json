@@ -1,0 +1,142 @@
+{
+  "artifact": "salesman_cms_PLATFORM_CORE",
+  "architecture": "responsibility-crud-workflow-control-plane",
+  "file_count": 28,
+  "files": [
+    {
+      "path": "CHANGED_FILES.txt",
+      "bytes": 2839,
+      "sha256": "640ddbd3c4a5f061b2ba835f94117b7ccc49ab0d7a6b8d678d11f9a2dbb47636"
+    },
+    {
+      "path": "README_PLATFORM_CORE_CMS_PATCH.md",
+      "bytes": 8411,
+      "sha256": "e9213021df9243d497d6798cdb3dc2f0b6e63fba1dfbaa1268488de34e0042bb"
+    },
+    {
+      "path": "cleanup_legacy_cms.py",
+      "bytes": 4218,
+      "sha256": "9d0874f027936adfcdd1e40980b410babe46bbd91522a1d54f4d2933c6e07775"
+    },
+    {
+      "path": "drizzle/workflow-provision.sql",
+      "bytes": 8696,
+      "sha256": "582313465aa289cf36353e84965ae9322cecc6da49b7843dbb3a809adc71761e"
+    },
+    {
+      "path": "src/app/api/appliance/[...path]/route.ts",
+      "bytes": 3322,
+      "sha256": "c9ba61c44a2b67c549e40f41d50f5941e08d131ace13997d7cfc1b13d0aaf443"
+    },
+    {
+      "path": "src/app/api/auth/login/route.ts",
+      "bytes": 5128,
+      "sha256": "455c6f8e992293a695d8e0e47ad4c8f99a15c5a5e6981d44a7eb01041c1efa6a"
+    },
+    {
+      "path": "src/app/api/auth/signup/route.ts",
+      "bytes": 8059,
+      "sha256": "c2dfd6b00a5ff609f091a807eac17e897125a6d329047a3328b4c9e3f2f23bf4"
+    },
+    {
+      "path": "src/app/api/workspace/manifest/route.ts",
+      "bytes": 3029,
+      "sha256": "aa031e9474a794df81dcd50bc048f9237a9bf5f5a68f8eb6c45bbcdaee9645d1"
+    },
+    {
+      "path": "src/app/dashboard/layout.tsx",
+      "bytes": 2653,
+      "sha256": "3d02fcaf0b3a41038c74900b370331f1dcb8a7c5f27cddcdfe8e9cabc7044ae9"
+    },
+    {
+      "path": "src/app/dashboard/work/[key]/page.tsx",
+      "bytes": 299,
+      "sha256": "cfbb7f73e06c8597cd4bf907ca16616e3354dbdcfb94bd154aa458d73a70db49"
+    },
+    {
+      "path": "src/app/login/page.tsx",
+      "bytes": 4737,
+      "sha256": "b8727e8b27bc9c64699efb6bdd1000d43c932d351858284a7f1de8c0cc14162c"
+    },
+    {
+      "path": "src/app/page.tsx",
+      "bytes": 597,
+      "sha256": "32be9626cc79230db651e2331ce9c9380c60ba2f396493710eb39e7c7a040064"
+    },
+    {
+      "path": "src/components/appliance/approvals-client.tsx",
+      "bytes": 6664,
+      "sha256": "588330f4163098d1057baeea15c0d0ea3abbca8e0ac0ae925ff779e71f77ed7f"
+    },
+    {
+      "path": "src/components/appliance/assignments-client.tsx",
+      "bytes": 11718,
+      "sha256": "3222995864dd9dd725da2beb349995cd5bbb38a61c1f28c4a1ae8eae43c29847"
+    },
+    {
+      "path": "src/components/appliance/dashboard-access-client.tsx",
+      "bytes": 9984,
+      "sha256": "0132eb65ce87f3ec8a29e810c185de90657d5962b4f225082219d5de8f43eff8"
+    },
+    {
+      "path": "src/components/appliance/dynamic-work-client.tsx",
+      "bytes": 4640,
+      "sha256": "c985d4c139a830c8fd29193caf88c3d4aea9a03d77b8851ffed36e13cf3fc1d9"
+    },
+    {
+      "path": "src/components/appliance/employees-client.tsx",
+      "bytes": 21923,
+      "sha256": "c1bfee00e42027e072d4e19366cce3681bb8e95dc5827b2b49a9a5fe18e16b1d"
+    },
+    {
+      "path": "src/components/appliance/record-map.tsx",
+      "bytes": 1493,
+      "sha256": "0bd9bd08f59353ebbb284d67ff61ad0022a80f8bf6c2c1bd65fe4addac836187"
+    },
+    {
+      "path": "src/components/appliance/record-output.tsx",
+      "bytes": 15395,
+      "sha256": "15ba427dbabffd85bcee7b943f5df7e660db79aa9e6f65b0fb4044203d369d7c"
+    },
+    {
+      "path": "src/components/appliance/responsibilities-client.tsx",
+      "bytes": 37982,
+      "sha256": "66ff44c5ba60179ff80c47d82ab5aed8526527415e2d88ed13eeb5d17c80a4d7"
+    },
+    {
+      "path": "src/components/appliance/workflows-client.tsx",
+      "bytes": 26783,
+      "sha256": "1b9dc98ee386dadd4d521b08c15ca17ebb5b31977386041a08358e611ed9ea3e"
+    },
+    {
+      "path": "src/components/site-header.tsx",
+      "bytes": 6810,
+      "sha256": "0a32b63ba3ae24567c489ccad8e0e30ae35cb6756d1e05c60146a9298a774a66"
+    },
+    {
+      "path": "src/lib/appliance-backend.ts",
+      "bytes": 4662,
+      "sha256": "89197df4512dd7d0d861430d532d9862a23da411415d73870657029978acd807"
+    },
+    {
+      "path": "src/lib/appliance-types.ts",
+      "bytes": 5417,
+      "sha256": "78e8fac69b87366836e3e1f181bdb654a9fb3e1bd9627fe5c91248ca28e730c9"
+    },
+    {
+      "path": "src/lib/workspace-manifest.ts",
+      "bytes": 11351,
+      "sha256": "486eef194ef4ac805e8a69dc77a9943feb652b1fc71a6678bdff7ffc9b42335c"
+    },
+    {
+      "path": "src/lib/workspace-types.ts",
+      "bytes": 2124,
+      "sha256": "635eef1cc0c585461fac75091f812c702b41ae9ab1bfe97b2f02cd7d7280f77f"
+    },
+    {
+      "path": "src/proxy.ts",
+      "bytes": 1689,
+      "sha256": "8957946c7b93a5555227c8726d9c803125988e3b45d5b3e8478a39dad57cf9bf"
+    }
+  ]
+}

@@ -1,3 +1,7 @@
+import type {
+  ResponsibilityDefinition,
+} from "@/lib/appliance-types";
+
 export type WorkspaceNavItem = {
   key: string;
   label: string;
@@ -84,14 +88,16 @@ export type WorkspaceManifest = {
     id: number;
     key: string;
     title: string;
-    type: string;
-    origin: "builtin" | "custom";
-    route?: string | null;
+    type: "record";
+    route: string;
     dependencies: string[];
+    definition: ResponsibilityDefinition;
   }>;
 
   workflows: WorkspaceFlow[];
 
+  // Kept for shell compatibility. Platform Core does not infer bespoke
+  // resources such as dealers/distributors; references are Responsibilities.
   resources: string[];
 
   controlCenter: {

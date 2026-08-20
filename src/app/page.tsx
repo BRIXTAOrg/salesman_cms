@@ -1,30 +1,25 @@
-// src/app/page.tsx
-import { Suspense } from 'react';
-import { verifySession } from '@/lib/auth'; 
-import { redirect } from 'next/navigation';
-import SignedOutHomePage from '@/app/home/signedOutHomePage'; 
-import { connection } from 'next/server';
+import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
-// 1. This is the Static Shell. Next.js will prerender this instantly.
+import SignedOutHomePage from "@/app/home/signedOutHomePage";
+import { verifySession } from "@/lib/auth";
+
 export default function LandingPage() {
   return (
-    // The fallback is what the user sees for a split second while auth is checked
-    <Suspense fallback={<p className="text-muted-foreground mt-4">Loading...</p>}>
+    <Suspense fallback={<p className="mt-4 text-muted-foreground">Loading...</p>}>
       <AuthBoundary />
     </Suspense>
   );
 }
 
-// 2. This is the Dynamic Component. It runs at request-time.
 async function AuthBoundary() {
   await connection();
   const session = await verifySession();
 
-  // If the user IS signed in, redirect them to their home base
-  if (session && session.userId) {
-    redirect('/home'); 
+  if (session?.userId) {
+    redirect("/dashboard");
   }
 
-  // If the user is not signed in, render the signed-out page.
   return <SignedOutHomePage />;
 }

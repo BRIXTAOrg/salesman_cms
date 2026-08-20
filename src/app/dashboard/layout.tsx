@@ -12,25 +12,16 @@ import {
   connection,
 } from "next/server";
 import {
-  eq,
-} from "drizzle-orm";
-import {
   AlertCircle,
 } from "lucide-react";
 
 import DashboardShell from "@/app/dashboard/dashboardShell";
 import {
-  withTenantSchema,
-} from "@/lib/drizzle";
-import {
-  verifySession,
-} from "@/lib/auth";
-import {
-  users,
-} from "../../../drizzle";
+  requireApplianceSession,
+} from "@/lib/appliance-backend";
 
 export const metadata: Metadata = {
-  title: "Field Control",
+  title: "BRIXTA Workspace",
   icons: {
     icon: "/favicon.ico",
   },
@@ -45,7 +36,7 @@ export default function DashboardLayout({
     <Suspense
       fallback={
         <div className="p-6 text-sm text-muted-foreground">
-          Loading Field Control...
+          Loading workspace...
         </div>
       }
     >
@@ -63,82 +54,38 @@ async function AuthenticatedLayout({
 }) {
   await connection();
 
-  const session =
-    await verifySession();
+  const auth = await requireApplianceSession(false);
 
-  if (!session?.userId || !session.schemaName) {
-    redirect("/");
-  }
+  if (!auth.ok) {
+    if (auth.status === 401) {
+      redirect("/");
+    }
 
-  const result = await withTenantSchema(session.schemaName, (db) =>
-    db
-      .select({
-        id: users.id,
-        email: users.email,
-        username: users.username,
-        status: users.status,
-      })
-      .from(users)
-      .where(
-        eq(
-          users.id,
-          session.userId,
-        ),
-      )
-      .limit(1),
-  );
-
-  const dbUser = result[0];
-
-  if (!dbUser) {
-    redirect("/api/auth/logout");
-  }
-
-  if (dbUser.status !== "active") {
     return (
       <AccessBlocked
-        title="Account inactive"
-        description="This dashboard account is not active. Contact an administrator."
+        title="Access blocked"
+        description={auth.error}
       />
     );
   }
 
-  const permissions =
-    session.permissions ?? [];
-
-  if (permissions.length === 0) {
-    return (
-      <AccessBlocked
-        title="Access not configured"
-        description="Your account exists, but no dashboard permissions have been assigned yet."
-      />
-    );
-  }
-
-  const primaryJob =
-    session.jobRoles?.[0] ?? "";
-
+  const session = auth.session;
+  const primaryJob = session.jobRoles?.[0] ?? "";
   const roleDisplay =
-    primaryJob &&
-    session.orgRole
+    primaryJob && session.orgRole
       ? `${session.orgRole}:${primaryJob}`
-      : session.orgRole ||
-        primaryJob ||
-        "Team Member";
+      : session.orgRole || primaryJob || "Team Member";
 
   return (
     <DashboardShell
       user={{
-        id: dbUser.id,
-        email: dbUser.email,
-        username:
-          dbUser.username,
+        id: session.userId,
+        email: session.email,
+        username: session.username,
       }}
       role={roleDisplay}
-      permissions={permissions}
-      jobRoles={
-        session.jobRoles ?? []
-      }
+      permissions={session.permissions}
+      jobRoles={session.jobRoles}
     >
       {children}
     </DashboardShell>
@@ -158,20 +105,9 @@ function AccessBlocked({
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
           <AlertCircle className="h-6 w-6 text-destructive" />
         </div>
-
-        <h1 className="mt-4 text-2xl font-semibold">
-          {title}
-        </h1>
-
-        <p className="mt-2 text-sm text-muted-foreground">
-          {description}
-        </p>
-
-        <form
-          action="/api/auth/logout"
-          method="post"
-          className="mt-6"
-        >
+        <h1 className="mt-4 text-2xl font-semibold">{title}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+        <form action="/api/auth/logout" method="post" className="mt-6">
           <button
             type="submit"
             className="h-10 w-full rounded-xl bg-foreground px-4 text-sm font-medium text-background"

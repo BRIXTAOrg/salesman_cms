@@ -6,34 +6,34 @@ import {
   useEffect,
   useMemo,
   useState,
-  type Dispatch,
-  type SetStateAction,
 } from "react";
-
 import {
   ArrowDown,
   ArrowUp,
   Blocks,
-  CheckCircle2,
   Edit3,
   Loader2,
-  Lock,
   Plus,
   RefreshCw,
+  Settings2,
   ToggleLeft,
   ToggleRight,
   Trash2,
-  Users,
 } from "lucide-react";
 
 import type {
-  Capability,
-  CapabilityRule,
+  CrudOperation,
   Employee,
+  PrimitiveCatalog,
+  Responsibility,
+  ResponsibilityDefinition,
+  ResponsibilityField,
+  ResponsibilityRule,
+  Role,
 } from "@/lib/appliance-types";
-
-import { apiJson } from "./client";
-
+import {
+  apiJson,
+} from "./client";
 import {
   EmptyState,
   Field,
@@ -54,140 +54,28 @@ type MeResponse = {
   entitlements?: Record<string, boolean>;
 };
 
-type BuilderField = {
-  id: string;
-  label: string;
-  key: string;
-  type: string;
-  required: boolean;
+type BuilderField = ResponsibilityField & {
+  localId: string;
   placeholder: string;
   helpText: string;
-  options: string[];
-  min: number | null;
-  max: number | null;
-  minSelections: number | null;
-  maxSelections: number | null;
+  optionsText: string;
 };
 
-type FieldType = {
-  value: string;
-  label: string;
+type BuilderState = {
+  title: string;
   description: string;
+  outputRenderer: string;
+  strict: boolean;
+  crud: Record<CrudOperation, boolean>;
+  fields: BuilderField[];
 };
 
-const fieldTypes: FieldType[] = [
-  {
-    value: "text",
-    label: "Short text",
-    description:
-      "A concise answer such as contact person or visit remark.",
-  },
-  {
-    value: "long_text",
-    label: "Long note",
-    description:
-      "A larger note area for instructions or observations.",
-  },
-  {
-    value: "number",
-    label: "Number",
-    description:
-      "A measured quantity, amount, stock count or target.",
-  },
-  {
-    value: "counter",
-    label: "Counter",
-    description:
-      "Fast plus/minus entry for visits, units or pieces.",
-  },
-  {
-    value: "date",
-    label: "Date",
-    description: "Choose a calendar date.",
-  },
-  {
-    value: "datetime",
-    label: "Date & time",
-    description:
-      "Choose a date and time together.",
-  },
-  {
-    value: "yes_no",
-    label: "Yes / No",
-    description:
-      "A fast two-choice decision.",
-  },
-  {
-    value: "choice",
-    label: "Single choice",
-    description:
-      "Choose exactly one option from an admin-defined list.",
-  },
-  {
-    value: "multi_choice",
-    label: "Multiple choice",
-    description:
-      "Choose one or more options from an admin-defined list.",
-  },
-  {
-    value: "dealer",
-    label: "Dealer",
-    description:
-      "Search and choose one dealer from the existing dealer directory.",
-  },
-  {
-    value: "dealer_multi",
-    label: "Multiple dealers",
-    description:
-      "Search and choose several dealers for a journey or visit plan.",
-  },
-  {
-    value: "photo",
-    label: "Photo",
-    description:
-      "Capture one photo as evidence.",
-  },
-  {
-    value: "photo_multi",
-    label: "Multiple photos",
-    description:
-      "Capture several evidence photos.",
-  },
-  {
-    value: "checkbox",
-    label: "Confirmation checkbox",
-    description:
-      "A deliberate acknowledgement or completion confirmation.",
-  },
-  {
-    value: "section",
-    label: "Section heading",
-    description:
-      "A visual divider that groups related questions.",
-  },
-  {
-    value: "instruction",
-    label: "Instruction",
-    description:
-      "Read-only guidance shown inside the employee workflow.",
-  },
-];
-
-function builderId() {
-  if (
-    typeof globalThis.crypto !== "undefined" &&
-    typeof globalThis.crypto.randomUUID ===
-      "function"
-  ) {
-    return globalThis.crypto.randomUUID();
-  }
-
-  return `field-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2, 10)}`;
+function localId() {
+  return globalThis.crypto?.randomUUID?.() ??
+    `field-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function keyFromLabel(value: string) {
+function normalizeKey(value: string) {
   return value
     .trim()
     .toLowerCase()
@@ -195,1145 +83,734 @@ function keyFromLabel(value: string) {
     .replace(/^_+|_+$/g, "");
 }
 
-function optionalNumber(value: unknown) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
-    return null;
-  }
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed)
-    ? parsed
-    : null;
+function objectValue(
+  value: unknown,
+): Record<string, unknown> {
+  return value &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }
 
-function blankField(): BuilderField {
+function blankState(
+  catalog?: PrimitiveCatalog | null,
+): BuilderState {
   return {
-    id: builderId(),
-    label: "",
-    key: "",
-    type: "text",
-    required: false,
-    placeholder: "",
-    helpText: "",
-    options: [],
-    min: null,
-    max: null,
-    minSelections: null,
-    maxSelections: null,
+    title: "",
+    description: "",
+    outputRenderer:
+      catalog?.output?.[0]?.key ??
+      "table",
+    strict: true,
+    crud: {
+      create: true,
+      read: true,
+      update: true,
+      delete: false,
+    },
+    fields: [],
   };
 }
 
-function needsOptions(type: string) {
-  return (
-    type === "choice" ||
-    type === "multi_choice"
-  );
-}
+function blankField(
+  catalog: PrimitiveCatalog | null,
+): BuilderField {
+  const primitive = catalog?.input?.[0] ?? {
+    key: "text",
+    dataType: "string",
+  };
 
-function supportsNumberRange(type: string) {
-  return (
-    type === "number" ||
-    type === "counter"
-  );
-}
-
-function supportsSelectionRange(
-  type: string,
-) {
-  return (
-    type === "multi_choice" ||
-    type === "dealer_multi" ||
-    type === "photo_multi"
-  );
-}
-
-function isDisplayOnly(type: string) {
-  return (
-    type === "section" ||
-    type === "instruction"
-  );
-}
-
-function engineLabel(
-  capability: Capability,
-) {
-  const origin =
-    capability.config?.origin;
-
-  if (
-    origin === "builtin" ||
-    capability.type === "native"
-  ) {
-    return "Built-in app feature";
-  }
-
-  return "Custom workflow";
-}
-
-function isBuiltIn(
-  capability: Capability,
-) {
-  return (
-    capability.type === "native" ||
-    capability.config?.origin === "builtin"
-  );
-}
-
-function fieldsFromCapability(
-  capability: Capability,
-): BuilderField[] {
-  const raw = capability.config?.fields;
-
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  return raw.map(
-    (field: any, index) => ({
-      id: builderId(),
-      label: String(
-        field?.label ??
-          field?.key ??
-          `Field ${index + 1}`,
-      ),
-      key: String(
-        field?.key ??
-          `field_${index + 1}`,
-      ),
-      type: String(
-        field?.type ?? "text",
-      ),
-      required: Boolean(
-        field?.required,
-      ),
-      placeholder: String(
-        field?.placeholder ?? "",
-      ),
-      helpText: String(
-        field?.helpText ??
-          field?.help ??
-          "",
-      ),
-      options: Array.isArray(
-        field?.options,
-      )
-        ? field.options.map(
-            (item: unknown) =>
-              String(item),
-          )
-        : [],
-      min: optionalNumber(field?.min),
-      max: optionalNumber(field?.max),
-      minSelections: optionalNumber(
-        field?.minSelections,
-      ),
-      maxSelections: optionalNumber(
-        field?.maxSelections,
-      ),
-    }),
-  );
-}
-
-function toConfig(
-  fields: BuilderField[],
-  key: string,
-  existing:
-    | Record<string, unknown>
-    | null
-    | undefined = {},
-) {
   return {
-    ...(existing ?? {}),
-    origin: "custom",
-    version: 1,
-    renderer: "dynamic_v1",
+    localId: localId(),
+    key: "",
+    label: "",
+    inputType: primitive.key,
+    dataType: primitive.dataType,
+    required: false,
+    config: {},
+    placeholder: "",
+    helpText: "",
+    optionsText: "",
+  };
+}
 
-    fields: fields.map(
-      (field, index) => {
-        const normalizedKey =
-          field.key.trim() ||
-          keyFromLabel(field.label) ||
-          `field_${index + 1}`;
+function fieldFromDefinition(
+  field: ResponsibilityField,
+): BuilderField {
+  const config = objectValue(field.config);
+  const options = Array.isArray(config.options)
+    ? config.options.map(String)
+    : [];
 
-        const result:
-          Record<string, unknown> = {
-            key: normalizedKey,
-            label:
-              field.label.trim() ||
-              `Field ${index + 1}`,
-            type: field.type,
-            required: isDisplayOnly(
-              field.type,
-            )
-              ? false
-              : field.required,
-          };
+  return {
+    ...field,
+    localId: localId(),
+    config,
+    placeholder:
+      typeof config.placeholder === "string"
+        ? config.placeholder
+        : "",
+    helpText:
+      typeof config.helpText === "string"
+        ? config.helpText
+        : "",
+    optionsText: options.join("\n"),
+  };
+}
+
+function stateFromResponsibility(
+  responsibility: Responsibility,
+): BuilderState {
+  const definition = responsibility.definition;
+
+  return {
+    title: responsibility.title,
+    description: responsibility.description ?? "",
+    outputRenderer:
+      definition.output.renderer || "table",
+    strict: definition.input.strict,
+    crud: {
+      create: definition.crud.create,
+      read: definition.crud.read,
+      update: definition.crud.update,
+      delete: definition.crud.delete,
+    },
+    fields: definition.input.fields.map(fieldFromDefinition),
+  };
+}
+
+function configFromState(
+  state: BuilderState,
+): ResponsibilityDefinition {
+  return {
+    schemaVersion: 1,
+    input: {
+      renderer: "form",
+      strict: state.strict,
+      fields: state.fields.map((field, index) => {
+        const options = field.optionsText
+          .split("\n")
+          .map((item) => item.trim())
+          .filter(Boolean);
+
+        const config: Record<string, unknown> = {
+          ...field.config,
+        };
 
         if (field.placeholder.trim()) {
-          result.placeholder =
-            field.placeholder.trim();
+          config.placeholder = field.placeholder.trim();
+        } else {
+          delete config.placeholder;
         }
 
         if (field.helpText.trim()) {
-          result.helpText =
-            field.helpText.trim();
-        }
-
-        if (needsOptions(field.type)) {
-          result.options =
-            field.options
-              .map((item) =>
-                item.trim(),
-              )
-              .filter(Boolean);
+          config.helpText = field.helpText.trim();
+        } else {
+          delete config.helpText;
         }
 
         if (
-          supportsNumberRange(
-            field.type,
-          )
+          field.inputType === "select" ||
+          field.inputType === "multi_select"
         ) {
-          if (field.min !== null) {
-            result.min = field.min;
-          }
-
-          if (field.max !== null) {
-            result.max = field.max;
-          }
+          config.options = options;
+        } else {
+          delete config.options;
         }
 
-        if (
-          supportsSelectionRange(
-            field.type,
-          )
-        ) {
-          if (
-            field.minSelections !==
-            null
-          ) {
-            result.minSelections =
-              field.minSelections;
-          }
-
-          if (
-            field.maxSelections !==
-            null
-          ) {
-            result.maxSelections =
-              field.maxSelections;
-          }
-        }
-
-        if (
-          field.type === "dealer" ||
-          field.type ===
-            "dealer_multi"
-        ) {
-          result.source = "dealers";
-        }
-
-        return result;
-      },
-    ),
+        return {
+          key:
+            normalizeKey(field.key) ||
+            normalizeKey(field.label) ||
+            `field_${index + 1}`,
+          label:
+            field.label.trim() ||
+            `Field ${index + 1}`,
+          inputType: field.inputType,
+          dataType: field.dataType,
+          required: field.required,
+          config,
+        };
+      }),
+    },
+    output: {
+      renderer: state.outputRenderer || "table",
+      config: {},
+    },
+    crud: state.crud,
   };
 }
 
-function validateBuilder(
-  fields: BuilderField[],
+function validateState(
+  state: BuilderState,
 ) {
-  for (
-    let index = 0;
-    index < fields.length;
-    index += 1
-  ) {
-    const field = fields[index];
-    const displayIndex = index + 1;
+  if (!state.title.trim()) {
+    return "Responsibility name is required.";
+  }
+
+  const seen = new Set<string>();
+
+  for (let index = 0; index < state.fields.length; index += 1) {
+    const field = state.fields[index];
+    const key =
+      normalizeKey(field.key) ||
+      normalizeKey(field.label);
 
     if (!field.label.trim()) {
-      return `Field ${displayIndex} needs a label.`;
+      return `Field ${index + 1} needs a label.`;
     }
 
+    if (!key) {
+      return `${field.label} needs a data key.`;
+    }
+
+    if (seen.has(key)) {
+      return `Data key “${key}” is used more than once.`;
+    }
+
+    seen.add(key);
+
     if (
-      needsOptions(field.type) &&
-      field.options
+      (field.inputType === "select" ||
+        field.inputType === "multi_select") &&
+      field.optionsText
+        .split("\n")
         .map((item) => item.trim())
         .filter(Boolean).length < 2
     ) {
       return `${field.label} needs at least two options.`;
-    }
-
-    if (
-      field.min !== null &&
-      field.max !== null &&
-      field.min > field.max
-    ) {
-      return `${field.label}: minimum cannot exceed maximum.`;
-    }
-
-    if (
-      field.minSelections !== null &&
-      field.maxSelections !== null &&
-      field.minSelections >
-        field.maxSelections
-    ) {
-      return `${field.label}: minimum selections cannot exceed maximum selections.`;
     }
   }
 
   return null;
 }
 
-function BuilderFields({
-  fields,
-  setFields,
+function humanize(value: string) {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function DefinitionBuilder({
+  state,
+  onChange,
+  catalog,
 }: {
-  fields: BuilderField[];
-  setFields: Dispatch<
-    SetStateAction<BuilderField[]>
-  >;
+  state: BuilderState;
+  onChange: (state: BuilderState) => void;
+  catalog: PrimitiveCatalog | null;
 }) {
   function updateField(
     index: number,
     patch: Partial<BuilderField>,
   ) {
-    setFields((current) =>
-      current.map(
-        (item, itemIndex) =>
-          itemIndex === index
-            ? {
-                ...item,
-                ...patch,
-              }
-            : item,
+    onChange({
+      ...state,
+      fields: state.fields.map((field, itemIndex) =>
+        itemIndex === index
+          ? { ...field, ...patch }
+          : field,
       ),
-    );
+    });
   }
 
   function moveField(
     index: number,
     direction: -1 | 1,
   ) {
-    setFields((current) => {
-      const target =
-        index + direction;
+    const target = index + direction;
+    if (target < 0 || target >= state.fields.length) return;
 
-      if (
-        target < 0 ||
-        target >= current.length
-      ) {
-        return current;
-      }
-
-      const next = [...current];
-      const [item] =
-        next.splice(index, 1);
-
-      next.splice(target, 0, item);
-      return next;
-    });
+    const fields = [...state.fields];
+    const [item] = fields.splice(index, 1);
+    fields.splice(target, 0, item);
+    onChange({ ...state, fields });
   }
 
   return (
-    <div className="rounded-lg border border-border bg-muted/20 p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="text-[12px] font-medium uppercase tracking-[0.02em] text-muted-foreground">
-            Employee screen
-          </div>
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Name">
+          <input
+            value={state.title}
+            onChange={(event) =>
+              onChange({
+                ...state,
+                title: event.target.value,
+              })
+            }
+            className={inputClass}
+            placeholder="Machine inspection"
+            required
+          />
+        </Field>
 
-          <div className="mt-2 text-lg font-semibold tracking-[-0.02em] text-foreground">
-            Build the work interaction
-          </div>
-
-          <p className="mt-2 max-w-2xl text-[14px] leading-6 text-muted-foreground">
-            Define only the information
-            the employee must actively
-            provide. Identity, assignment,
-            date and known context stay
-            automatic.
-          </p>
-        </div>
-
-        <SecondaryButton
-          type="button"
-          onClick={() =>
-            setFields((current) => [
-              ...current,
-              blankField(),
-            ])
-          }
-          className="shrink-0"
+        <Field
+          label="Output view"
+          hint="How records should be projected in the dashboard."
         >
-          <Plus className="h-4 w-4" />
-          Add field
-        </SecondaryButton>
+          <select
+            value={state.outputRenderer}
+            onChange={(event) =>
+              onChange({
+                ...state,
+                outputRenderer: event.target.value,
+              })
+            }
+            className={inputClass}
+          >
+            {(catalog?.output ?? []).map((item) => (
+              <option key={item.key} value={item.key}>
+                {humanize(item.key)}
+              </option>
+            ))}
+          </select>
+        </Field>
       </div>
 
-      {fields.length === 0 ? (
-        <div className="mt-6 rounded-lg border border-dashed border-border bg-background p-6">
-          <div className="text-[14px] font-medium">
-            No employee inputs yet.
-          </div>
+      <Field label="Description">
+        <textarea
+          value={state.description}
+          onChange={(event) =>
+            onChange({
+              ...state,
+              description: event.target.value,
+            })
+          }
+          className={textareaClass}
+          placeholder="What work does this Responsibility represent?"
+        />
+      </Field>
 
-          <div className="mt-2 text-[14px] leading-6 text-muted-foreground">
-            Add fields only when the
-            employee needs to enter or
-            confirm something.
+      <Panel className="bg-muted/20">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="text-sm font-semibold">Employee input</div>
+            <div className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Fields are built from the primitive catalog returned by the backend. Adding a new primitive does not require a new business route.
+            </div>
           </div>
+          <SecondaryButton
+            type="button"
+            onClick={() =>
+              onChange({
+                ...state,
+                fields: [
+                  ...state.fields,
+                  blankField(catalog),
+                ],
+              })
+            }
+          >
+            <Plus className="h-4 w-4" />
+            Add field
+          </SecondaryButton>
         </div>
-      ) : (
-        <div className="mt-6 space-y-4">
-          {fields.map(
-            (field, index) => {
-              const fieldType =
-                fieldTypes.find(
-                  (item) =>
-                    item.value ===
-                    field.type,
-                );
 
-              return (
-                <div
-                  key={field.id}
-                  className="rounded-lg border border-border bg-background p-5"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-[12px] font-medium uppercase tracking-[0.02em] text-muted-foreground">
-                        Field{" "}
-                        {String(
-                          index + 1,
-                        ).padStart(
-                          2,
-                          "0",
-                        )}
-                      </div>
-
-                      <div className="mt-1 text-[14px] font-medium">
-                        {field.label.trim() ||
-                          "Untitled field"}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        disabled={
-                          index === 0
-                        }
-                        onClick={() =>
-                          moveField(
-                            index,
-                            -1,
-                          )
-                        }
-                        className="flex h-9 w-9 items-center justify-center rounded-md border border-input disabled:opacity-35"
-                        aria-label="Move field up"
-                      >
-                        <ArrowUp className="h-4 w-4" />
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={
-                          index ===
-                          fields.length -
-                            1
-                        }
-                        onClick={() =>
-                          moveField(
-                            index,
-                            1,
-                          )
-                        }
-                        className="flex h-9 w-9 items-center justify-center rounded-md border border-input disabled:opacity-35"
-                        aria-label="Move field down"
-                      >
-                        <ArrowDown className="h-4 w-4" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFields(
-                            (current) =>
-                              current.filter(
-                                (
-                                  _,
-                                  itemIndex,
-                                ) =>
-                                  itemIndex !==
-                                  index,
-                              ),
-                          )
-                        }
-                        className="flex h-9 w-9 items-center justify-center rounded-md border border-input"
-                        aria-label="Remove field"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+        {state.fields.length === 0 ? (
+          <div className="mt-5">
+            <EmptyState
+              title="No employee input fields"
+              description="This is valid for a Responsibility that represents a simple event or confirmation."
+            />
+          </div>
+        ) : (
+          <div className="mt-5 space-y-4">
+            {state.fields.map((field, index) => (
+              <div
+                key={field.localId}
+                className="rounded-lg border bg-background p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="text-sm font-semibold">
+                    {field.label.trim() || `Field ${index + 1}`}
                   </div>
-
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    <Field label="Question / label">
-                      <input
-                        value={
-                          field.label
-                        }
-                        onChange={(
-                          event,
-                        ) => {
-                          const oldAuto =
-                            keyFromLabel(
-                              field.label,
-                            );
-
-                          const label =
-                            event.target
-                              .value;
-
-                          const nextAuto =
-                            keyFromLabel(
-                              label,
-                            );
-
-                          const followsLabel =
-                            !field.key ||
-                            field.key ===
-                              oldAuto;
-
-                          updateField(
-                            index,
-                            {
-                              label,
-                              key: followsLabel
-                                ? nextAuto
-                                : field.key,
-                            },
-                          );
-                        }}
-                        placeholder="Dealers to visit"
-                        className={
-                          inputClass
-                        }
-                      />
-                    </Field>
-
-                    <Field label="Interaction type">
-                      <select
-                        value={
-                          field.type
-                        }
-                        onChange={(
-                          event,
-                        ) =>
-                          updateField(
-                            index,
-                            {
-                              type: event
-                                .target
-                                .value,
-                            },
-                          )
-                        }
-                        className={
-                          inputClass
-                        }
-                      >
-                        {fieldTypes.map(
-                          (item) => (
-                            <option
-                              key={
-                                item.value
-                              }
-                              value={
-                                item.value
-                              }
-                            >
-                              {
-                                item.label
-                              }
-                            </option>
-                          ),
-                        )}
-                      </select>
-                    </Field>
-                  </div>
-
-                  <div className="mt-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-[12px] leading-[18px] text-muted-foreground">
-                    {fieldType?.description ??
-                      "Employee input field."}
-                  </div>
-
-                  {!isDisplayOnly(
-                    field.type,
-                  ) && (
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      <Field
-                        label="Placeholder"
-                        hint="Optional hint shown before the employee answers."
-                      >
-                        <input
-                          value={
-                            field.placeholder
-                          }
-                          onChange={(
-                            event,
-                          ) =>
-                            updateField(
-                              index,
-                              {
-                                placeholder:
-                                  event
-                                    .target
-                                    .value,
-                              },
-                            )
-                          }
-                          className={
-                            inputClass
-                          }
-                        />
-                      </Field>
-
-                      <Field
-                        label="Help text"
-                        hint="Optional instruction below the control."
-                      >
-                        <input
-                          value={
-                            field.helpText
-                          }
-                          onChange={(
-                            event,
-                          ) =>
-                            updateField(
-                              index,
-                              {
-                                helpText:
-                                  event
-                                    .target
-                                    .value,
-                              },
-                            )
-                          }
-                          className={
-                            inputClass
-                          }
-                        />
-                      </Field>
-                    </div>
-                  )}
-
-                  {needsOptions(
-                    field.type,
-                  ) && (
-                    <div className="mt-4">
-                      <Field
-                        label="Options"
-                        hint="One option per line."
-                      >
-                        <textarea
-                          value={field.options.join(
-                            "\n",
-                          )}
-                          onChange={(
-                            event,
-                          ) =>
-                            updateField(
-                              index,
-                              {
-                                options:
-                                  event.target.value.split(
-                                    "\n",
-                                  ),
-                              },
-                            )
-                          }
-                          className={
-                            textareaClass
-                          }
-                        />
-                      </Field>
-                    </div>
-                  )}
-
-                  {supportsNumberRange(
-                    field.type,
-                  ) && (
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      <Field label="Minimum">
-                        <input
-                          type="number"
-                          value={
-                            field.min ??
-                            ""
-                          }
-                          onChange={(
-                            event,
-                          ) =>
-                            updateField(
-                              index,
-                              {
-                                min: optionalNumber(
-                                  event
-                                    .target
-                                    .value,
-                                ),
-                              },
-                            )
-                          }
-                          className={
-                            inputClass
-                          }
-                        />
-                      </Field>
-
-                      <Field label="Maximum">
-                        <input
-                          type="number"
-                          value={
-                            field.max ??
-                            ""
-                          }
-                          onChange={(
-                            event,
-                          ) =>
-                            updateField(
-                              index,
-                              {
-                                max: optionalNumber(
-                                  event
-                                    .target
-                                    .value,
-                                ),
-                              },
-                            )
-                          }
-                          className={
-                            inputClass
-                          }
-                        />
-                      </Field>
-                    </div>
-                  )}
-
-                  {supportsSelectionRange(
-                    field.type,
-                  ) && (
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      <Field label="Minimum selections">
-                        <input
-                          type="number"
-                          min="0"
-                          value={
-                            field.minSelections ??
-                            ""
-                          }
-                          onChange={(
-                            event,
-                          ) =>
-                            updateField(
-                              index,
-                              {
-                                minSelections:
-                                  optionalNumber(
-                                    event
-                                      .target
-                                      .value,
-                                  ),
-                              },
-                            )
-                          }
-                          className={
-                            inputClass
-                          }
-                        />
-                      </Field>
-
-                      <Field label="Maximum selections">
-                        <input
-                          type="number"
-                          min="1"
-                          value={
-                            field.maxSelections ??
-                            ""
-                          }
-                          onChange={(
-                            event,
-                          ) =>
-                            updateField(
-                              index,
-                              {
-                                maxSelections:
-                                  optionalNumber(
-                                    event
-                                      .target
-                                      .value,
-                                  ),
-                              },
-                            )
-                          }
-                          className={
-                            inputClass
-                          }
-                        />
-                      </Field>
-                    </div>
-                  )}
-
-                  <div className="mt-5 flex flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-end sm:justify-between">
-                    <Field
-                      label="Data key"
-                      hint="Stable integration key."
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => moveField(index, -1)}
+                      disabled={index === 0}
+                      className="flex h-8 w-8 items-center justify-center rounded-md border disabled:opacity-30"
+                      aria-label="Move up"
                     >
-                      <input
-                        value={
-                          field.key
-                        }
-                        onChange={(
-                          event,
-                        ) =>
-                          updateField(
-                            index,
-                            {
-                              key: keyFromLabel(
-                                event
-                                  .target
-                                  .value,
-                              ),
-                            },
-                          )
-                        }
-                        className={`${inputClass} sm:w-72`}
-                      />
-                    </Field>
-
-                    {!isDisplayOnly(
-                      field.type,
-                    ) && (
-                      <label className="flex h-10 items-center gap-2 text-[14px] font-medium">
-                        <input
-                          type="checkbox"
-                          checked={
-                            field.required
-                          }
-                          onChange={(
-                            event,
-                          ) =>
-                            updateField(
-                              index,
-                              {
-                                required:
-                                  event
-                                    .target
-                                    .checked,
-                              },
-                            )
-                          }
-                        />
-                        Employee must
-                        answer
-                      </label>
-                    )}
+                      <ArrowUp className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveField(index, 1)}
+                      disabled={index === state.fields.length - 1}
+                      className="flex h-8 w-8 items-center justify-center rounded-md border disabled:opacity-30"
+                      aria-label="Move down"
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onChange({
+                          ...state,
+                          fields: state.fields.filter((_, itemIndex) => itemIndex !== index),
+                        })
+                      }
+                      className="flex h-8 w-8 items-center justify-center rounded-md border"
+                      aria-label="Remove field"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
-              );
-            },
-          )}
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <Field label="Question / label">
+                    <input
+                      value={field.label}
+                      onChange={(event) => {
+                        const previousAuto = normalizeKey(field.label);
+                        const label = event.target.value;
+                        const followsLabel =
+                          !field.key ||
+                          field.key === previousAuto;
+
+                        updateField(index, {
+                          label,
+                          key: followsLabel
+                            ? normalizeKey(label)
+                            : field.key,
+                        });
+                      }}
+                      className={inputClass}
+                      placeholder="Temperature"
+                    />
+                  </Field>
+
+                  <Field label="Input primitive">
+                    <select
+                      value={field.inputType}
+                      onChange={(event) => {
+                        const inputType = event.target.value;
+                        const primitive = catalog?.input.find((item) => item.key === inputType);
+                        updateField(index, {
+                          inputType,
+                          dataType: primitive?.dataType ?? "any",
+                        });
+                      }}
+                      className={inputClass}
+                    >
+                      {(catalog?.input ?? []).map((item) => (
+                        <option key={item.key} value={item.key}>
+                          {humanize(item.key)} · {item.dataType}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+
+                  <Field
+                    label="Data key"
+                    hint="Stable machine-readable key."
+                  >
+                    <input
+                      value={field.key}
+                      onChange={(event) =>
+                        updateField(index, {
+                          key: normalizeKey(event.target.value),
+                        })
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <Field
+                    label="Storage type"
+                    hint="Derived from the primitive catalog."
+                  >
+                    <input
+                      value={field.dataType}
+                      readOnly
+                      className={`${inputClass} bg-muted/40`}
+                    />
+                  </Field>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <Field label="Placeholder">
+                    <input
+                      value={field.placeholder}
+                      onChange={(event) =>
+                        updateField(index, {
+                          placeholder: event.target.value,
+                        })
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="Help text">
+                    <input
+                      value={field.helpText}
+                      onChange={(event) =>
+                        updateField(index, {
+                          helpText: event.target.value,
+                        })
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+                </div>
+
+                {(field.inputType === "select" ||
+                  field.inputType === "multi_select") && (
+                  <div className="mt-4">
+                    <Field
+                      label="Options"
+                      hint="One option per line."
+                    >
+                      <textarea
+                        value={field.optionsText}
+                        onChange={(event) =>
+                          updateField(index, {
+                            optionsText: event.target.value,
+                          })
+                        }
+                        className={textareaClass}
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                <label className="mt-4 flex items-center gap-2 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    checked={field.required}
+                    onChange={(event) =>
+                      updateField(index, {
+                        required: event.target.checked,
+                      })
+                    }
+                  />
+                  Employee must provide this value
+                </label>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <Panel>
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Settings2 className="h-4 w-4" />
+          Record operations
         </div>
-      )}
+        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          {(["create", "read", "update", "delete"] as CrudOperation[]).map((operation) => (
+            <label
+              key={operation}
+              className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium"
+            >
+              <input
+                type="checkbox"
+                checked={state.crud[operation]}
+                onChange={(event) =>
+                  onChange({
+                    ...state,
+                    crud: {
+                      ...state.crud,
+                      [operation]: event.target.checked,
+                    },
+                  })
+                }
+              />
+              {humanize(operation)}
+            </label>
+          ))}
+        </div>
+        <label className="mt-4 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={state.strict}
+            onChange={(event) =>
+              onChange({
+                ...state,
+                strict: event.target.checked,
+              })
+            }
+          />
+          Reject undeclared payload fields
+        </label>
+      </Panel>
     </div>
   );
 }
 
 export default function ResponsibilitiesClient() {
-  const [
-    capabilities,
-    setCapabilities,
-  ] = useState<Capability[]>([]);
-
+  const [catalog, setCatalog] =
+    useState<PrimitiveCatalog | null>(null);
+  const [responsibilities, setResponsibilities] =
+    useState<Responsibility[]>([]);
   const [rules, setRules] =
-    useState<CapabilityRule[]>([]);
-
-  const [
-    employees,
-    setEmployees,
-  ] = useState<Employee[]>([]);
-
+    useState<ResponsibilityRule[]>([]);
+  const [employees, setEmployees] =
+    useState<Employee[]>([]);
+  const [roles, setRoles] =
+    useState<Role[]>([]);
   const [loading, setLoading] =
     useState(true);
-
-  const [
-    canCreateResponsibility,
-    setCanCreateResponsibility,
-  ] = useState(false);
+  const [saving, setSaving] =
+    useState(false);
+  const [message, setMessage] =
+    useState<string | null>(null);
+  const [canCreate, setCanCreate] =
+    useState(false);
 
   const [showCreate, setShowCreate] =
     useState(false);
+  const [createState, setCreateState] =
+    useState<BuilderState>(blankState());
+  const [editing, setEditing] =
+    useState<Responsibility | null>(null);
+  const [editState, setEditState] =
+    useState<BuilderState>(blankState());
 
-  const [
-    editCapability,
-    setEditCapability,
-  ] = useState<Capability | null>(
-    null,
-  );
-
-  const [
-    createFields,
-    setCreateFields,
-  ] = useState<BuilderField[]>([]);
-
-  const [
-    editFields,
-    setEditFields,
-  ] = useState<BuilderField[]>([]);
-
+  const [ruleResponsibilityId, setRuleResponsibilityId] =
+    useState<number | null>(null);
   const [ruleType, setRuleType] =
     useState("all");
-
   const [ruleValue, setRuleValue] =
     useState("");
+  const [ruleEffect, setRuleEffect] =
+    useState("allow");
 
-  const [saving, setSaving] =
-    useState(false);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setMessage(null);
 
-  const [message, setMessage] =
-    useState<string | null>(null);
+    try {
+      const [
+        primitiveBody,
+        responsibilityBody,
+        ruleBody,
+        employeeBody,
+        roleBody,
+        me,
+      ] = await Promise.all([
+        apiJson<{ primitives: PrimitiveCatalog }>(
+          "/api/appliance/primitives",
+        ),
+        apiJson<{ responsibilities: Responsibility[] }>(
+          "/api/appliance/responsibilities",
+        ),
+        apiJson<{ rules: ResponsibilityRule[] }>(
+          "/api/appliance/responsibility-rules",
+        ),
+        apiJson<{ employees: Employee[] }>(
+          "/api/appliance/employees",
+        ),
+        apiJson<{ roles: Role[] }>(
+          "/api/appliance/roles",
+        ),
+        apiJson<MeResponse>("/api/me"),
+      ]);
 
-  const load = useCallback(
-    async () => {
-      setLoading(true);
-
-      try {
-        const [
-          capabilityBody,
-          ruleBody,
-          employeeBody,
-          me,
-        ] = await Promise.all([
-          apiJson<{
-            capabilities: Capability[];
-          }>(
-            "/api/appliance/capabilities",
-          ),
-
-          apiJson<{
-            rules: CapabilityRule[];
-          }>(
-            "/api/appliance/capability-rules",
-          ),
-
-          apiJson<{
-            employees: Employee[];
-          }>(
-            "/api/appliance/employees",
-          ),
-
-          apiJson<MeResponse>(
-            "/api/me",
-          ),
-        ]);
-
-        setCapabilities(
-          capabilityBody.capabilities ??
-            [],
-        );
-
-        setRules(
-          ruleBody.rules ?? [],
-        );
-
-        setEmployees(
-          employeeBody.employees ?? [],
-        );
-
-        setCanCreateResponsibility(
-          me.entitlements?.[
-            RESPONSIBILITY_CREATE_ENTITLEMENT
-          ] === true,
-        );
-      } catch (error) {
-        setMessage(
-          error instanceof Error
-            ? error.message
-            : "Unable to load responsibilities.",
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+      setCatalog(primitiveBody.primitives);
+      setResponsibilities(responsibilityBody.responsibilities ?? []);
+      setRules(ruleBody.rules ?? []);
+      setEmployees(employeeBody.employees ?? []);
+      setRoles(roleBody.roles ?? []);
+      setCanCreate(
+        me.entitlements?.[RESPONSIBILITY_CREATE_ENTITLEMENT] === true,
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load Responsibilities.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const activeCount =
-    capabilities.filter(
-      (item) =>
-        item.isActive !== false,
-    ).length;
+  const activeCount = responsibilities.filter(
+    (item) => item.isActive !== false,
+  ).length;
 
   const departments = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          employees
-            .map(
-              (employee) =>
-                employee.department,
-            )
-            .filter(
-              (
-                value,
-              ): value is string =>
-                Boolean(value),
-            ),
-        ),
-      ).sort(),
+    () => [...new Set(
+      employees
+        .map((employee) => employee.department)
+        .filter((value): value is string => Boolean(value)),
+    )].sort(),
     [employees],
   );
 
   const designations = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          employees
-            .map(
-              (employee) =>
-                employee.designation,
-            )
-            .filter(
-              (
-                value,
-              ): value is string =>
-                Boolean(value),
-            ),
-        ),
-      ).sort(),
+    () => [...new Set(
+      employees
+        .map((employee) => employee.designation)
+        .filter((value): value is string => Boolean(value)),
+    )].sort(),
     [employees],
   );
 
-  const roles = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          employees
-            .map(
-              (employee) =>
-                employee.role,
-            )
-            .filter(
-              (
-                value,
-              ): value is string =>
-                Boolean(value),
-            ),
-        ),
-      ).sort(),
-    [employees],
-  );
+  function openCreate() {
+    setCreateState(blankState(catalog));
+    setShowCreate(true);
+    setMessage(null);
+  }
 
   async function createResponsibility(
     event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
 
-    if (!canCreateResponsibility) {
+    if (!canCreate) {
       setMessage(
-        "Custom responsibility creation is not enabled for this company.",
+        "Responsibility customization is not enabled for this company.",
       );
       return;
     }
 
-    const builderError =
-      validateBuilder(createFields);
-
-    if (builderError) {
-      setMessage(builderError);
+    const validation = validateState(createState);
+    if (validation) {
+      setMessage(validation);
       return;
     }
 
     setSaving(true);
     setMessage(null);
 
-    const data = new FormData(
-      event.currentTarget,
-    );
-
-    const title = String(
-      data.get("title") ?? "",
-    ).trim();
-
-    const key =
-      keyFromLabel(title);
-
     try {
-      await apiJson(
-        "/api/appliance/capabilities",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            key,
-            title,
-
-            // Engine metadata. Not selectable in the UI.
-            type: "form",
-
-            description:
-              String(
-                data.get(
-                  "description",
-                ) ?? "",
-              ).trim() || null,
-
-            icon: null,
-
-            config: toConfig(
-              createFields,
-              key,
-            ),
-          }),
-        },
-      );
+      await apiJson("/api/appliance/responsibilities", {
+        method: "POST",
+        body: JSON.stringify({
+          key: normalizeKey(createState.title),
+          title: createState.title.trim(),
+          description: createState.description.trim() || null,
+          icon: "blocks",
+          config: configFromState(createState),
+        }),
+      });
 
       setShowCreate(false);
-      setCreateFields([]);
-
-      setMessage(
-        `“${title}” is ready to assign.`,
-      );
-
+      setMessage(`“${createState.title.trim()}” is ready to assign.`);
       await load();
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Unable to create responsibility.",
+          : "Unable to create Responsibility.",
       );
     } finally {
       setSaving(false);
     }
   }
 
-  function openEdit(
-    capability: Capability,
-  ) {
-    if (isBuiltIn(capability)) {
-      return;
-    }
-
-    setEditCapability(capability);
-    setEditFields(
-      fieldsFromCapability(capability),
-    );
+  function openEdit(responsibility: Responsibility) {
+    setEditing(responsibility);
+    setEditState(stateFromResponsibility(responsibility));
     setMessage(null);
   }
 
@@ -1341,151 +818,135 @@ export default function ResponsibilitiesClient() {
     event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
+    if (!editing) return;
 
-    if (!editCapability) {
-      return;
-    }
-
-    const builderError =
-      validateBuilder(editFields);
-
-    if (builderError) {
-      setMessage(builderError);
+    const validation = validateState(editState);
+    if (validation) {
+      setMessage(validation);
       return;
     }
 
     setSaving(true);
     setMessage(null);
 
-    const data = new FormData(
-      event.currentTarget,
-    );
-
     try {
       await apiJson(
-        `/api/appliance/capabilities/${editCapability.id}`,
+        `/api/appliance/responsibilities/${editing.id}`,
         {
           method: "PATCH",
-
-          /**
-           * type is deliberately absent. Tenant admins cannot mutate
-           * implementation/renderer class.
-           */
           body: JSON.stringify({
-            title: String(
-              data.get("title") ??
-                "",
-            ).trim(),
-
-            description:
-              String(
-                data.get(
-                  "description",
-                ) ?? "",
-              ).trim() || null,
-
-            config: toConfig(
-              editFields,
-              editCapability.key,
-              editCapability.config,
-            ),
+            title: editState.title.trim(),
+            description: editState.description.trim() || null,
+            config: configFromState(editState),
           }),
         },
       );
 
-      setEditCapability(null);
-      setEditFields([]);
-
-      setMessage(
-        "Responsibility updated. Existing employee history is preserved.",
-      );
-
+      setEditing(null);
+      setMessage("Responsibility updated. Existing records and Workflow history are preserved.");
       await load();
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Unable to update responsibility.",
+          : "Unable to update Responsibility.",
       );
     } finally {
       setSaving(false);
     }
   }
 
-  async function toggleCapability(
-    capability: Capability,
+  async function toggleResponsibility(
+    responsibility: Responsibility,
   ) {
     setSaving(true);
+    setMessage(null);
 
     try {
       await apiJson(
-        `/api/appliance/capabilities/${capability.id}`,
+        `/api/appliance/responsibilities/${responsibility.id}`,
         {
           method: "PATCH",
           body: JSON.stringify({
-            isActive:
-              capability.isActive ===
-              false,
+            isActive: responsibility.isActive === false,
           }),
         },
       );
-
       await load();
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Unable to update responsibility.",
+          : "Unable to change Responsibility status.",
       );
     } finally {
       setSaving(false);
     }
+  }
+
+  function ruleOptions() {
+    if (ruleType === "department") {
+      return departments.map((value) => ({ value, label: value }));
+    }
+    if (ruleType === "designation") {
+      return designations.map((value) => ({ value, label: value }));
+    }
+    if (ruleType === "user") {
+      return employees.map((employee) => ({
+        value: String(employee.id),
+        label:
+          employee.name ??
+          employee.employeeCode ??
+          `Employee ${employee.id}`,
+      }));
+    }
+    if (ruleType === "role") {
+      return roles.map((role) => ({
+        value: String(role.id),
+        label: role.label,
+      }));
+    }
+    return [];
   }
 
   async function createRule(
     event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
+    if (!ruleResponsibilityId) return;
+
+    if (ruleType !== "all" && !ruleValue) {
+      setMessage("Choose who this assignment rule applies to.");
+      return;
+    }
+
     setSaving(true);
-
-    const data = new FormData(
-      event.currentTarget,
-    );
-
-    const form =
-      event.currentTarget;
+    setMessage(null);
 
     try {
       await apiJson(
-        "/api/appliance/capability-rules",
+        "/api/appliance/responsibility-rules",
         {
           method: "POST",
           body: JSON.stringify({
-            capabilityId: Number(
-              data.get("capabilityId"),
-            ),
-
+            responsibilityId: ruleResponsibilityId,
             subjectType: ruleType,
-
             subjectValue:
-              ruleType === "all"
-                ? null
-                : ruleValue,
-
-            effect: String(
-              data.get("effect") ??
-                "allow",
-            ),
-
+              ruleType === "all" ? null : ruleValue,
+            roleId:
+              ruleType === "role" ? Number(ruleValue) : undefined,
+            effect: ruleEffect,
             priority: 0,
+            config: {},
           }),
         },
       );
 
-      setRuleType("all");
       setRuleValue("");
-      form.reset();
-
+      setRuleType("all");
+      setRuleEffect("allow");
+      setRuleResponsibilityId(null);
+      setMessage("Assignment rule created.");
       await load();
     } catch (error) {
       setMessage(
@@ -1498,12 +959,11 @@ export default function ResponsibilitiesClient() {
     }
   }
 
-  async function toggleRule(
-    rule: CapabilityRule,
-  ) {
+  async function toggleRule(rule: ResponsibilityRule) {
+    setSaving(true);
     try {
       await apiJson(
-        `/api/appliance/capability-rules/${rule.id}`,
+        `/api/appliance/responsibility-rules/${rule.id}`,
         {
           method: "PATCH",
           body: JSON.stringify({
@@ -1511,754 +971,305 @@ export default function ResponsibilitiesClient() {
           }),
         },
       );
-
       await load();
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to update assignment rule.",
-      );
+    } finally {
+      setSaving(false);
     }
-  }
-
-  function subjectLabel(
-    rule: CapabilityRule,
-  ) {
-    if (
-      rule.subjectType === "all"
-    ) {
-      return "Everyone";
-    }
-
-    if (
-      rule.subjectType === "user"
-    ) {
-      const employee =
-        employees.find(
-          (item) =>
-            String(item.id) ===
-            rule.subjectValue,
-        );
-
-      return (
-        employee?.name ??
-        employee?.employeeCode ??
-        `Employee ${rule.subjectValue}`
-      );
-    }
-
-    return `${rule.subjectType}: ${rule.subjectValue ?? "—"}`;
-  }
-
-  function valuesForRuleType() {
-    if (
-      ruleType === "department"
-    ) {
-      return departments;
-    }
-
-    if (
-      ruleType === "designation"
-    ) {
-      return designations;
-    }
-
-    if (ruleType === "role") {
-      return roles;
-    }
-
-    return [];
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] p-6">
-      <div className="space-y-12">
-        <PageIntro
-          eyebrow="Workspace"
-          title="Responsibilities"
-          description="Built-in responsibilities form the standard workspace. Custom work interactions are available only when enabled for this company."
-          action={
-            <div className="flex gap-2">
-              <SecondaryButton
-                type="button"
-                onClick={() =>
-                  void load()
-                }
-              >
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </SecondaryButton>
-
-              {canCreateResponsibility ? (
-                <PrimaryButton
-                  type="button"
-                  onClick={() => {
-                    setCreateFields(
-                      [],
-                    );
-                    setShowCreate(true);
-                    setMessage(null);
-                  }}
-                >
-                  <Plus className="h-4 w-4" />
-                  Create responsibility
-                </PrimaryButton>
-              ) : (
-                <SecondaryButton
-                  type="button"
-                  disabled
-                  title="Custom responsibility creation is not enabled for this company."
-                >
-                  <Lock className="h-4 w-4" />
-                  Custom creation unavailable
-                </SecondaryButton>
-              )}
-            </div>
-          }
-        />
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-border bg-card p-6">
-            <div className="text-2xl font-semibold">
-              {activeCount}
-            </div>
-            <div className="mt-2 text-[14px] font-medium">
-              Active responsibilities
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-border bg-card p-6">
-            <div className="text-2xl font-semibold">
-              {
-                rules.filter(
-                  (rule) =>
-                    rule.enabled,
-                ).length
-              }
-            </div>
-            <div className="mt-2 text-[14px] font-medium">
-              Assignment rules
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-border bg-card p-6">
-            <div className="text-2xl font-semibold">
-              {capabilities.reduce(
-                (sum, item) =>
-                  sum +
-                  (item.directAssignments ??
-                    0),
-                0,
-              )}
-            </div>
-            <div className="mt-2 text-[14px] font-medium">
-              Direct employee assignments
-            </div>
-          </div>
-        </div>
-
-        {message && (
-          <div className="rounded-lg border border-border bg-card px-4 py-3 text-[14px] leading-6">
-            {message}
-          </div>
-        )}
-
-        <div className="grid gap-8 xl:grid-cols-[1.45fr_1fr]">
-          <Panel>
-            <div className="mb-6">
-              <div className="flex items-center gap-2 text-lg font-semibold">
-                <Blocks className="h-5 w-5" />
-                Responsibility library
-              </div>
-
-              <div className="mt-2 text-[14px] leading-6 text-muted-foreground">
-                Built-ins come from the
-                BRIXTA system. Custom
-                responsibilities use the
-                generic interaction builder.
-              </div>
-            </div>
-
-            {loading ? (
-              <div className="flex h-52 items-center justify-center">
-                <Loader2 className="h-5 w-5 animate-spin" />
-              </div>
-            ) : capabilities.length ===
-              0 ? (
-              <EmptyState
-                title="No responsibilities installed"
-                description="This tenant does not currently have any responsibility modules."
-              />
-            ) : (
-              <div className="divide-y divide-border rounded-lg border border-border">
-                {capabilities.map(
-                  (capability) => {
-                    const rawFields =
-                      capability
-                        .config
-                        ?.fields;
-
-                    const fieldCount =
-                      Array.isArray(
-                        rawFields,
-                      )
-                        ? rawFields.length
-                        : 0;
-
-                    const builtIn =
-                      isBuiltIn(
-                        capability,
-                      );
-
-                    return (
-                      <div
-                        key={
-                          capability.id
-                        }
-                        className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center"
-                      >
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted">
-                          <CheckCircle2 className="h-5 w-5" />
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <div className="font-medium">
-                              {
-                                capability.title
-                              }
-                            </div>
-
-                            <Pill
-                              tone={
-                                capability.isActive ===
-                                false
-                                  ? "neutral"
-                                  : "good"
-                              }
-                            >
-                              {capability.isActive ===
-                              false
-                                ? "Off"
-                                : "Active"}
-                            </Pill>
-
-                            {builtIn && (
-                              <Pill tone="info">
-                                Built-in
-                              </Pill>
-                            )}
-                          </div>
-
-                          <div className="mt-2 text-[12px] leading-[18px] text-muted-foreground">
-                            {engineLabel(
-                              capability,
-                            )}
-
-                            {!builtIn
-                              ? ` · ${fieldCount} field${fieldCount === 1 ? "" : "s"}`
-                              : ""}
-
-                            {` · ${capability.directAssignments ?? 0} direct · ${capability.assignmentRules ?? 0} rules`}
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                          {!builtIn && (
-                            <SecondaryButton
-                              type="button"
-                              onClick={() =>
-                                openEdit(
-                                  capability,
-                                )
-                              }
-                            >
-                              <Edit3 className="h-4 w-4" />
-                              Edit
-                            </SecondaryButton>
-                          )}
-
-                          <SecondaryButton
-                            type="button"
-                            onClick={() =>
-                              void toggleCapability(
-                                capability,
-                              )
-                            }
-                            disabled={
-                              saving
-                            }
-                          >
-                            {capability.isActive ===
-                            false ? (
-                              <ToggleRight className="h-4 w-4" />
-                            ) : (
-                              <ToggleLeft className="h-4 w-4" />
-                            )}
-
-                            {capability.isActive ===
-                            false
-                              ? "Enable"
-                              : "Disable"}
-                          </SecondaryButton>
-                        </div>
-                      </div>
-                    );
-                  },
-                )}
-              </div>
-            )}
-          </Panel>
-
-          <Panel>
-            <div className="mb-6">
-              <div className="flex items-center gap-2 text-lg font-semibold">
-                <Users className="h-5 w-5" />
-                Assign automatically
-              </div>
-
-              <div className="mt-2 text-[14px] leading-6 text-muted-foreground">
-                Give a responsibility to
-                everyone, a department,
-                designation, role or one
-                employee.
-              </div>
-            </div>
-
-            <form
-              onSubmit={createRule}
-              className="space-y-5"
-            >
-              <Field label="Responsibility">
-                <select
-                  name="capabilityId"
-                  required
-                  className={
-                    inputClass
-                  }
-                >
-                  <option value="">
-                    Choose
-                    responsibility
-                  </option>
-
-                  {capabilities
-                    .filter(
-                      (item) =>
-                        item.isActive !==
-                        false,
-                    )
-                    .map(
-                      (item) => (
-                        <option
-                          key={
-                            item.id
-                          }
-                          value={
-                            item.id
-                          }
-                        >
-                          {
-                            item.title
-                          }
-                        </option>
-                      ),
-                    )}
-                </select>
-              </Field>
-
-              <Field label="Who gets it?">
-                <select
-                  value={
-                    ruleType
-                  }
-                  onChange={(
-                    event,
-                  ) => {
-                    setRuleType(
-                      event.target
-                        .value,
-                    );
-                    setRuleValue("");
-                  }}
-                  className={
-                    inputClass
-                  }
-                >
-                  <option value="all">
-                    Everyone
-                  </option>
-                  <option value="department">
-                    A department
-                  </option>
-                  <option value="designation">
-                    A designation
-                  </option>
-                  <option value="role">
-                    An employee type /
-                    role
-                  </option>
-                  <option value="user">
-                    One employee
-                  </option>
-                </select>
-              </Field>
-
-              {ruleType ===
-                "user" && (
-                <Field label="Employee">
-                  <select
-                    value={
-                      ruleValue
-                    }
-                    onChange={(
-                      event,
-                    ) =>
-                      setRuleValue(
-                        event
-                          .target
-                          .value,
-                      )
-                    }
-                    required
-                    className={
-                      inputClass
-                    }
-                  >
-                    <option value="">
-                      Choose employee
-                    </option>
-
-                    {employees.map(
-                      (employee) => (
-                        <option
-                          key={
-                            employee.id
-                          }
-                          value={
-                            employee.id
-                          }
-                        >
-                          {employee.name ??
-                            employee.employeeCode}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                </Field>
-              )}
-
-              {![
-                "all",
-                "user",
-              ].includes(
-                ruleType,
-              ) && (
-                <Field
-                  label={
-                    ruleType ===
-                    "department"
-                      ? "Department"
-                      : ruleType ===
-                          "designation"
-                        ? "Designation"
-                        : "Employee type / role"
-                  }
-                >
-                  <input
-                    value={
-                      ruleValue
-                    }
-                    onChange={(
-                      event,
-                    ) =>
-                      setRuleValue(
-                        event
-                          .target
-                          .value,
-                      )
-                    }
-                    required
-                    list="rule-values"
-                    className={
-                      inputClass
-                    }
-                    placeholder="Type or choose"
-                  />
-
-                  <datalist id="rule-values">
-                    {valuesForRuleType().map(
-                      (value) => (
-                        <option
-                          key={
-                            value
-                          }
-                          value={
-                            value
-                          }
-                        />
-                      ),
-                    )}
-                  </datalist>
-                </Field>
-              )}
-
-              <Field
-                label="Rule"
-                hint="Allow is normal. Deny creates an exception."
-              >
-                <select
-                  name="effect"
-                  className={
-                    inputClass
-                  }
-                >
-                  <option value="allow">
-                    Give
-                    responsibility
-                  </option>
-
-                  <option value="deny">
-                    Do not give
-                    responsibility
-                  </option>
-                </select>
-              </Field>
-
-              <PrimaryButton
-                type="submit"
-                disabled={saving}
-                className="w-full"
-              >
-                Add assignment rule
+    <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
+      <PageIntro
+        eyebrow="Workspace"
+        title="Responsibilities"
+        description="Define work once: employee input, dashboard output and allowed record operations. Workflows decide when those operations are allowed."
+        action={
+          <div className="flex gap-2">
+            <SecondaryButton type="button" onClick={() => void load()}>
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </SecondaryButton>
+            {canCreate && (
+              <PrimaryButton type="button" onClick={openCreate}>
+                <Plus className="h-4 w-4" />
+                Create Responsibility
               </PrimaryButton>
-            </form>
+            )}
+          </div>
+        }
+      />
 
-            <div className="mt-8 border-t border-border pt-6">
-              <div className="mb-4 text-[12px] font-medium uppercase text-muted-foreground">
-                Current rules
-              </div>
+      {message && (
+        <Panel className="py-3">
+          <div className="text-sm">{message}</div>
+        </Panel>
+      )}
 
-              {rules.length === 0 ? (
-                <div className="text-[14px] leading-6 text-muted-foreground">
-                  No automatic
-                  assignment rules yet.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {rules.map(
-                    (rule) => {
-                      const capability =
-                        capabilities.find(
-                          (
-                            item,
-                          ) =>
-                            item.id ===
-                            rule.capabilityId,
-                        );
-
-                      return (
-                        <div
-                          key={
-                            rule.id
-                          }
-                          className="rounded-md border border-border p-4"
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <div className="text-[14px] font-medium">
-                                {capability?.title ??
-                                  `Responsibility ${rule.capabilityId}`}
-                              </div>
-
-                              <div className="mt-2 text-[12px] text-muted-foreground">
-                                {rule.effect ===
-                                "deny"
-                                  ? "Exclude"
-                                  : "Give to"}{" "}
-                                {subjectLabel(
-                                  rule,
-                                )}
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void toggleRule(
-                                  rule,
-                                )
-                              }
-                            >
-                              <Pill
-                                tone={
-                                  rule.enabled
-                                    ? "good"
-                                    : "neutral"
-                                }
-                              >
-                                {rule.enabled
-                                  ? "On"
-                                  : "Off"}
-                              </Pill>
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    },
-                  )}
-                </div>
-              )}
-            </div>
-          </Panel>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-lg border bg-card p-5">
+          <div className="text-2xl font-semibold">{activeCount}</div>
+          <div className="mt-1 text-sm text-muted-foreground">Active Responsibilities</div>
+        </div>
+        <div className="rounded-lg border bg-card p-5">
+          <div className="text-2xl font-semibold">{catalog?.input.length ?? 0}</div>
+          <div className="mt-1 text-sm text-muted-foreground">Input primitives</div>
+        </div>
+        <div className="rounded-lg border bg-card p-5">
+          <div className="text-2xl font-semibold">{catalog?.output.length ?? 0}</div>
+          <div className="mt-1 text-sm text-muted-foreground">Output renderers</div>
         </div>
       </div>
 
+      {loading ? (
+        <div className="flex h-64 items-center justify-center rounded-lg border">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </div>
+      ) : responsibilities.length === 0 ? (
+        <EmptyState
+          title="No Responsibilities yet"
+          description="Create the first unit of work. The sidebar will generate its Work surface automatically."
+        />
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {responsibilities.map((responsibility) => {
+            const definition = responsibility.definition;
+            const responsibilityRules = rules.filter(
+              (rule) => rule.capabilityId === responsibility.id,
+            );
+
+            return (
+              <Panel key={responsibility.id}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Blocks className="h-5 w-5" />
+                      <div className="text-lg font-semibold">{responsibility.title}</div>
+                      <Pill tone={responsibility.isActive === false ? "neutral" : "good"}>
+                        {responsibility.isActive === false ? "Disabled" : "Active"}
+                      </Pill>
+                    </div>
+                    <div className="mt-1 font-mono text-xs text-muted-foreground">
+                      {responsibility.key}
+                    </div>
+                    {responsibility.description && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {responsibility.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <SecondaryButton
+                      type="button"
+                      className="h-9 px-3"
+                      onClick={() => openEdit(responsibility)}
+                    >
+                      <Edit3 className="h-4 w-4" />
+                      Edit
+                    </SecondaryButton>
+                    <SecondaryButton
+                      type="button"
+                      className="h-9 px-3"
+                      disabled={saving}
+                      onClick={() => void toggleResponsibility(responsibility)}
+                    >
+                      {responsibility.isActive === false ? (
+                        <ToggleLeft className="h-4 w-4" />
+                      ) : (
+                        <ToggleRight className="h-4 w-4" />
+                      )}
+                    </SecondaryButton>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-md border p-3">
+                    <div className="text-xl font-semibold">{definition.input.fields.length}</div>
+                    <div className="text-xs text-muted-foreground">input fields</div>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="text-sm font-semibold">{humanize(definition.output.renderer)}</div>
+                    <div className="text-xs text-muted-foreground">output</div>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="text-xl font-semibold">
+                      {responsibility.directAssignments ?? 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">direct assignments</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(["create", "read", "update", "delete"] as CrudOperation[])
+                    .filter((operation) => definition.crud[operation])
+                    .map((operation) => (
+                      <Pill key={operation}>{operation}</Pill>
+                    ))}
+                </div>
+
+                <div className="mt-5 border-t pt-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-semibold">Assignment rules</div>
+                      <div className="text-xs text-muted-foreground">
+                        {responsibilityRules.filter((rule) => rule.enabled).length} active rule(s)
+                      </div>
+                    </div>
+                    <SecondaryButton
+                      type="button"
+                      className="h-9"
+                      onClick={() => {
+                        setRuleResponsibilityId(responsibility.id);
+                        setRuleType("all");
+                        setRuleValue("");
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Rule
+                    </SecondaryButton>
+                  </div>
+
+                  {responsibilityRules.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {responsibilityRules.map((rule) => (
+                        <div
+                          key={rule.id}
+                          className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
+                        >
+                          <div>
+                            <span className="font-medium">{rule.effect}</span>{" "}
+                            {rule.subjectType}
+                            {rule.subjectValue ? ` · ${rule.subjectValue}` : ""}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void toggleRule(rule)}
+                            className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                          >
+                            {rule.enabled ? "Disable" : "Enable"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Panel>
+            );
+          })}
+        </div>
+      )}
+
       <Modal
-        open={
-          showCreate &&
-          canCreateResponsibility
-        }
-        title="Create responsibility"
-        description="Describe the work, then define only the interactions the employee needs. The internal workflow type is selected by the platform."
-        onClose={() =>
-          setShowCreate(false)
-        }
+        open={showCreate}
+        title="Create Responsibility"
+        description="Define work as metadata. No backend route type is selected here."
+        onClose={() => setShowCreate(false)}
         wide
       >
-        <form
-          onSubmit={
-            createResponsibility
-          }
-          className="space-y-8"
-        >
-          <Field label="Name">
-            <input
-              name="title"
-              required
-              placeholder="Daily Dealer Visit"
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Description">
-            <textarea
-              name="description"
-              placeholder="Visit assigned dealers, record the outcome and attach evidence only when needed."
-              className={
-                textareaClass
-              }
-            />
-          </Field>
-
-          <BuilderFields
-            fields={createFields}
-            setFields={
-              setCreateFields
-            }
+        <form onSubmit={createResponsibility}>
+          <DefinitionBuilder
+            state={createState}
+            onChange={setCreateState}
+            catalog={catalog}
           />
-
-          <div className="flex justify-end gap-2 border-t border-border pt-6">
-            <SecondaryButton
-              type="button"
-              onClick={() =>
-                setShowCreate(false)
-              }
-            >
+          <div className="mt-6 flex justify-end gap-2">
+            <SecondaryButton type="button" onClick={() => setShowCreate(false)}>
               Cancel
             </SecondaryButton>
-
-            <PrimaryButton
-              type="submit"
-              disabled={saving}
-            >
-              {saving && (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              )}
-
-              Create responsibility
+            <PrimaryButton type="submit" disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Create
             </PrimaryButton>
           </div>
         </form>
       </Modal>
 
       <Modal
-        open={
-          editCapability !== null
-        }
-        title="Edit responsibility"
-        description="Engine type is fixed. Edit the custom work definition without changing the implementation class."
-        onClose={() =>
-          setEditCapability(null)
-        }
+        open={Boolean(editing)}
+        title={editing ? `Edit ${editing.title}` : "Edit Responsibility"}
+        description="Changing the definition does not rename the stable Responsibility key or delete historical records."
+        onClose={() => setEditing(null)}
         wide
       >
-        {editCapability && (
-          <form
-            onSubmit={saveEdit}
-            className="space-y-8"
-          >
-            <Field label="Name">
-              <input
-                name="title"
+        <form onSubmit={saveEdit}>
+          <DefinitionBuilder
+            state={editState}
+            onChange={setEditState}
+            catalog={catalog}
+          />
+          <div className="mt-6 flex justify-end gap-2">
+            <SecondaryButton type="button" onClick={() => setEditing(null)}>
+              Cancel
+            </SecondaryButton>
+            <PrimaryButton type="submit" disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save definition
+            </PrimaryButton>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={Boolean(ruleResponsibilityId)}
+        title="Assignment rule"
+        description="Rules resolve who receives a Responsibility. Direct employee assignments remain available from Assignments."
+        onClose={() => setRuleResponsibilityId(null)}
+      >
+        <form onSubmit={createRule} className="space-y-4">
+          <Field label="Who">
+            <select
+              value={ruleType}
+              onChange={(event) => {
+                setRuleType(event.target.value);
+                setRuleValue("");
+              }}
+              className={inputClass}
+            >
+              <option value="all">Everyone</option>
+              <option value="user">Specific employee</option>
+              <option value="department">Department</option>
+              <option value="designation">Designation</option>
+              <option value="role">Dashboard / organization role</option>
+            </select>
+          </Field>
+
+          {ruleType !== "all" && (
+            <Field label="Value">
+              <select
+                value={ruleValue}
+                onChange={(event) => setRuleValue(event.target.value)}
+                className={inputClass}
                 required
-                defaultValue={
-                  editCapability.title
-                }
-                className={
-                  inputClass
-                }
-              />
-            </Field>
-
-            <Field label="Description">
-              <textarea
-                name="description"
-                defaultValue={
-                  editCapability.description ??
-                  ""
-                }
-                className={
-                  textareaClass
-                }
-              />
-            </Field>
-
-            <BuilderFields
-              fields={
-                editFields
-              }
-              setFields={
-                setEditFields
-              }
-            />
-
-            <div className="flex justify-end gap-2 border-t border-border pt-6">
-              <SecondaryButton
-                type="button"
-                onClick={() =>
-                  setEditCapability(
-                    null,
-                  )
-                }
               >
-                Cancel
-              </SecondaryButton>
+                <option value="">Choose...</option>
+                {ruleOptions().map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
 
-              <PrimaryButton
-                type="submit"
-                disabled={saving}
-              >
-                {saving && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
+          <Field label="Effect">
+            <select
+              value={ruleEffect}
+              onChange={(event) => setRuleEffect(event.target.value)}
+              className={inputClass}
+            >
+              <option value="allow">Allow</option>
+              <option value="deny">Deny</option>
+            </select>
+          </Field>
 
-                Save changes
-              </PrimaryButton>
-            </div>
-          </form>
-        )}
+          <div className="flex justify-end gap-2">
+            <SecondaryButton type="button" onClick={() => setRuleResponsibilityId(null)}>
+              Cancel
+            </SecondaryButton>
+            <PrimaryButton type="submit" disabled={saving}>
+              Create rule
+            </PrimaryButton>
+          </div>
+        </form>
       </Modal>
     </div>
   );

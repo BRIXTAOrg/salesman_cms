@@ -1,46 +1,92 @@
+export type CrudOperation =
+  | "create"
+  | "read"
+  | "update"
+  | "delete";
 
-export type SetupCheck = {
+export type PrimitiveInput = {
   key: string;
-  status: "good" | "warning" | "info" | string;
+  dataType: string;
+};
+
+export type PrimitiveOutput = {
+  key: string;
+};
+
+export type PrimitiveCatalog = {
+  version: string;
+  input: PrimitiveInput[];
+  output: PrimitiveOutput[];
+  workflow: Array<{
+    key: string;
+  }>;
+};
+
+export type ResponsibilityField = {
+  key: string;
   label: string;
-  actionKey?: string;
+  inputType: string;
+  dataType: string;
+  required: boolean;
+  config: Record<string, unknown>;
 };
 
-export type SetupHealth = {
-  ready: boolean;
-  checks: SetupCheck[];
-};
-
-export type AdminHome = {
-  generatedAt: string;
-  today: {
-    date: string;
-    activeEmployees: number;
-    present: number;
-    onLeave: number;
-    notCheckedIn: number;
-    pendingApprovals: number;
-    pendingTada: number;
-    openAttention: number;
+export type ResponsibilityDefinition = {
+  schemaVersion: number;
+  input: {
+    renderer: string;
+    strict: boolean;
+    fields: ResponsibilityField[];
   };
-  needsAttention: Array<{
-    key: string;
-    severity: string;
-    title: string;
-    body?: string | null;
-    actionKey?: string;
-    entityType?: string | null;
-    entityId?: string | null;
-  }>;
-  frequentActions: Array<{
-    key: string;
-    label: string;
-    href: string;
-    icon?: string;
-    pinned?: boolean;
-    usageCount?: number;
-  }>;
-  setupHealth: SetupHealth;
+  output: {
+    renderer: string;
+    config: Record<string, unknown>;
+  };
+  crud: Record<CrudOperation, boolean>;
+  raw?: Record<string, unknown>;
+};
+
+export type Responsibility = {
+  id: number;
+  key: string;
+  title: string;
+  type?: string;
+  description?: string | null;
+  icon?: string | null;
+  config?: Record<string, unknown> | null;
+  definition: ResponsibilityDefinition;
+  isActive?: boolean;
+  directAssignments?: number;
+  assignmentRules?: number;
+  source?: {
+    kind?: string;
+    ruleId?: number;
+  };
+};
+
+// Compatibility aliases for a few untouched presentation components while the
+// physical database table is still named mobile_capabilities.
+export type Capability = Responsibility;
+
+export type ResponsibilityRule = {
+  id: number;
+  capabilityId: number;
+  subjectType: string;
+  subjectValue?: string | null;
+  effect: string;
+  priority: number;
+  enabled: boolean;
+  config?: Record<string, unknown> | null;
+};
+
+export type CapabilityRule = ResponsibilityRule;
+
+export type Role = {
+  id: number;
+  orgRole?: string | null;
+  jobRole?: string | null;
+  grantedPerms?: string[];
+  label: string;
 };
 
 export type Employee = {
@@ -63,29 +109,12 @@ export type Employee = {
   directResponsibilityCount?: number;
 };
 
-export type Capability = {
-  id: number;
-  key: string;
-  title: string;
-  type: string;
-  description?: string | null;
-  icon?: string | null;
-  config?: Record<string, unknown> | null;
-  isActive?: boolean;
-  directAssignments?: number;
-  assignmentRules?: number;
-  source?: {
-    kind?: string;
-    ruleId?: number;
-  };
-};
-
 export type EmployeeDetail = {
+  success?: boolean;
   employee: Employee;
-  capabilities: Capability[];
-  directCapabilityIds: number[];
-  devices: Device[];
-  recentWork: WorkItem[];
+  responsibilities: Responsibility[];
+  directResponsibilityIds: number[];
+  directRoleIds: number[];
   runtime?: {
     lastLoginAt?: string | null;
     lastBootstrapAt?: string | null;
@@ -93,35 +122,24 @@ export type EmployeeDetail = {
     lastSyncAt?: string | null;
     currentDeviceId?: string | null;
   } | null;
+
+  // Temporary read-only aliases so old local UI state does not explode if a
+  // stale bundle and the new backend overlap during deployment.
+  capabilities?: Responsibility[];
+  directCapabilityIds?: number[];
 };
 
-export type CapabilityRule = {
-  id: number;
-  capabilityId: number;
-  subjectType: string;
-  subjectValue?: string | null;
-  effect: string;
-  priority: number;
-  enabled: boolean;
-  config?: Record<string, unknown> | null;
-};
-
-export type WorkItem = {
+export type GenericRecord = {
   id: string;
-  capabilityId?: number | null;
-  assigneeUserId: number;
-  createdByUserId?: number | null;
-  title: string;
-  description?: string | null;
+  responsibilityId: number;
+  responsibilityKey: string;
+  responsibilityTitle: string;
+  userId: number;
+  employeeName?: string | null;
+  employeeCode?: string | null;
   status: string;
-  priority: string;
-  dueAt?: string | null;
-  payload?: Record<string, unknown>;
-  approvalRequired?: boolean;
-  approvalAreaKey?: string | null;
-  startedAt?: string | null;
-  completedAt?: string | null;
-  cancelledAt?: string | null;
+  payload: Record<string, unknown>;
+  serverVersion?: number;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -142,21 +160,87 @@ export type Approval = {
   decisionNote?: string | null;
 };
 
-export type Device = {
-  id: string;
-  userId: number;
-  deviceId: string;
-  platform: string;
-  appVersion?: string | null;
-  pushToken?: string | null;
-  isActive: boolean;
-  lastSeenAt?: string | null;
-  lastSyncAt?: string | null;
-  metadata?: Record<string, unknown>;
+export type WorkflowStep = {
+  id: number;
+  workflowVersionId: number;
+  stepKey: string;
+  title: string;
+  stepType: "action" | "approval" | string;
+  actionDefinitionId?: number | null;
+  actionKey?: string | null;
+  handlerKey?: string | null;
+  approvalPolicyId?: number | null;
+  sortOrder: number;
+  config?: Record<string, unknown> | null;
+  dependencies?: Array<{
+    stepId: number;
+    dependsOnStepId: number;
+    requiredStatus: string;
+  }>;
 };
 
-export type WorkspaceSetting = {
+export type WorkflowVersion = {
+  id: number;
+  workflowId: number;
+  version: number;
+  status: string;
+  createdByUserId?: number | null;
+  createdAt?: string | null;
+  publishedAt?: string | null;
+  steps: WorkflowStep[];
+};
+
+export type WorkflowDefinition = {
+  id: number;
   key: string;
-  value: unknown;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  createdByUserId?: number | null;
+  createdAt?: string | null;
   updatedAt?: string | null;
+  versions: WorkflowVersion[];
+};
+
+export type WorkflowRuntime = {
+  id: number;
+  key: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  version: {
+    id: number;
+    number: number;
+  } | null;
+  instances: Array<{
+    workflowVersionId: number;
+    status: string;
+    count: number;
+  }>;
+  steps: Array<{
+    id: number;
+    workflowVersionId: number;
+    stepKey: string;
+    title: string;
+    stepType: string;
+    actionKey?: string | null;
+    sortOrder: number;
+    states: Array<{
+      workflowVersionId: number;
+      workflowStepId: number;
+      status: string;
+      count: number;
+    }>;
+  }>;
+};
+
+export type PlatformRuntime = {
+  success: boolean;
+  responsibilities: Array<{
+    responsibilityId: number;
+    responsibilityKey: string;
+    title: string;
+    count: number;
+  }>;
+  workflows: WorkflowRuntime[];
 };

@@ -15,6 +15,10 @@ import {
   Search,
 } from "lucide-react";
 
+import type {
+  WorkspaceManifest,
+  WorkspaceNavItem,
+} from "@/lib/workspace-types";
 import {
   Separator,
 } from "@/components/ui/separator";
@@ -22,131 +26,78 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 
-const actions = [
-  {
-    label: "Control Center",
-    keywords:
-      "home attention today dashboard",
-    href: "/dashboard",
-  },
-  {
-    label: "Employees",
-    keywords:
-      "people staff workforce add employee",
-    href: "/dashboard/workforce/employees",
-  },
-  {
-    label: "Organization",
-    keywords:
-      "department designation manager hierarchy",
-    href: "/dashboard/workforce/organization",
-  },
-  {
-    label: "Attendance",
-    keywords: "check in present absent",
-    href: "/dashboard/slmAttendance",
-  },
-  {
-    label: "Live Location",
-    keywords: "gps map tracking",
-    href: "/dashboard/slmGeotracking",
-  },
-  {
-    label: "Responsibilities",
-    keywords:
-      "capability mobile workspace form checklist",
-    href: "/dashboard/workspace/responsibilities",
-  },
-  {
-    label: "Assignments",
-    keywords:
-      "work items tasks journey work",
-    href: "/dashboard/workspace/assignments",
-  },
-  {
-    label: "Approvals",
-    keywords:
-      "approve reject waiting",
-    href: "/dashboard/workspace/approvals",
-  },
-  {
-    label: "Devices",
-    keywords:
-      "phone mobile sync revoke",
-    href: "/dashboard/workforce/devices",
-  },
-  {
-    label: "TA / DA",
-    keywords: "expense travel claim",
-    href: "/dashboard/tadaBill",
-  },
-  {
-    label: "Reports",
-    keywords: "analytics operational",
-    href: "/dashboard/reports",
-  },
-  {
-    label: "Dashboard Access",
-    keywords:
-      "admins users permissions access",
-    href: "/dashboard/usersAndTeam",
-  },
-  {
-    label: "Setup",
-    keywords:
-      "configuration health settings",
-    href: "/dashboard/administration/setup",
-  },
-];
-
-function titleForPath(pathname: string) {
-  const exact =
-    actions.find(
-      (item) =>
-        item.href === pathname,
-    );
-
+function titleForPath(
+  pathname: string,
+  items: WorkspaceNavItem[],
+) {
+  const exact = items.find((item) => item.href === pathname);
   if (exact) return exact.label;
 
-  const partial = [...actions]
-    .sort(
-      (a, b) =>
-        b.href.length -
-        a.href.length,
-    )
+  const partial = [...items]
+    .sort((a, b) => b.href.length - a.href.length)
     .find((item) =>
-      pathname.startsWith(
-        item.href,
-      ),
+      item.href !== "/dashboard" &&
+      pathname.startsWith(item.href),
     );
 
-  return partial?.label ??
-    "Field Control";
+  if (partial) return partial.label;
+
+  if (pathname.startsWith("/dashboard/work/")) {
+    const key = decodeURIComponent(
+      pathname.slice("/dashboard/work/".length),
+    );
+    return key.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  return "Control Center";
 }
 
 export function SiteHeader() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const searchRef =
-    useRef<HTMLDivElement>(null);
-  const inputRef =
-    useRef<HTMLInputElement>(null);
-
+  const [manifest, setManifest] =
+    useState<WorkspaceManifest | null>(null);
   const [query, setQuery] =
     useState("");
   const [focused, setFocused] =
     useState(false);
 
   useEffect(() => {
-    function onKeyDown(
-      event: KeyboardEvent,
-    ) {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const response = await fetch(
+          "/api/workspace/manifest",
+          { cache: "no-store" },
+        );
+        if (!response.ok) return;
+        const body = await response.json();
+        if (!cancelled) {
+          setManifest(body.manifest ?? null);
+        }
+      } catch {
+        // Header remains usable even while the workspace feed is unavailable.
+      }
+    }
+
+    void load();
+    const timer = window.setInterval(() => void load(), 60_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
       if (
-        (event.metaKey ||
-          event.ctrlKey) &&
-        event.key.toLowerCase() ===
-          "k"
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLowerCase() === "k"
       ) {
         event.preventDefault();
         setFocused(true);
@@ -159,39 +110,16 @@ export function SiteHeader() {
       }
     }
 
-    window.addEventListener(
-      "keydown",
-      onKeyDown,
-    );
-
-    return () =>
-      window.removeEventListener(
-        "keydown",
-        onKeyDown,
-      );
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  /*
-   * Expected search-popover behavior:
-   * clicking/tapping anywhere outside the search
-   * control closes the results immediately.
-   *
-   * pointerdown covers mouse, touch and pen input.
-   */
   useEffect(() => {
-    function onPointerDown(
-      event: PointerEvent,
-    ) {
-      const container =
-        searchRef.current;
-      const target =
-        event.target as Node | null;
+    function onPointerDown(event: PointerEvent) {
+      const container = searchRef.current;
+      const target = event.target as Node | null;
 
-      if (
-        !container ||
-        !target ||
-        container.contains(target)
-      ) {
+      if (!container || !target || container.contains(target)) {
         return;
       }
 
@@ -199,43 +127,40 @@ export function SiteHeader() {
       inputRef.current?.blur();
     }
 
-    document.addEventListener(
-      "pointerdown",
-      onPointerDown,
-    );
-
-    return () =>
-      document.removeEventListener(
-        "pointerdown",
-        onPointerDown,
-      );
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
-  /*
-   * A navigation should never leave the old
-   * command/search state hanging over the next page.
-   */
   useEffect(() => {
     setFocused(false);
     setQuery("");
   }, [pathname]);
 
+  const actions = useMemo(
+    () => manifest?.navigation.flatMap((group) => group.items) ?? [],
+    [manifest],
+  );
+
   const results = useMemo(() => {
-    const needle =
-      query.trim().toLowerCase();
+    const needle = query.trim().toLowerCase();
+    const candidates = actions.filter((item) => item.href !== pathname);
 
     if (!needle) {
-      return actions.slice(0, 6);
+      return candidates.slice(0, 7);
     }
 
-    return actions.filter(
-      (item) =>
-        item.label
-          .toLowerCase()
-          .includes(needle) ||
-        item.keywords.includes(needle),
+    return candidates.filter((item) =>
+      [
+        item.label,
+        item.key,
+        item.description,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(needle),
     );
-  }, [query]);
+  }, [actions, pathname, query]);
 
   function go(href: string) {
     setQuery("");
@@ -248,20 +173,13 @@ export function SiteHeader() {
     <header className="sticky top-0 z-30 flex min-h-16 shrink-0 items-center border-b bg-background">
       <div className="flex w-full items-center gap-3 px-4 lg:px-6">
         <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="h-5" />
 
-        <Separator
-          orientation="vertical"
-          className="h-5"
-        />
-
-        <div className="hidden min-w-36 text-sm font-medium md:block">
-          {titleForPath(pathname)}
+        <div className="hidden min-w-36 text-sm font-medium capitalize md:block">
+          {titleForPath(pathname, actions)}
         </div>
 
-        <div
-          ref={searchRef}
-          className="relative ml-auto w-full max-w-xl"
-        >
+        <div ref={searchRef} className="relative ml-auto w-full max-w-xl">
           <div
             className={[
               "flex h-10 items-center gap-2 rounded-md border bg-background px-3",
@@ -272,87 +190,46 @@ export function SiteHeader() {
             ].join(" ")}
           >
             <Search className="h-4 w-4 text-muted-foreground" />
-
             <input
               ref={inputRef}
               value={query}
-              onChange={(event) =>
-                setQuery(
-                  event.target.value,
-                )
-              }
-              onFocus={() =>
-                setFocused(true)
-              }
-              onKeyDown={(event) => {
-                if (
-                  event.key ===
-                    "Enter" &&
-                  results[0]
-                ) {
-                  event.preventDefault();
-                  go(
-                    results[0].href,
-                  );
-                }
-              }}
-              placeholder="Search employees, actions, reports..."
-              className="min-w-0 flex-1 bg-transparent text-sm leading-6 outline-none placeholder:text-muted-foreground"
+              onChange={(event) => setQuery(event.target.value)}
+              onFocus={() => setFocused(true)}
+              placeholder="Search this workspace..."
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
-
-            <div className="hidden items-center gap-1 rounded border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground sm:flex">
-              <Command className="h-3 w-3" />
-              K
+            <div className="hidden items-center gap-1 rounded border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground sm:flex">
+              <Command className="h-3 w-3" />K
             </div>
           </div>
 
           {focused && (
-            <div className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-md border bg-popover">
-              {results.length ===
-              0 ? (
-                <div className="p-4 text-sm leading-6 text-muted-foreground">
-                  No matching action.
+            <div className="absolute left-0 right-0 top-12 overflow-hidden rounded-lg border bg-popover shadow-xl">
+              {results.length === 0 ? (
+                <div className="px-4 py-5 text-sm text-muted-foreground">
+                  No available workspace destination matches this search.
                 </div>
               ) : (
-                results
-                  .slice(0, 8)
-                  .map(
-                    (item) => (
-                      <button
-                        type="button"
-                        key={
-                          item.href
-                        }
-                        onMouseDown={(
-                          event,
-                        ) => {
-                          /*
-                           * Keep the input from losing focus
-                           * before we process the result click.
-                           */
-                          event.preventDefault();
-                          go(
-                            item.href,
-                          );
-                        }}
-                        className={[
-                          "flex w-full items-center justify-between px-4 py-3 text-left text-sm",
-                          "transition-colors duration-150 ease-out",
-                          "hover:bg-muted focus:bg-muted focus:outline-none",
-                        ].join(" ")}
-                      >
-                        <span>
-                          {
-                            item.label
-                          }
-                        </span>
-
-                        <span className="text-xs text-muted-foreground">
-                          Open
-                        </span>
-                      </button>
-                    ),
-                  )
+                <div className="p-2">
+                  {results.map((item) => (
+                    <button
+                      type="button"
+                      key={item.key}
+                      onClick={() => go(item.href)}
+                      className="flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left hover:bg-muted"
+                    >
+                      <Search className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium">{item.label}</div>
+                        {item.description && (
+                          <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                            {item.description}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           )}
