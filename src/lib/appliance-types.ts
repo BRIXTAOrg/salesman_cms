@@ -20,6 +20,10 @@ export type PrimitiveCatalog = {
   workflow: Array<{
     key: string;
   }>;
+  capture?: Array<{
+    key: string;
+    dataType: string;
+  }>;
 };
 
 export type ResponsibilityField = {
@@ -31,6 +35,48 @@ export type ResponsibilityField = {
   config: Record<string, unknown>;
 };
 
+export type ResponsibilityActionVisibilityMode =
+  | "always"
+  | "no_record"
+  | "latest_status_is"
+  | "latest_status_is_not";
+
+export type ResponsibilityActionStyle =
+  | "primary"
+  | "secondary"
+  | "danger";
+
+export type ResponsibilityAppAction = {
+  key: string;
+  label: string;
+  operation: "create" | "update";
+  status: string;
+  style: ResponsibilityActionStyle;
+  fieldKeys: string[];
+  requiredFieldKeys: string[];
+  visibility: {
+    mode: ResponsibilityActionVisibilityMode;
+    status?: string;
+  };
+  target?: {
+    strategy: "latest_record" | "latest_status";
+    status?: string;
+  };
+  capture?: {
+    location?: {
+      fieldKey: string;
+      required?: boolean;
+    };
+  };
+  successMessage?: string;
+};
+
+export type ResponsibilityAppDefinition = {
+  renderer: "action_form_v1" | string;
+  actions: ResponsibilityAppAction[];
+  config: Record<string, unknown>;
+};
+
 export type ResponsibilityDefinition = {
   schemaVersion: number;
   input: {
@@ -38,6 +84,7 @@ export type ResponsibilityDefinition = {
     strict: boolean;
     fields: ResponsibilityField[];
   };
+  app?: ResponsibilityAppDefinition;
   output: {
     renderer: string;
     config: Record<string, unknown>;
@@ -123,8 +170,6 @@ export type EmployeeDetail = {
     currentDeviceId?: string | null;
   } | null;
 
-  // Temporary read-only aliases so old local UI state does not explode if a
-  // stale bundle and the new backend overlap during deployment.
   capabilities?: Responsibility[];
   directCapabilityIds?: number[];
 };
