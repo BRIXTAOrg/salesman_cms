@@ -1,0 +1,2113 @@
+{
+  "schemaVersion": 1,
+  "modes": [
+    {
+      "key": "form",
+      "label": "Form",
+      "templateKey": "simple_form"
+    },
+    {
+      "key": "track",
+      "label": "Track",
+      "templateKey": "route_session"
+    },
+    {
+      "key": "inspect",
+      "label": "Inspect",
+      "templateKey": "inspection"
+    },
+    {
+      "key": "approve",
+      "label": "Approve",
+      "templateKey": "approval"
+    },
+    {
+      "key": "evidence",
+      "label": "Evidence",
+      "templateKey": "evidence_capture"
+    },
+    {
+      "key": "journey",
+      "label": "Journey",
+      "templateKey": "route_session"
+    },
+    {
+      "key": "expense",
+      "label": "Expense",
+      "templateKey": "expense_claim"
+    },
+    {
+      "key": "timer",
+      "label": "Timer",
+      "templateKey": "maintenance"
+    },
+    {
+      "key": "checklist",
+      "label": "Checklist",
+      "templateKey": "inspection"
+    },
+    {
+      "key": "survey",
+      "label": "Survey",
+      "templateKey": "survey"
+    }
+  ],
+  "templates": [
+    {
+      "key": "simple_form",
+      "mode": "form",
+      "title": "Simple form",
+      "description": "Collect a few fields and submit a record.",
+      "setupNotes": [],
+      "base": {
+        "title": "Simple Form",
+        "description": "A generic employee form.",
+        "icon": "blocks",
+        "config": {
+          "schemaVersion": 2,
+          "input": {
+            "renderer": "form",
+            "strict": true,
+            "fields": [
+              {
+                "key": "note",
+                "label": "Note",
+                "inputType": "textarea",
+                "dataType": "string",
+                "required": true,
+                "config": {}
+              }
+            ]
+          },
+          "app": {
+            "renderer": "action_form_v1",
+            "actions": [
+              {
+                "key": "submit",
+                "label": "Submit",
+                "operation": "create",
+                "status": "submitted",
+                "style": "primary",
+                "fieldKeys": [
+                  "note"
+                ],
+                "requiredFieldKeys": [
+                  "note"
+                ],
+                "visibility": {
+                  "mode": "always"
+                },
+                "successMessage": "Recorded."
+              }
+            ],
+            "config": {
+              "generatedBy": "responsibility_power_template"
+            }
+          },
+          "output": {
+            "renderer": "detail",
+            "config": {}
+          },
+          "crud": {
+            "create": true,
+            "read": true,
+            "update": true,
+            "delete": false
+          }
+        }
+      },
+      "extension": {
+        "schemaVersion": 2,
+        "builderMode": "form",
+        "smartBlocks": [],
+        "references": [],
+        "queries": [],
+        "memoryPolicies": [],
+        "fieldBehaviors": [],
+        "evidenceBundles": [],
+        "conditions": [],
+        "rules": [],
+        "computedFields": [],
+        "repeatableSections": [],
+        "session": {
+          "enabled": false,
+          "key": "session",
+          "label": "Work session",
+          "startActionLabel": "Start",
+          "stopActionLabel": "Stop",
+          "sampleEverySeconds": 20,
+          "sampleEveryMeters": 25,
+          "minimumAccuracyMeters": 50,
+          "allowOffline": true,
+          "freezeEvidenceOnStop": true,
+          "captureDevice": true
+        },
+        "flow": {
+          "enabled": false,
+          "startState": "draft",
+          "completeState": "completed",
+          "steps": []
+        },
+        "schedule": {
+          "enabled": false
+        },
+        "geofence": {
+          "enabled": false,
+          "radiusMeters": 200,
+          "behavior": "warn"
+        },
+        "access": {
+          "useRoleIds": [],
+          "readRoleIds": [],
+          "createRoleIds": [],
+          "updateRoleIds": [],
+          "deleteRoleIds": [],
+          "reviewRoleIds": [],
+          "viewOutputRoleIds": [],
+          "recordVisibility": "creator_and_manager"
+        },
+        "outputDesign": {
+          "renderer": "detail",
+          "visibleFieldKeys": [
+            "note"
+          ]
+        },
+        "offline": {
+          "enabled": true,
+          "prefetchReferences": true,
+          "maxReferenceRows": 500,
+          "optimisticMutations": true
+        },
+        "runtime": {
+          "syncMode": "immediate",
+          "referenceCachePolicy": "assigned",
+          "minAppManifestVersion": 2,
+          "pushRefresh": true,
+          "appResumeRefresh": true
+        },
+        "preview": {
+          "device": "phone",
+          "connectivity": "online"
+        },
+        "metadata": {},
+        "templateKey": "simple_form"
+      }
+    },
+    {
+      "key": "field_visit",
+      "mode": "survey",
+      "title": "Field visit",
+      "description": "Select an entity, capture visit evidence and submit.",
+      "setupNotes": [
+        "Choose the Entity/Data Source employees will visit before publishing."
+      ],
+      "base": {
+        "title": "Field Visit",
+        "description": "Reference an existing business entity and record a field visit.",
+        "icon": "blocks",
+        "config": {
+          "schemaVersion": 2,
+          "input": {
+            "renderer": "form",
+            "strict": true,
+            "fields": [
+              {
+                "key": "visit_note",
+                "label": "Visit note",
+                "inputType": "textarea",
+                "dataType": "string",
+                "required": false,
+                "config": {}
+              },
+              {
+                "key": "visit_photo",
+                "label": "Visit photo",
+                "inputType": "photo",
+                "dataType": "media",
+                "required": true,
+                "config": {}
+              }
+            ]
+          },
+          "app": {
+            "renderer": "action_form_v1",
+            "actions": [
+              {
+                "key": "submit_visit",
+                "label": "Submit visit",
+                "operation": "create",
+                "status": "submitted",
+                "style": "primary",
+                "fieldKeys": [
+                  "visit_note",
+                  "visit_photo"
+                ],
+                "requiredFieldKeys": [
+                  "visit_photo"
+                ],
+                "visibility": {
+                  "mode": "always"
+                },
+                "successMessage": "Recorded."
+              }
+            ],
+            "config": {
+              "generatedBy": "responsibility_power_template"
+            }
+          },
+          "output": {
+            "renderer": "timeline",
+            "config": {}
+          },
+          "crud": {
+            "create": true,
+            "read": true,
+            "update": true,
+            "delete": false
+          }
+        }
+      },
+      "extension": {
+        "schemaVersion": 2,
+        "builderMode": "survey",
+        "smartBlocks": [
+          {
+            "key": "entity",
+            "label": "Visited entity",
+            "kind": "entity_reference",
+            "sourceKey": "",
+            "required": true,
+            "config": {}
+          },
+          {
+            "key": "device",
+            "label": "Device context",
+            "kind": "current_device",
+            "config": {}
+          },
+          {
+            "key": "when",
+            "label": "Visit time",
+            "kind": "current_datetime",
+            "config": {}
+          }
+        ],
+        "references": [
+          {
+            "key": "visited_entity",
+            "label": "Visited entity",
+            "sourceKey": "",
+            "mode": "one",
+            "searchable": true,
+            "required": true,
+            "filter": [],
+            "offline": {
+              "enabled": true,
+              "maxRows": 500
+            }
+          }
+        ],
+        "queries": [],
+        "memoryPolicies": [],
+        "fieldBehaviors": [],
+        "evidenceBundles": [
+          {
+            "key": "visit_evidence",
+            "label": "Visit evidence",
+            "capture": {
+              "photo": true,
+              "location": true,
+              "timestamp": true,
+              "device": true
+            },
+            "required": [
+              "photo",
+              "location",
+              "timestamp"
+            ]
+          }
+        ],
+        "conditions": [],
+        "rules": [],
+        "computedFields": [],
+        "repeatableSections": [],
+        "session": {
+          "enabled": false,
+          "key": "session",
+          "label": "Work session",
+          "startActionLabel": "Start",
+          "stopActionLabel": "Stop",
+          "sampleEverySeconds": 20,
+          "sampleEveryMeters": 25,
+          "minimumAccuracyMeters": 50,
+          "allowOffline": true,
+          "freezeEvidenceOnStop": true,
+          "captureDevice": true
+        },
+        "flow": {
+          "enabled": false,
+          "startState": "draft",
+          "completeState": "completed",
+          "steps": []
+        },
+        "schedule": {
+          "enabled": false
+        },
+        "geofence": {
+          "enabled": false,
+          "radiusMeters": 200,
+          "behavior": "warn"
+        },
+        "access": {
+          "useRoleIds": [],
+          "readRoleIds": [],
+          "createRoleIds": [],
+          "updateRoleIds": [],
+          "deleteRoleIds": [],
+          "reviewRoleIds": [],
+          "viewOutputRoleIds": [],
+          "recordVisibility": "creator_and_manager"
+        },
+        "outputDesign": {
+          "renderer": "timeline",
+          "visibleFieldKeys": [
+            "visited_entity",
+            "visit_note",
+            "visit_photo"
+          ]
+        },
+        "offline": {
+          "enabled": true,
+          "prefetchReferences": true,
+          "maxReferenceRows": 500,
+          "optimisticMutations": true
+        },
+        "runtime": {
+          "syncMode": "immediate",
+          "referenceCachePolicy": "assigned",
+          "minAppManifestVersion": 2,
+          "pushRefresh": true,
+          "appResumeRefresh": true
+        },
+        "preview": {
+          "device": "phone",
+          "connectivity": "online"
+        },
+        "metadata": {},
+        "templateKey": "field_visit"
+      }
+    },
+    {
+      "key": "inspection",
+      "mode": "inspect",
+      "title": "Inspection",
+      "description": "Checklist/result with evidence and optional escalation.",
+      "setupNotes": [],
+      "base": {
+        "title": "Inspection",
+        "description": "Inspect something and capture result + evidence.",
+        "icon": "blocks",
+        "config": {
+          "schemaVersion": 2,
+          "input": {
+            "renderer": "form",
+            "strict": true,
+            "fields": [
+              {
+                "key": "result",
+                "label": "Result",
+                "inputType": "select",
+                "dataType": "string",
+                "required": true,
+                "config": {
+                  "options": [
+                    "Pass",
+                    "Attention",
+                    "Fail"
+                  ]
+                }
+              },
+              {
+                "key": "remarks",
+                "label": "Remarks",
+                "inputType": "textarea",
+                "dataType": "string",
+                "required": false,
+                "config": {}
+              },
+              {
+                "key": "photo",
+                "label": "Evidence photo",
+                "inputType": "photo",
+                "dataType": "media",
+                "required": true,
+                "config": {}
+              }
+            ]
+          },
+          "app": {
+            "renderer": "action_form_v1",
+            "actions": [
+              {
+                "key": "complete_inspection",
+                "label": "Complete inspection",
+                "operation": "create",
+                "status": "completed",
+                "style": "primary",
+                "fieldKeys": [
+                  "result",
+                  "remarks",
+                  "photo"
+                ],
+                "requiredFieldKeys": [
+                  "result",
+                  "photo"
+                ],
+                "visibility": {
+                  "mode": "always"
+                },
+                "successMessage": "Recorded."
+              }
+            ],
+            "config": {
+              "generatedBy": "responsibility_power_template"
+            }
+          },
+          "output": {
+            "renderer": "snapshot",
+            "config": {}
+          },
+          "crud": {
+            "create": true,
+            "read": true,
+            "update": true,
+            "delete": false
+          }
+        }
+      },
+      "extension": {
+        "schemaVersion": 2,
+        "builderMode": "inspect",
+        "smartBlocks": [
+          {
+            "key": "when",
+            "label": "Inspection time",
+            "kind": "current_datetime",
+            "config": {}
+          },
+          {
+            "key": "device",
+            "label": "Device",
+            "kind": "current_device",
+            "config": {}
+          }
+        ],
+        "references": [],
+        "queries": [],
+        "memoryPolicies": [],
+        "fieldBehaviors": [],
+        "evidenceBundles": [
+          {
+            "key": "inspection_evidence",
+            "label": "Inspection evidence",
+            "capture": {
+              "photo": true,
+              "location": true,
+              "timestamp": true,
+              "device": true
+            },
+            "required": [
+              "photo",
+              "timestamp"
+            ]
+          }
+        ],
+        "conditions": [],
+        "rules": [
+          {
+            "key": "fail_requires_remarks",
+            "label": "Failure requires remarks",
+            "phase": "before_submit",
+            "condition": {
+              "key": "is_fail",
+              "left": {
+                "kind": "field",
+                "fieldKey": "result"
+              },
+              "operator": "eq",
+              "right": "Fail"
+            },
+            "effect": "require_field",
+            "targetFieldKey": "remarks",
+            "message": "Add remarks when the inspection fails."
+          }
+        ],
+        "computedFields": [],
+        "repeatableSections": [],
+        "session": {
+          "enabled": false,
+          "key": "session",
+          "label": "Work session",
+          "startActionLabel": "Start",
+          "stopActionLabel": "Stop",
+          "sampleEverySeconds": 20,
+          "sampleEveryMeters": 25,
+          "minimumAccuracyMeters": 50,
+          "allowOffline": true,
+          "freezeEvidenceOnStop": true,
+          "captureDevice": true
+        },
+        "flow": {
+          "enabled": false,
+          "startState": "draft",
+          "completeState": "completed",
+          "steps": []
+        },
+        "schedule": {
+          "enabled": false
+        },
+        "geofence": {
+          "enabled": false,
+          "radiusMeters": 200,
+          "behavior": "warn"
+        },
+        "access": {
+          "useRoleIds": [],
+          "readRoleIds": [],
+          "createRoleIds": [],
+          "updateRoleIds": [],
+          "deleteRoleIds": [],
+          "reviewRoleIds": [],
+          "viewOutputRoleIds": [],
+          "recordVisibility": "creator_and_manager"
+        },
+        "outputDesign": {
+          "renderer": "snapshot",
+          "visibleFieldKeys": [
+            "result",
+            "remarks",
+            "photo"
+          ]
+        },
+        "offline": {
+          "enabled": true,
+          "prefetchReferences": true,
+          "maxReferenceRows": 500,
+          "optimisticMutations": true
+        },
+        "runtime": {
+          "syncMode": "immediate",
+          "referenceCachePolicy": "assigned",
+          "minAppManifestVersion": 2,
+          "pushRefresh": true,
+          "appResumeRefresh": true
+        },
+        "preview": {
+          "device": "phone",
+          "connectivity": "online"
+        },
+        "metadata": {},
+        "templateKey": "inspection"
+      }
+    },
+    {
+      "key": "route_session",
+      "mode": "track",
+      "title": "Route / session tracking",
+      "description": "Start work, capture route points, elapsed time and distance, then freeze evidence.",
+      "setupNotes": [],
+      "base": {
+        "title": "Route Session",
+        "description": "Start and stop a tracked field session.",
+        "icon": "blocks",
+        "config": {
+          "schemaVersion": 2,
+          "input": {
+            "renderer": "form",
+            "strict": true,
+            "fields": []
+          },
+          "app": {
+            "renderer": "action_form_v1",
+            "actions": [],
+            "config": {
+              "generatedBy": "responsibility_power_template"
+            }
+          },
+          "output": {
+            "renderer": "map_route",
+            "config": {}
+          },
+          "crud": {
+            "create": true,
+            "read": true,
+            "update": true,
+            "delete": false
+          }
+        }
+      },
+      "extension": {
+        "schemaVersion": 2,
+        "builderMode": "track",
+        "smartBlocks": [
+          {
+            "key": "session_tracker",
+            "label": "Session tracker",
+            "kind": "session_tracker",
+            "config": {}
+          },
+          {
+            "key": "route",
+            "label": "Route",
+            "kind": "route_tracking",
+            "config": {}
+          },
+          {
+            "key": "distance",
+            "label": "Distance travelled",
+            "kind": "distance_travelled",
+            "config": {}
+          },
+          {
+            "key": "device",
+            "label": "Device",
+            "kind": "current_device",
+            "config": {}
+          }
+        ],
+        "references": [],
+        "queries": [],
+        "memoryPolicies": [],
+        "fieldBehaviors": [],
+        "evidenceBundles": [],
+        "conditions": [],
+        "rules": [],
+        "computedFields": [
+          {
+            "key": "distance_km",
+            "label": "Distance travelled",
+            "operation": "expression",
+            "inputs": [
+              "session.current_route.distanceMeters"
+            ],
+            "expression": "session.current_route.distanceMeters / 1000",
+            "dataType": "number"
+          },
+          {
+            "key": "duration_seconds",
+            "label": "Duration",
+            "operation": "duration_seconds",
+            "inputs": [
+              "session.current.startedAt",
+              "session.current.endedAt"
+            ],
+            "dataType": "number"
+          }
+        ],
+        "repeatableSections": [],
+        "session": {
+          "enabled": true,
+          "key": "field_session",
+          "label": "Field session",
+          "startActionLabel": "Start session",
+          "stopActionLabel": "End session",
+          "sampleEverySeconds": 20,
+          "sampleEveryMeters": 25,
+          "minimumAccuracyMeters": 50,
+          "allowOffline": true,
+          "freezeEvidenceOnStop": true,
+          "captureDevice": true
+        },
+        "flow": {
+          "enabled": false,
+          "startState": "draft",
+          "completeState": "completed",
+          "steps": []
+        },
+        "schedule": {
+          "enabled": false
+        },
+        "geofence": {
+          "enabled": false,
+          "radiusMeters": 200,
+          "behavior": "warn"
+        },
+        "access": {
+          "useRoleIds": [],
+          "readRoleIds": [],
+          "createRoleIds": [],
+          "updateRoleIds": [],
+          "deleteRoleIds": [],
+          "reviewRoleIds": [],
+          "viewOutputRoleIds": [],
+          "recordVisibility": "creator_and_manager"
+        },
+        "outputDesign": {
+          "renderer": "map_route",
+          "visibleFieldKeys": [
+            "distance_km",
+            "duration_seconds"
+          ],
+          "routeFieldKey": "session.current_route.points"
+        },
+        "offline": {
+          "enabled": true,
+          "prefetchReferences": true,
+          "maxReferenceRows": 500,
+          "optimisticMutations": true
+        },
+        "runtime": {
+          "syncMode": "background",
+          "referenceCachePolicy": "assigned",
+          "minAppManifestVersion": 2,
+          "pushRefresh": true,
+          "appResumeRefresh": true
+        },
+        "preview": {
+          "device": "phone",
+          "connectivity": "online"
+        },
+        "metadata": {},
+        "templateKey": "route_session"
+      }
+    },
+    {
+      "key": "approval",
+      "mode": "approve",
+      "title": "Approval request",
+      "description": "Submit a request into a role-based decision chain.",
+      "setupNotes": [
+        "Choose the reviewer Role before publishing."
+      ],
+      "base": {
+        "title": "Approval Request",
+        "description": "Submit a request for review and approval.",
+        "icon": "blocks",
+        "config": {
+          "schemaVersion": 2,
+          "input": {
+            "renderer": "form",
+            "strict": true,
+            "fields": [
+              {
+                "key": "request",
+                "label": "Request",
+                "inputType": "textarea",
+                "dataType": "string",
+                "required": true,
+                "config": {}
+              }
+            ]
+          },
+          "app": {
+            "renderer": "action_form_v1",
+            "actions": [
+              {
+                "key": "submit_request",
+                "label": "Submit request",
+                "operation": "create",
+                "status": "pending_review",
+                "style": "primary",
+                "fieldKeys": [
+                  "request"
+                ],
+                "requiredFieldKeys": [
+                  "request"
+                ],
+                "visibility": {
+                  "mode": "always"
+                },
+                "successMessage": "Recorded."
+              }
+            ],
+            "config": {
+              "generatedBy": "responsibility_power_template"
+            }
+          },
+          "output": {
+            "renderer": "timeline",
+            "config": {}
+          },
+          "crud": {
+            "create": true,
+            "read": true,
+            "update": true,
+            "delete": false
+          }
+        }
+      },
+      "extension": {
+        "schemaVersion": 2,
+        "builderMode": "approve",
+        "smartBlocks": [],
+        "references": [],
+        "queries": [],
+        "memoryPolicies": [],
+        "fieldBehaviors": [],
+        "evidenceBundles": [],
+        "conditions": [],
+        "rules": [],
+        "computedFields": [],
+        "repeatableSections": [],
+        "session": {
+          "enabled": false,
+          "key": "session",
+          "label": "Work session",
+          "startActionLabel": "Start",
+          "stopActionLabel": "Stop",
+          "sampleEverySeconds": 20,
+          "sampleEveryMeters": 25,
+          "minimumAccuracyMeters": 50,
+          "allowOffline": true,
+          "freezeEvidenceOnStop": true,
+          "captureDevice": true
+        },
+        "flow": {
+          "enabled": true,
+          "startState": "draft",
+          "completeState": "approved",
+          "steps": [
+            {
+              "key": "submit",
+              "label": "Submit",
+              "actor": {
+                "kind": "submitter"
+              },
+              "actionLabel": "Submit",
+              "successState": "pending_review",
+              "allowOffline": true
+            },
+            {
+              "key": "review",
+              "label": "Review",
+              "actor": {
+                "kind": "role"
+              },
+              "actionLabel": "Approve",
+              "successState": "approved",
+              "rejectState": "rejected",
+              "allowOffline": false
+            }
+          ]
+        },
+        "schedule": {
+          "enabled": false
+        },
+        "geofence": {
+          "enabled": false,
+          "radiusMeters": 200,
+          "behavior": "warn"
+        },
+        "access": {
+          "useRoleIds": [],
+          "readRoleIds": [],
+          "createRoleIds": [],
+          "updateRoleIds": [],
+          "deleteRoleIds": [],
+          "reviewRoleIds": [],
+          "viewOutputRoleIds": [],
+          "recordVisibility": "creator_and_manager"
+        },
+        "outputDesign": {
+          "renderer": "timeline",
+          "visibleFieldKeys": [
+            "request"
+          ]
+        },
+        "offline": {
+          "enabled": true,
+          "prefetchReferences": true,
+          "maxReferenceRows": 500,
+          "optimisticMutations": true
+        },
+        "runtime": {
+          "syncMode": "immediate",
+          "referenceCachePolicy": "assigned",
+          "minAppManifestVersion": 2,
+          "pushRefresh": true,
+          "appResumeRefresh": true
+        },
+        "preview": {
+          "device": "phone",
+          "connectivity": "online"
+        },
+        "metadata": {},
+        "templateKey": "approval"
+      }
+    },
+    {
+      "key": "evidence_capture",
+      "mode": "evidence",
+      "title": "Evidence capture",
+      "description": "Capture verifiable field proof with almost no typing.",
+      "setupNotes": [],
+      "base": {
+        "title": "Evidence Capture",
+        "description": "Photo + GPS + timestamp + device proof.",
+        "icon": "blocks",
+        "config": {
+          "schemaVersion": 2,
+          "input": {
+            "renderer": "form",
+            "strict": true,
+            "fields": [
+              {
+                "key": "photo",
+                "label": "Photo",
+                "inputType": "photo",
+                "dataType": "media",
+                "required": true,
+                "config": {}
+              },
+              {
+                "key": "remarks",
+                "label": "Remarks",
+                "inputType": "textarea",
+                "dataType": "string",
+                "required": false,
+                "config": {}
+              }
+            ]
+          },
+          "app": {
+            "renderer": "action_form_v1",
+            "actions": [
+              {
+                "key": "capture",
+                "label": "Capture evidence",
+                "operation": "create",
+                "status": "captured",
+                "style": "primary",
+                "fieldKeys": [
+                  "photo",
+                  "remarks"
+                ],
+                "requiredFieldKeys": [
+                  "photo"
+                ],
+                "visibility": {
+                  "mode": "always"
+                },
+                "successMessage": "Recorded."
+              }
+            ],
+            "config": {
+              "generatedBy": "responsibility_power_template"
+            }
+          },
+          "output": {
+            "renderer": "gallery",
+            "config": {}
+          },
+          "crud": {
+            "create": true,
+            "read": true,
+            "update": true,
+            "delete": false
+          }
+        }
+      },
+      "extension": {
+        "schemaVersion": 2,
+        "builderMode": "evidence",
+        "smartBlocks": [
+          {
+            "key": "device",
+            "label": "Device",
+            "kind": "current_device",
+            "config": {}
+          },
+          {
+            "key": "when",
+            "label": "Timestamp",
+            "kind": "current_datetime",
+            "config": {}
+          },
+          {
+            "key": "gps",
+            "label": "GPS",
+            "kind": "gps",
+            "config": {}
+          }
+        ],
+        "references": [],
+        "queries": [],
+        "memoryPolicies": [],
+        "fieldBehaviors": [],
+        "evidenceBundles": [
+          {
+            "key": "proof",
+            "label": "Proof",
+            "capture": {
+              "photo": true,
+              "location": true,
+              "timestamp": true,
+              "device": true
+            },
+            "required": [
+              "photo",
+              "location",
+              "timestamp",
+              "device"
+            ]
+          }
+        ],
+        "conditions": [],
+        "rules": [],
+        "computedFields": [],
+        "repeatableSections": [],
+        "session": {
+          "enabled": false,
+          "key": "session",
+          "label": "Work session",
+          "startActionLabel": "Start",
+          "stopActionLabel": "Stop",
+          "sampleEverySeconds": 20,
+          "sampleEveryMeters": 25,
+          "minimumAccuracyMeters": 50,
+          "allowOffline": true,
+          "freezeEvidenceOnStop": true,
+          "captureDevice": true
+        },
+        "flow": {
+          "enabled": false,
+          "startState": "draft",
+          "completeState": "completed",
+          "steps": []
+        },
+        "schedule": {
+          "enabled": false
+        },
+        "geofence": {
+          "enabled": false,
+          "radiusMeters": 200,
+          "behavior": "warn"
+        },
+        "access": {
+          "useRoleIds": [],
+          "readRoleIds": [],
+          "createRoleIds": [],
+          "updateRoleIds": [],
+          "deleteRoleIds": [],
+          "reviewRoleIds": [],
+          "viewOutputRoleIds": [],
+          "recordVisibility": "creator_and_manager"
+        },
+        "outputDesign": {
+          "renderer": "gallery",
+          "visibleFieldKeys": [
+            "photo",
+            "remarks"
+          ],
+          "mapLocationFieldKey": "proof.location"
+        },
+        "offline": {
+          "enabled": true,
+          "prefetchReferences": true,
+          "maxReferenceRows": 500,
+          "optimisticMutations": true
+        },
+        "runtime": {
+          "syncMode": "immediate",
+          "referenceCachePolicy": "assigned",
+          "minAppManifestVersion": 2,
+          "pushRefresh": true,
+          "appResumeRefresh": true
+        },
+        "preview": {
+          "device": "phone",
+          "connectivity": "online"
+        },
+        "metadata": {},
+        "templateKey": "evidence_capture"
+      }
+    },
+    {
+      "key": "survey",
+      "mode": "survey",
+      "title": "Smart survey",
+      "description": "A survey that remembers slow-changing answers and asks only what matters.",
+      "setupNotes": [],
+      "base": {
+        "title": "Smart Survey",
+        "description": "Remember slow-changing values while capturing fresh operational data.",
+        "icon": "blocks",
+        "config": {
+          "schemaVersion": 2,
+          "input": {
+            "renderer": "form",
+            "strict": true,
+            "fields": [
+              {
+                "key": "potential",
+                "label": "Potential",
+                "inputType": "number",
+                "dataType": "number",
+                "required": false,
+                "config": {}
+              },
+              {
+                "key": "capacity",
+                "label": "Capacity",
+                "inputType": "number",
+                "dataType": "number",
+                "required": false,
+                "config": {}
+              },
+              {
+                "key": "stock",
+                "label": "Current stock",
+                "inputType": "number",
+                "dataType": "number",
+                "required": false,
+                "config": {}
+              },
+              {
+                "key": "remarks",
+                "label": "Remarks",
+                "inputType": "textarea",
+                "dataType": "string",
+                "required": false,
+                "config": {}
+              }
+            ]
+          },
+          "app": {
+            "renderer": "action_form_v1",
+            "actions": [
+              {
+                "key": "submit_survey",
+                "label": "Submit survey",
+                "operation": "create",
+                "status": "submitted",
+                "style": "primary",
+                "fieldKeys": [
+                  "potential",
+                  "capacity",
+                  "stock",
+                  "remarks"
+                ],
+                "requiredFieldKeys": [
+                  "stock"
+                ],
+                "visibility": {
+                  "mode": "always"
+                },
+                "successMessage": "Recorded."
+              }
+            ],
+            "config": {
+              "generatedBy": "responsibility_power_template"
+            }
+          },
+          "output": {
+            "renderer": "detail",
+            "config": {}
+          },
+          "crud": {
+            "create": true,
+            "read": true,
+            "update": true,
+            "delete": false
+          }
+        }
+      },
+      "extension": {
+        "schemaVersion": 2,
+        "builderMode": "survey",
+        "smartBlocks": [],
+        "references": [],
+        "queries": [],
+        "memoryPolicies": [
+          {
+            "fieldKey": "potential",
+            "mode": "ttl",
+            "ttlSeconds": 2592000,
+            "confirmationMode": "confirm_or_change"
+          },
+          {
+            "fieldKey": "capacity",
+            "mode": "ttl",
+            "ttlSeconds": 7776000,
+            "confirmationMode": "confirm_or_change"
+          },
+          {
+            "fieldKey": "stock",
+            "mode": "every_time",
+            "confirmationMode": "silent_prefill"
+          }
+        ],
+        "fieldBehaviors": [
+          {
+            "fieldKey": "potential",
+            "presentation": "normal",
+            "prefillFrom": {
+              "kind": "previous_value"
+            }
+          },
+          {
+            "fieldKey": "capacity",
+            "presentation": "normal",
+            "prefillFrom": {
+              "kind": "previous_value"
+            }
+          }
+        ],
+        "evidenceBundles": [],
+        "conditions": [],
+        "rules": [],
+        "computedFields": [],
+        "repeatableSections": [],
+        "session": {
+          "enabled": false,
+          "key": "session",
+          "label": "Work session",
+          "startActionLabel": "Start",
+          "stopActionLabel": "Stop",
+          "sampleEverySeconds": 20,
+          "sampleEveryMeters": 25,
+          "minimumAccuracyMeters": 50,
+          "allowOffline": true,
+          "freezeEvidenceOnStop": true,
+          "captureDevice": true
+        },
+        "flow": {
+          "enabled": false,
+          "startState": "draft",
+          "completeState": "completed",
+          "steps": []
+        },
+        "schedule": {
+          "enabled": false
+        },
+        "geofence": {
+          "enabled": false,
+          "radiusMeters": 200,
+          "behavior": "warn"
+        },
+        "access": {
+          "useRoleIds": [],
+          "readRoleIds": [],
+          "createRoleIds": [],
+          "updateRoleIds": [],
+          "deleteRoleIds": [],
+          "reviewRoleIds": [],
+          "viewOutputRoleIds": [],
+          "recordVisibility": "creator_and_manager"
+        },
+        "outputDesign": {
+          "renderer": "detail",
+          "visibleFieldKeys": [
+            "potential",
+            "capacity",
+            "stock",
+            "remarks"
+          ]
+        },
+        "offline": {
+          "enabled": true,
+          "prefetchReferences": true,
+          "maxReferenceRows": 500,
+          "optimisticMutations": true
+        },
+        "runtime": {
+          "syncMode": "immediate",
+          "referenceCachePolicy": "assigned",
+          "minAppManifestVersion": 2,
+          "pushRefresh": true,
+          "appResumeRefresh": true
+        },
+        "preview": {
+          "device": "phone",
+          "connectivity": "online"
+        },
+        "metadata": {},
+        "templateKey": "survey"
+      }
+    },
+    {
+      "key": "maintenance",
+      "mode": "timer",
+      "title": "Maintenance job",
+      "description": "Reference an asset, time the job, record work and evidence.",
+      "setupNotes": [
+        "Choose the Asset Data Source before publishing."
+      ],
+      "base": {
+        "title": "Maintenance Job",
+        "description": "Time a maintenance session and capture completion evidence.",
+        "icon": "blocks",
+        "config": {
+          "schemaVersion": 2,
+          "input": {
+            "renderer": "form",
+            "strict": true,
+            "fields": [
+              {
+                "key": "work_done",
+                "label": "Work done",
+                "inputType": "textarea",
+                "dataType": "string",
+                "required": true,
+                "config": {}
+              },
+              {
+                "key": "parts_used",
+                "label": "Parts / materials",
+                "inputType": "textarea",
+                "dataType": "string",
+                "required": false,
+                "config": {}
+              },
+              {
+                "key": "photo",
+                "label": "Completion photo",
+                "inputType": "photo",
+                "dataType": "media",
+                "required": false,
+                "config": {}
+              }
+            ]
+          },
+          "app": {
+            "renderer": "action_form_v1",
+            "actions": [
+              {
+                "key": "complete_job",
+                "label": "Complete job",
+                "operation": "create",
+                "status": "completed",
+                "style": "primary",
+                "fieldKeys": [
+                  "work_done",
+                  "parts_used",
+                  "photo"
+                ],
+                "requiredFieldKeys": [
+                  "work_done"
+                ],
+                "visibility": {
+                  "mode": "always"
+                },
+                "successMessage": "Recorded."
+              }
+            ],
+            "config": {
+              "generatedBy": "responsibility_power_template"
+            }
+          },
+          "output": {
+            "renderer": "timeline",
+            "config": {}
+          },
+          "crud": {
+            "create": true,
+            "read": true,
+            "update": true,
+            "delete": false
+          }
+        }
+      },
+      "extension": {
+        "schemaVersion": 2,
+        "builderMode": "timer",
+        "smartBlocks": [
+          {
+            "key": "asset",
+            "label": "Asset",
+            "kind": "entity_reference",
+            "sourceKey": "",
+            "required": true,
+            "config": {}
+          },
+          {
+            "key": "timer",
+            "label": "Job timer",
+            "kind": "timer",
+            "config": {}
+          },
+          {
+            "key": "device",
+            "label": "Device",
+            "kind": "current_device",
+            "config": {}
+          }
+        ],
+        "references": [
+          {
+            "key": "asset",
+            "label": "Asset",
+            "sourceKey": "",
+            "mode": "one",
+            "searchable": true,
+            "required": true,
+            "filter": [],
+            "offline": {
+              "enabled": true,
+              "maxRows": 500
+            }
+          }
+        ],
+        "queries": [],
+        "memoryPolicies": [],
+        "fieldBehaviors": [],
+        "evidenceBundles": [
+          {
+            "key": "completion_evidence",
+            "label": "Completion evidence",
+            "capture": {
+              "photo": true,
+              "timestamp": true,
+              "device": true
+            },
+            "required": [
+              "timestamp",
+              "device"
+            ]
+          }
+        ],
+        "conditions": [],
+        "rules": [],
+        "computedFields": [],
+        "repeatableSections": [],
+        "session": {
+          "enabled": true,
+          "key": "maintenance_session",
+          "label": "Maintenance session",
+          "startActionLabel": "Start work",
+          "stopActionLabel": "Stop work",
+          "sampleEverySeconds": 60,
+          "sampleEveryMeters": 100,
+          "minimumAccuracyMeters": 100,
+          "allowOffline": true,
+          "freezeEvidenceOnStop": true,
+          "captureDevice": true
+        },
+        "flow": {
+          "enabled": false,
+          "startState": "draft",
+          "completeState": "completed",
+          "steps": []
+        },
+        "schedule": {
+          "enabled": false
+        },
+        "geofence": {
+          "enabled": false,
+          "radiusMeters": 200,
+          "behavior": "warn"
+        },
+        "access": {
+          "useRoleIds": [],
+          "readRoleIds": [],
+          "createRoleIds": [],
+          "updateRoleIds": [],
+          "deleteRoleIds": [],
+          "reviewRoleIds": [],
+          "viewOutputRoleIds": [],
+          "recordVisibility": "creator_and_manager"
+        },
+        "outputDesign": {
+          "renderer": "timeline",
+          "visibleFieldKeys": [
+            "asset",
+            "work_done",
+            "parts_used",
+            "photo"
+          ]
+        },
+        "offline": {
+          "enabled": true,
+          "prefetchReferences": true,
+          "maxReferenceRows": 500,
+          "optimisticMutations": true
+        },
+        "runtime": {
+          "syncMode": "immediate",
+          "referenceCachePolicy": "assigned",
+          "minAppManifestVersion": 2,
+          "pushRefresh": true,
+          "appResumeRefresh": true
+        },
+        "preview": {
+          "device": "phone",
+          "connectivity": "online"
+        },
+        "metadata": {},
+        "templateKey": "maintenance"
+      }
+    },
+    {
+      "key": "delivery_proof",
+      "mode": "evidence",
+      "title": "Delivery proof",
+      "description": "Reference a delivery/shipment and capture receiver proof.",
+      "setupNotes": [
+        "Choose the delivery/shipment Data Source before publishing."
+      ],
+      "base": {
+        "title": "Delivery Proof",
+        "description": "Capture delivery completion with signature, photo and location.",
+        "icon": "blocks",
+        "config": {
+          "schemaVersion": 2,
+          "input": {
+            "renderer": "form",
+            "strict": true,
+            "fields": [
+              {
+                "key": "receiver_name",
+                "label": "Receiver name",
+                "inputType": "text",
+                "dataType": "string",
+                "required": true,
+                "config": {}
+              },
+              {
+                "key": "photo",
+                "label": "Delivery photo",
+                "inputType": "photo",
+                "dataType": "media",
+                "required": true,
+                "config": {}
+              },
+              {
+                "key": "signature",
+                "label": "Receiver signature",
+                "inputType": "signature",
+                "dataType": "media",
+                "required": true,
+                "config": {}
+              },
+              {
+                "key": "remarks",
+                "label": "Remarks",
+                "inputType": "textarea",
+                "dataType": "string",
+                "required": false,
+                "config": {}
+              }
+            ]
+          },
+          "app": {
+            "renderer": "action_form_v1",
+            "actions": [
+              {
+                "key": "confirm_delivery",
+                "label": "Confirm delivery",
+                "operation": "create",
+                "status": "delivered",
+                "style": "primary",
+                "fieldKeys": [
+                  "receiver_name",
+                  "photo",
+                  "signature",
+                  "remarks"
+                ],
+                "requiredFieldKeys": [
+                  "receiver_name",
+                  "photo",
+                  "signature"
+                ],
+                "visibility": {
+                  "mode": "always"
+                },
+                "successMessage": "Recorded."
+              }
+            ],
+            "config": {
+              "generatedBy": "responsibility_power_template"
+            }
+          },
+          "output": {
+            "renderer": "snapshot",
+            "config": {}
+          },
+          "crud": {
+            "create": true,
+            "read": true,
+            "update": true,
+            "delete": false
+          }
+        }
+      },
+      "extension": {
+        "schemaVersion": 2,
+        "builderMode": "evidence",
+        "smartBlocks": [
+          {
+            "key": "delivery",
+            "label": "Delivery / shipment",
+            "kind": "entity_reference",
+            "sourceKey": "",
+            "required": true,
+            "config": {}
+          },
+          {
+            "key": "device",
+            "label": "Device",
+            "kind": "current_device",
+            "config": {}
+          },
+          {
+            "key": "when",
+            "label": "Delivered at",
+            "kind": "current_datetime",
+            "config": {}
+          }
+        ],
+        "references": [
+          {
+            "key": "delivery",
+            "label": "Delivery / shipment",
+            "sourceKey": "",
+            "mode": "one",
+            "searchable": true,
+            "required": true,
+            "filter": [],
+            "offline": {
+              "enabled": true,
+              "maxRows": 500
+            }
+          }
+        ],
+        "queries": [],
+        "memoryPolicies": [],
+        "fieldBehaviors": [],
+        "evidenceBundles": [
+          {
+            "key": "delivery_evidence",
+            "label": "Delivery evidence",
+            "capture": {
+              "photo": true,
+              "signature": true,
+              "location": true,
+              "timestamp": true,
+              "device": true
+            },
+            "required": [
+              "photo",
+              "signature",
+              "location",
+              "timestamp"
+            ]
+          }
+        ],
+        "conditions": [],
+        "rules": [],
+        "computedFields": [],
+        "repeatableSections": [],
+        "session": {
+          "enabled": false,
+          "key": "session",
+          "label": "Work session",
+          "startActionLabel": "Start",
+          "stopActionLabel": "Stop",
+          "sampleEverySeconds": 20,
+          "sampleEveryMeters": 25,
+          "minimumAccuracyMeters": 50,
+          "allowOffline": true,
+          "freezeEvidenceOnStop": true,
+          "captureDevice": true
+        },
+        "flow": {
+          "enabled": false,
+          "startState": "draft",
+          "completeState": "completed",
+          "steps": []
+        },
+        "schedule": {
+          "enabled": false
+        },
+        "geofence": {
+          "enabled": false,
+          "radiusMeters": 200,
+          "behavior": "warn"
+        },
+        "access": {
+          "useRoleIds": [],
+          "readRoleIds": [],
+          "createRoleIds": [],
+          "updateRoleIds": [],
+          "deleteRoleIds": [],
+          "reviewRoleIds": [],
+          "viewOutputRoleIds": [],
+          "recordVisibility": "creator_and_manager"
+        },
+        "outputDesign": {
+          "renderer": "snapshot",
+          "visibleFieldKeys": [
+            "delivery",
+            "receiver_name",
+            "photo",
+            "signature",
+            "remarks"
+          ]
+        },
+        "offline": {
+          "enabled": true,
+          "prefetchReferences": true,
+          "maxReferenceRows": 500,
+          "optimisticMutations": true
+        },
+        "runtime": {
+          "syncMode": "immediate",
+          "referenceCachePolicy": "assigned",
+          "minAppManifestVersion": 2,
+          "pushRefresh": true,
+          "appResumeRefresh": true
+        },
+        "preview": {
+          "device": "phone",
+          "connectivity": "online"
+        },
+        "metadata": {},
+        "templateKey": "delivery_proof"
+      }
+    },
+    {
+      "key": "expense_claim",
+      "mode": "expense",
+      "title": "Travel / expense claim",
+      "description": "TA/DA-grade benchmark: route/session evidence, derived total, receipt rule and approval chain.",
+      "setupNotes": [
+        "Choose the Accounts Role before publishing. Manager uses the employee reporting line."
+      ],
+      "base": {
+        "title": "Travel Expense Claim",
+        "description": "Travel evidence + expenses + manager/accounts workflow.",
+        "icon": "blocks",
+        "config": {
+          "schemaVersion": 2,
+          "input": {
+            "renderer": "form",
+            "strict": true,
+            "fields": [
+              {
+                "key": "transport",
+                "label": "Transport fare",
+                "inputType": "currency",
+                "dataType": "number",
+                "required": false,
+                "config": {}
+              },
+              {
+                "key": "food",
+                "label": "Food",
+                "inputType": "currency",
+                "dataType": "number",
+                "required": false,
+                "config": {}
+              },
+              {
+                "key": "lodging",
+                "label": "Lodging",
+                "inputType": "currency",
+                "dataType": "number",
+                "required": false,
+                "config": {}
+              },
+              {
+                "key": "local_conveyance",
+                "label": "Local conveyance",
+                "inputType": "currency",
+                "dataType": "number",
+                "required": false,
+                "config": {}
+              },
+              {
+                "key": "other",
+                "label": "Other expense",
+                "inputType": "currency",
+                "dataType": "number",
+                "required": false,
+                "config": {}
+              },
+              {
+                "key": "receipt",
+                "label": "Receipt photo",
+                "inputType": "photo",
+                "dataType": "media",
+                "required": false,
+                "config": {}
+              },
+              {
+                "key": "remarks",
+                "label": "Remarks",
+                "inputType": "textarea",
+                "dataType": "string",
+                "required": false,
+                "config": {}
+              }
+            ]
+          },
+          "app": {
+            "renderer": "action_form_v1",
+            "actions": [
+              {
+                "key": "submit_claim",
+                "label": "Submit claim",
+                "operation": "create",
+                "status": "pending_manager",
+                "style": "primary",
+                "fieldKeys": [
+                  "transport",
+                  "food",
+                  "lodging",
+                  "local_conveyance",
+                  "other",
+                  "receipt",
+                  "remarks"
+                ],
+                "requiredFieldKeys": [],
+                "visibility": {
+                  "mode": "always"
+                },
+                "successMessage": "Recorded."
+              }
+            ],
+            "config": {
+              "generatedBy": "responsibility_power_template"
+            }
+          },
+          "output": {
+            "renderer": "timeline",
+            "config": {}
+          },
+          "crud": {
+            "create": true,
+            "read": true,
+            "update": true,
+            "delete": false
+          }
+        }
+      },
+      "extension": {
+        "schemaVersion": 2,
+        "builderMode": "expense",
+        "smartBlocks": [
+          {
+            "key": "employee",
+            "label": "Employee",
+            "kind": "current_employee",
+            "config": {}
+          },
+          {
+            "key": "device",
+            "label": "Device",
+            "kind": "current_device",
+            "config": {}
+          },
+          {
+            "key": "session",
+            "label": "Travel session",
+            "kind": "session_tracker",
+            "config": {}
+          },
+          {
+            "key": "route",
+            "label": "Route",
+            "kind": "route_tracking",
+            "config": {}
+          },
+          {
+            "key": "distance",
+            "label": "Distance travelled",
+            "kind": "distance_travelled",
+            "config": {}
+          },
+          {
+            "key": "when",
+            "label": "Claim date/time",
+            "kind": "current_datetime",
+            "config": {}
+          }
+        ],
+        "references": [],
+        "queries": [],
+        "memoryPolicies": [],
+        "fieldBehaviors": [],
+        "evidenceBundles": [
+          {
+            "key": "travel_evidence",
+            "label": "Travel evidence",
+            "capture": {
+              "location": true,
+              "timestamp": true,
+              "device": true
+            },
+            "required": [
+              "timestamp",
+              "device"
+            ]
+          }
+        ],
+        "conditions": [],
+        "rules": [
+          {
+            "key": "session_must_close",
+            "label": "Travel session must be completed",
+            "phase": "before_submit",
+            "condition": {
+              "key": "session_completed",
+              "left": {
+                "kind": "context",
+                "contextKey": "session.current.status"
+              },
+              "operator": "eq",
+              "right": "completed"
+            },
+            "effect": "block",
+            "message": "End the travel session before submitting the claim."
+          },
+          {
+            "key": "large_claim_receipt",
+            "label": "Large claim requires receipt",
+            "phase": "before_submit",
+            "condition": {
+              "key": "total_over_limit",
+              "left": {
+                "kind": "computed",
+                "computedKey": "total"
+              },
+              "operator": "gt",
+              "right": 2000
+            },
+            "effect": "require_field",
+            "targetFieldKey": "receipt",
+            "message": "Add a receipt for claims over the configured threshold."
+          }
+        ],
+        "computedFields": [
+          {
+            "key": "total",
+            "label": "Claim total",
+            "operation": "sum",
+            "inputs": [
+              "transport",
+              "food",
+              "lodging",
+              "local_conveyance",
+              "other"
+            ],
+            "dataType": "number"
+          },
+          {
+            "key": "distance_km",
+            "label": "Distance travelled",
+            "operation": "expression",
+            "inputs": [
+              "session.current_route.distanceMeters"
+            ],
+            "expression": "session.current_route.distanceMeters / 1000",
+            "dataType": "number"
+          }
+        ],
+        "repeatableSections": [],
+        "session": {
+          "enabled": true,
+          "key": "travel_session",
+          "label": "Travel session",
+          "startActionLabel": "Start travel",
+          "stopActionLabel": "End travel",
+          "sampleEverySeconds": 20,
+          "sampleEveryMeters": 25,
+          "minimumAccuracyMeters": 50,
+          "allowOffline": true,
+          "freezeEvidenceOnStop": true,
+          "captureDevice": true
+        },
+        "flow": {
+          "enabled": true,
+          "startState": "draft",
+          "completeState": "paid",
+          "steps": [
+            {
+              "key": "employee_submit",
+              "label": "Employee submits",
+              "actor": {
+                "kind": "submitter"
+              },
+              "actionLabel": "Submit claim",
+              "successState": "pending_manager",
+              "allowOffline": true
+            },
+            {
+              "key": "manager_review",
+              "label": "Manager reviews",
+              "actor": {
+                "kind": "reports_to"
+              },
+              "actionLabel": "Approve",
+              "successState": "pending_accounts",
+              "rejectState": "rejected",
+              "allowOffline": false
+            },
+            {
+              "key": "accounts_review",
+              "label": "Accounts verifies / pays",
+              "actor": {
+                "kind": "role"
+              },
+              "actionLabel": "Mark paid",
+              "successState": "paid",
+              "rejectState": "rejected",
+              "allowOffline": false
+            }
+          ]
+        },
+        "schedule": {
+          "enabled": false
+        },
+        "geofence": {
+          "enabled": false,
+          "radiusMeters": 200,
+          "behavior": "warn"
+        },
+        "access": {
+          "useRoleIds": [],
+          "readRoleIds": [],
+          "createRoleIds": [],
+          "updateRoleIds": [],
+          "deleteRoleIds": [],
+          "reviewRoleIds": [],
+          "viewOutputRoleIds": [],
+          "recordVisibility": "creator_and_manager"
+        },
+        "outputDesign": {
+          "renderer": "timeline",
+          "visibleFieldKeys": [
+            "total",
+            "distance_km",
+            "transport",
+            "food",
+            "lodging",
+            "local_conveyance",
+            "other",
+            "receipt",
+            "remarks"
+          ]
+        },
+        "offline": {
+          "enabled": true,
+          "prefetchReferences": true,
+          "maxReferenceRows": 200,
+          "optimisticMutations": true
+        },
+        "runtime": {
+          "syncMode": "immediate",
+          "referenceCachePolicy": "assigned",
+          "minAppManifestVersion": 2,
+          "pushRefresh": true,
+          "appResumeRefresh": true
+        },
+        "preview": {
+          "device": "phone",
+          "connectivity": "online"
+        },
+        "metadata": {},
+        "templateKey": "expense_claim"
+      }
+    }
+  ]
+}

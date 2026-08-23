@@ -9,12 +9,20 @@ import {
   normalizeResponsibilityExtension,
 } from "@/lib/responsibility-compiler";
 import {
+  hasPublishBlockingIssues,
+  validateResponsibilityDefinition,
+} from "@/lib/responsibility-validation";
+import {
   compiledResponsibilityManifests,
+  dataSources,
   platformAuditEvents,
   responsibilityExtensions,
   responsibilityVersions,
 } from "../../../../../../../drizzle/platformVNextSchema";
-import { mobileCapabilities } from "../../../../../../../drizzle/schema";
+import {
+  mobileCapabilities,
+  roles,
+} from "../../../../../../../drizzle/schema";
 
 type Context = {
   params: Promise<{ id: string }>;
@@ -64,10 +72,41 @@ export const POST = withTenantDb<Context>(
       .where(eq(responsibilityExtensions.responsibilityId, responsibilityId))
       .limit(1);
 
+    const [roleRows, sourceRows] = await Promise.all([
+      db.select({ id: roles.id }).from(roles),
+      db
+        .select({
+          key: dataSources.key,
+          allowedFields: dataSources.allowedFields,
+        })
+        .from(dataSources)
+        .where(eq(dataSources.isActive, true)),
+    ]);
+
     const nextVersion = (extension?.publishedVersion ?? 0) + 1;
     const normalized = normalizeResponsibilityExtension(
       extension?.draftConfig ?? {},
     );
+
+    const validationIssues = validateResponsibilityDefinition({
+      baseDefinition: responsibility.config ?? {},
+      extension: normalized,
+      roles: roleRows,
+      dataSources: sourceRows,
+    });
+
+    if (hasPublishBlockingIssues(validationIssues)) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "RESPONSIBILITY_VALIDATION_FAILED",
+          error:
+            "Publish blocked. Fix the Responsibility validation errors first.",
+          issues: validationIssues,
+        },
+        { status: 422 },
+      );
+    }
 
     const manifest = compileResponsibilityManifest({
       responsibilityId,
@@ -81,8 +120,6 @@ export const POST = withTenantDb<Context>(
     const manifestHash = hashResponsibilityManifest(manifest);
     const now = new Date();
 
-    // withTenantDb already runs inside the tenant transaction, so these
-    // writes stay atomic without opening a nested transaction.
     await db
       .insert(responsibilityExtensions)
       .values({
@@ -131,6 +168,10 @@ export const POST = withTenantDb<Context>(
       payload: {
         version: nextVersion,
         manifestHash,
+        manifestVersion: 2,
+        warningCount: validationIssues.filter(
+          (issue) => issue.severity === "warning",
+        ).length,
       },
     });
 
@@ -139,8 +180,9 @@ export const POST = withTenantDb<Context>(
       version: nextVersion,
       manifestHash,
       manifest,
+      issues: validationIssues,
       message:
-        "Responsibility platform definition published and compiled. Backend/mobile runtime must consume this compiled manifest for live execution.",
+        "Responsibility v2 manifest published. Backend/mobile runtime can now consume Data, Rules, Flow, Access, Output and Runtime semantics from one compiled contract.",
     });
   },
 );

@@ -4,22 +4,22 @@ import { useState } from "react";
 import {
   Blocks,
   Boxes,
+  BrainCircuit,
   Database,
-  Layers3,
   ShieldCheck,
 } from "lucide-react";
 
 import ResponsibilitiesClient from "./responsibilities-client";
 import DataSourcesClient from "./data-sources-client";
 import EntitiesClient from "./entities-client";
-import ResponsibilityVNextClient from "./responsibility-vnext-client";
+import ResponsibilityPowerClient from "./responsibility-power-client";
 import RolesVNextClient from "./roles-vnext-client";
 
 type TabKey =
   | "build"
+  | "power"
   | "entities"
   | "data"
-  | "platform"
   | "roles";
 
 const tabs: Array<{
@@ -31,8 +31,14 @@ const tabs: Array<{
   {
     key: "build",
     label: "BUILD",
-    description: "Drag/drop employee operation",
+    description: "Drag ordinary employee inputs + buttons",
     icon: Blocks,
+  },
+  {
+    key: "power",
+    label: "POWER",
+    description: "Smart blocks, rules, flow, output, runtime",
+    icon: BrainCircuit,
   },
   {
     key: "entities",
@@ -42,20 +48,14 @@ const tabs: Array<{
   },
   {
     key: "data",
-    label: "DATA",
+    label: "DATA SOURCES",
     description: "Entities + legacy tables + Responsibility records",
     icon: Database,
   },
   {
-    key: "platform",
-    label: "ACCESS / MEMORY / RUNTIME",
-    description: "References, reuse, evidence, roles, schedule",
-    icon: Layers3,
-  },
-  {
     key: "roles",
     label: "ROLES",
-    description: "Tenant-defined workforce roles",
+    description: "Stable tenant Role IDs used by access + flow",
     icon: ShieldCheck,
   },
 ];
@@ -98,6 +98,12 @@ export default function ResponsibilityPlatformStudio() {
 
       {tab === "build" && <ResponsibilitiesClient />}
 
+      {tab === "power" && (
+        <div className="mx-auto w-full max-w-[1500px] p-4 md:p-6">
+          <ResponsibilityPowerClient />
+        </div>
+      )}
+
       {tab === "entities" && (
         <div className="mx-auto w-full max-w-[1500px] p-4 md:p-6">
           <EntitiesClient />
@@ -107,12 +113,6 @@ export default function ResponsibilityPlatformStudio() {
       {tab === "data" && (
         <div className="mx-auto w-full max-w-[1500px] p-4 md:p-6">
           <DataSourcesClient />
-        </div>
-      )}
-
-      {tab === "platform" && (
-        <div className="mx-auto w-full max-w-[1500px] p-4 md:p-6">
-          <ResponsibilityVNextClient />
         </div>
       )}
 
