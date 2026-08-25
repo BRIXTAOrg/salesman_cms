@@ -1,6 +1,5 @@
-
-import ResponsibilitiesClient from "@/components/appliance/responsibilities-client";
+import ResponsibilityPlatformStudio from "@/components/appliance/responsibility-platform-studio";
 
 export default function ResponsibilitiesPage() {
-  return <ResponsibilitiesClient />;
+  return <ResponsibilityPlatformStudio />;
 }

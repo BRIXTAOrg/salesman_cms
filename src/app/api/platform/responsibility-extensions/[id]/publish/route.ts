@@ -8,6 +8,11 @@ import {
   hashResponsibilityManifest,
   normalizeResponsibilityExtension,
 } from "@/lib/responsibility-compiler";
+import { compileKernelToBaseDefinition } from "@/lib/responsibility-kernel-compiler";
+import {
+  RESPONSIBILITY_KERNEL_METADATA_KEY,
+  type ResponsibilityKernel,
+} from "@/lib/responsibility-kernel-types";
 import {
   hasPublishBlockingIssues,
   validateResponsibilityDefinition,
@@ -27,6 +32,19 @@ import {
 type Context = {
   params: Promise<{ id: string }>;
 };
+
+function kernelFromMetadata(metadata: Record<string, unknown> | undefined) {
+  const candidate = metadata?.[RESPONSIBILITY_KERNEL_METADATA_KEY];
+  if (
+    candidate &&
+    typeof candidate === "object" &&
+    !Array.isArray(candidate) &&
+    (candidate as { kernelVersion?: unknown }).kernelVersion === 3
+  ) {
+    return candidate as ResponsibilityKernel;
+  }
+  return null;
+}
 
 export const POST = withTenantDb<Context>(
   async (_request, db, session, context) => {
@@ -84,12 +102,18 @@ export const POST = withTenantDb<Context>(
     ]);
 
     const nextVersion = (extension?.publishedVersion ?? 0) + 1;
-    const normalized = normalizeResponsibilityExtension(
-      extension?.draftConfig ?? {},
-    );
+    const normalized = normalizeResponsibilityExtension(extension?.draftConfig ?? {});
+
+    // IMPORTANT: Draft Kernel metadata is the source of truth. The employee app
+    // base definition is generated only at Publish, so Save Draft never leaks
+    // unfinished UI/behavior to company devices.
+    const kernel = kernelFromMetadata(normalized.metadata);
+    const publishedBaseDefinition = kernel
+      ? compileKernelToBaseDefinition(kernel)
+      : (responsibility.config ?? {});
 
     const validationIssues = validateResponsibilityDefinition({
-      baseDefinition: responsibility.config ?? {},
+      baseDefinition: publishedBaseDefinition,
       extension: normalized,
       roles: roleRows,
       dataSources: sourceRows,
@@ -100,8 +124,7 @@ export const POST = withTenantDb<Context>(
         {
           success: false,
           code: "RESPONSIBILITY_VALIDATION_FAILED",
-          error:
-            "Publish blocked. Fix the Responsibility validation errors first.",
+          error: "Publish blocked. Fix the Responsibility validation errors first.",
           issues: validationIssues,
         },
         { status: 422 },
@@ -113,7 +136,7 @@ export const POST = withTenantDb<Context>(
       responsibilityKey: responsibility.key,
       responsibilityTitle: responsibility.title,
       version: nextVersion,
-      baseDefinition: responsibility.config ?? {},
+      baseDefinition: publishedBaseDefinition,
       extension: normalized,
     });
 
@@ -147,7 +170,7 @@ export const POST = withTenantDb<Context>(
       responsibilityId,
       version: nextVersion,
       status: "published",
-      baseDefinition: responsibility.config ?? {},
+      baseDefinition: publishedBaseDefinition,
       extensionDefinition: normalized,
       createdByUserId: session.userId,
       publishedAt: now,
@@ -160,6 +183,17 @@ export const POST = withTenantDb<Context>(
       manifestHash,
     });
 
+    // This is the point at which currently-installed employee apps see the new
+    // generated app contract. withTenantDb/withTenantSchema already wraps this
+    // whole route in one PostgreSQL transaction, so any later failure rolls back.
+    await db
+      .update(mobileCapabilities)
+      .set({
+        config: publishedBaseDefinition as unknown as Record<string, unknown>,
+        updatedAt: now,
+      })
+      .where(eq(mobileCapabilities.id, responsibilityId));
+
     await db.insert(platformAuditEvents).values({
       actorUserId: session.userId,
       eventType: "responsibility.published",
@@ -169,9 +203,9 @@ export const POST = withTenantDb<Context>(
         version: nextVersion,
         manifestHash,
         manifestVersion: 2,
-        warningCount: validationIssues.filter(
-          (issue) => issue.severity === "warning",
-        ).length,
+        kernelVersion: kernel?.kernelVersion ?? null,
+        generatedBaseDefinition: Boolean(kernel),
+        warningCount: validationIssues.filter((issue) => issue.severity === "warning").length,
       },
     });
 
@@ -181,8 +215,9 @@ export const POST = withTenantDb<Context>(
       manifestHash,
       manifest,
       issues: validationIssues,
-      message:
-        "Responsibility v2 manifest published. Backend/mobile runtime can now consume Data, Rules, Flow, Access, Output and Runtime semantics from one compiled contract.",
+      message: kernel
+        ? "Responsibility published. The App Builder + Kernel definition was compiled into the employee app contract and is ready for workspace refresh."
+        : "Responsibility manifest published.",
     });
   },
 );
