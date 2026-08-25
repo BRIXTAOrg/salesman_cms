@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import {
@@ -12,6 +13,9 @@ import {
   X,
 } from "lucide-react";
 
+import type { ColumnDef } from "@tanstack/react-table";
+
+import { DataTableReusable } from "@/components/data-table-reusable";
 import type {
   Approval,
   Employee,
@@ -114,6 +118,96 @@ export default function ApprovalsClient() {
     }
   }
 
+  const columns = useMemo<ColumnDef<Approval>[]>(
+    () => [
+      {
+        accessorKey: "title",
+        header: "Request",
+        cell: ({ row }) => (
+          <div className="font-semibold">{row.original.title}</div>
+        ),
+      },
+      {
+        id: "requestedBy",
+        header: "Requested by",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {employeeName(row.original.requesterUserId)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "requestedAt",
+        header: "Requested at",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {formatDateTime(row.original.requestedAt)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <Pill
+            tone={
+              row.original.status === "approved"
+                ? "good"
+                : row.original.status === "rejected"
+                  ? "danger"
+                  : "warning"
+            }
+          >
+            {row.original.status}
+          </Pill>
+        ),
+      },
+      {
+        id: "note",
+        header: "Note",
+        cell: ({ row }) =>
+          row.original.decisionNote ? (
+            <span className="text-muted-foreground">
+              {row.original.decisionNote}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => {
+          const approval = row.original;
+          if (approval.status !== "pending") return null;
+
+          return (
+            <div className="flex justify-end gap-2">
+              <SecondaryButton
+                type="button"
+                disabled={savingId === approval.id}
+                onClick={() => void decide(approval, "rejected")}
+              >
+                <X className="h-4 w-4" />
+                Reject
+              </SecondaryButton>
+              <PrimaryButton
+                type="button"
+                disabled={savingId === approval.id}
+                onClick={() => void decide(approval, "approved")}
+              >
+                <Check className="h-4 w-4" />
+                Approve
+              </PrimaryButton>
+            </div>
+          );
+        },
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [employees, savingId],
+  );
+
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 p-4 md:p-6">
       <PageIntro
@@ -173,59 +267,7 @@ export default function ApprovalsClient() {
           description="Approval requests are created by Workflow approval steps."
         />
       ) : (
-        <div className="space-y-3">
-          {approvals.map((approval) => (
-            <Panel key={approval.id}>
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="font-semibold">{approval.title}</div>
-                    <Pill
-                      tone={
-                        approval.status === "approved"
-                          ? "good"
-                          : approval.status === "rejected"
-                            ? "danger"
-                            : "warning"
-                      }
-                    >
-                      {approval.status}
-                    </Pill>
-                  </div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    Requested by {employeeName(approval.requesterUserId)} · {formatDateTime(approval.requestedAt)}
-                  </div>
-                  {approval.decisionNote && (
-                    <div className="mt-3 rounded-md bg-muted/50 px-3 py-2 text-sm">
-                      {approval.decisionNote}
-                    </div>
-                  )}
-                </div>
-
-                {approval.status === "pending" && (
-                  <div className="flex gap-2">
-                    <SecondaryButton
-                      type="button"
-                      disabled={savingId === approval.id}
-                      onClick={() => void decide(approval, "rejected")}
-                    >
-                      <X className="h-4 w-4" />
-                      Reject
-                    </SecondaryButton>
-                    <PrimaryButton
-                      type="button"
-                      disabled={savingId === approval.id}
-                      onClick={() => void decide(approval, "approved")}
-                    >
-                      <Check className="h-4 w-4" />
-                      Approve
-                    </PrimaryButton>
-                  </div>
-                )}
-              </div>
-            </Panel>
-          ))}
-        </div>
+        <DataTableReusable columns={columns} data={approvals} />
       )}
     </div>
   );

@@ -102,6 +102,15 @@ export const PUT = withTenantDb<RouteContext>(async (request, db, session, conte
       drizzleUpdateData.dashboardHashedPassword = dashPassword;
       generatedCreds.dashboardEmail = drizzleUpdateData.dashboardLoginId;
       generatedCreds.dashboardPassword = dashPassword;
+    } else if (isDashboardUser === true && targetUser.dashboardHashedPassword) {
+      // Re-enabling someone who already has dashboard credentials (was
+      // toggled off before, or upgraded twice). Don't regenerate --
+      // that would silently invalidate a password they may still have
+      // saved. Just flip the flag back on and hand back the existing
+      // login so the CMS can show/copy it again.
+      drizzleUpdateData.isDashboardUser = true;
+      generatedCreds.dashboardEmail = targetUser.dashboardLoginId ?? targetUser.email;
+      generatedCreds.dashboardPassword = targetUser.dashboardHashedPassword;
     } else if (isDashboardUser !== undefined) {
       drizzleUpdateData.isDashboardUser = isDashboardUser;
     }

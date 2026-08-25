@@ -27,6 +27,9 @@ import {
   apiJson,
   formatWhen,
 } from "./client";
+import type { ColumnDef } from "@tanstack/react-table";
+
+import { DataTableReusable } from "@/components/data-table-reusable";
 import { SearchSelect } from "@/components/search-select";
 import { MultiSelect } from "@/components/multi-select";
 import {
@@ -200,6 +203,84 @@ export default function EmployeesClient() {
       );
     });
   }, [employees, query, department]);
+
+  const columns = useMemo<ColumnDef<Employee>[]>(
+    () => [
+      {
+        id: "employee",
+        header: "Employee",
+        accessorFn: (employee) => employee.name ?? employee.username ?? `Employee ${employee.id}`,
+        cell: ({ row }) => (
+          <div>
+            <div className="font-medium">
+              {row.original.name ?? row.original.username ?? `Employee ${row.original.id}`}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {row.original.employeeCode ?? "No employee ID"}
+            </div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "department",
+        header: "Department",
+        cell: ({ row }) => row.original.department ?? "—",
+      },
+      {
+        accessorKey: "designation",
+        header: "Designation",
+        cell: ({ row }) => row.original.designation ?? "—",
+      },
+      {
+        accessorKey: "directResponsibilityCount",
+        header: "Direct Responsibilities",
+        cell: ({ row }) => row.original.directResponsibilityCount ?? 0,
+      },
+      {
+        accessorKey: "lastSeenAt",
+        header: "Last seen",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {formatWhen(row.original.lastSeenAt)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <Pill
+            tone={
+              row.original.status === "active"
+                ? "good"
+                : row.original.status === "suspended"
+                  ? "danger"
+                  : "neutral"
+            }
+          >
+            {row.original.status ?? "unknown"}
+          </Pill>
+        ),
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <div className="text-right">
+            <SecondaryButton
+              type="button"
+              className="h-9"
+              onClick={() => void loadDetail(row.original.id)}
+            >
+              Manage
+            </SecondaryButton>
+          </div>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   async function createEmployee(
     event: FormEvent<HTMLFormElement>,
@@ -441,75 +522,19 @@ export default function EmployeesClient() {
         </select>
       </div>
 
-      <Panel className="overflow-hidden p-0">
-        {loading ? (
+      {loading ? (
+        <Panel className="overflow-hidden p-0">
           <div className="flex min-h-64 items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-5">
-            <EmptyState title="No employees found" />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
-              <thead className="bg-muted/45 text-left text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-5 py-3 font-medium">Employee</th>
-                  <th className="px-5 py-3 font-medium">Department</th>
-                  <th className="px-5 py-3 font-medium">Designation</th>
-                  <th className="px-5 py-3 font-medium">Direct Responsibilities</th>
-                  <th className="px-5 py-3 font-medium">Last seen</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {filtered.map((employee) => (
-                  <tr key={employee.id} className="hover:bg-muted/25">
-                    <td className="px-5 py-4">
-                      <div className="font-medium">
-                        {employee.name ?? employee.username ?? `Employee ${employee.id}`}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {employee.employeeCode ?? "No employee ID"}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">{employee.department ?? "—"}</td>
-                    <td className="px-5 py-4">{employee.designation ?? "—"}</td>
-                    <td className="px-5 py-4">{employee.directResponsibilityCount ?? 0}</td>
-                    <td className="px-5 py-4 text-muted-foreground">
-                      {formatWhen(employee.lastSeenAt)}
-                    </td>
-                    <td className="px-5 py-4">
-                      <Pill
-                        tone={
-                          employee.status === "active"
-                            ? "good"
-                            : employee.status === "suspended"
-                              ? "danger"
-                              : "neutral"
-                        }
-                      >
-                        {employee.status ?? "unknown"}
-                      </Pill>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <SecondaryButton
-                        type="button"
-                        className="h-9"
-                        onClick={() => void loadDetail(employee.id)}
-                      >
-                        Manage
-                      </SecondaryButton>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Panel>
+        </Panel>
+      ) : filtered.length === 0 ? (
+        <Panel className="p-5">
+          <EmptyState title="No employees found" />
+        </Panel>
+      ) : (
+        <DataTableReusable columns={columns} data={filtered} />
+      )}
 
       <Modal
         open={showCreate}
@@ -742,26 +767,18 @@ export default function EmployeesClient() {
               <div className="mt-1 text-sm text-muted-foreground">
                 Workflow approval policies reference these stable Role IDs.
               </div>
-              <div className="mt-4 grid gap-2 md:grid-cols-2">
-                {roles.map((role) => {
-                  const checked = roleIds.includes(role.id);
-                  return (
-                    <label key={role.id} className="flex items-center gap-2 rounded-md border p-3 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() =>
-                          setRoleIds((current) =>
-                            checked
-                              ? current.filter((id) => id !== role.id)
-                              : [...current, role.id],
-                          )
-                        }
-                      />
-                      {role.label}
-                    </label>
-                  );
-                })}
+              <div className="mt-4">
+                <MultiSelect
+                  options={roles.map((role) => ({
+                    label: role.label,
+                    value: String(role.id),
+                  }))}
+                  selectedValues={roleIds.map(String)}
+                  onValueChange={(values) =>
+                    setRoleIds(values.map(Number))
+                  }
+                  placeholder="Search roles..."
+                />
               </div>
               <div className="mt-4 flex justify-end">
                 <SecondaryButton type="button" onClick={() => void saveRoles()} disabled={saving}>

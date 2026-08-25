@@ -15,6 +15,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+import { toast } from "sonner";
+
 import { DataTableReusable } from "@/components/data-table-reusable";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -109,18 +111,26 @@ export default function DashboardAccessClient() {
         },
       );
 
-      // Credentials only come back the first time a user is upgraded to
-      // dashboard access (the backend won't regenerate/overwrite an
-      // existing login). Only show the preview when there's something new
-      // to show.
+      const displayName = user.username ?? user.email;
+
       if (
         enabled &&
         body.credentials?.dashboardEmail &&
         body.credentials?.dashboardPassword
       ) {
+        // Covers both first-time upgrades (freshly generated) and
+        // re-enabling someone who already had a login (existing creds
+        // handed back unchanged) -- either way there's something to
+        // show and copy.
         setCopied(false);
         setCloseHint(false);
         setCredentials(body.credentials);
+      } else if (!enabled) {
+        // Turning access off never touches dashboardLoginId /
+        // dashboardHashedPassword on the backend -- only the
+        // isDashboardUser flag flips. Login credentials stay intact so
+        // access can be restored later without regenerating anything.
+        toast.success(`${displayName}'s dashboard access removed.`);
       }
 
       await load();
@@ -261,8 +271,8 @@ export default function DashboardAccessClient() {
 
       <Modal
         open={Boolean(credentials)}
-        title="Dashboard credentials created"
-        description="These are shown once. Copy them now and share through a secure channel."
+        title="Dashboard credentials"
+        description="Copy these now and share through a secure channel."
         onClose={() => setCloseHint(true)}
         wide={false}
       >
@@ -275,7 +285,7 @@ export default function DashboardAccessClient() {
 
             <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                   Login ID
                 </div>
                 <div className="mt-1 font-mono text-[14px]">
@@ -283,7 +293,7 @@ export default function DashboardAccessClient() {
                 </div>
               </div>
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                   Password
                 </div>
                 <div className="mt-1 font-mono text-[14px]">

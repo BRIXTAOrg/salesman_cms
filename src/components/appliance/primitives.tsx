@@ -114,7 +114,7 @@ export function Pill({
   return (
     <span
       className={cx(
-        "inline-flex items-center rounded-[4px] border px-2 py-1 text-[12px] font-medium leading-none",
+        "inline-flex items-center rounded-md border px-2 py-1 text-[12px] font-medium leading-none",
         classes[tone],
       )}
     >

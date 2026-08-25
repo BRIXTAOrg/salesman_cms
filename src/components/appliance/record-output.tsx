@@ -1,7 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
 import dynamic from "next/dynamic";
+import type { ColumnDef } from "@tanstack/react-table";
 
+import { DataTableReusable } from "@/components/data-table-reusable";
 import type {
   GenericRecord,
   Responsibility,
@@ -119,46 +122,45 @@ function TableOutput({
 }: Props) {
   const fields = fieldsFor(responsibility);
 
-  return (
-    <Panel className="overflow-hidden p-0">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[840px] text-left text-sm">
-          <thead className="bg-muted/45 text-xs text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">Employee</th>
-              {fields.map((field) => (
-                <th key={field.key} className="px-4 py-3 font-medium">
-                  {field.label}
-                </th>
-              ))}
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Updated</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {records.map((record) => (
-              <tr key={record.id} className="align-top">
-                <td className="px-4 py-4 font-medium">{person(record)}</td>
-                {fields.map((field) => (
-                  <td key={field.key} className="max-w-[320px] px-4 py-4">
-                    <div className="line-clamp-4 break-words">
-                      {displayValue(record.payload[field.key])}
-                    </div>
-                  </td>
-                ))}
-                <td className="px-4 py-4">
-                  <Pill>{record.status}</Pill>
-                </td>
-                <td className="px-4 py-4 text-muted-foreground">
-                  {formatDateTime(record.updatedAt ?? record.createdAt)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Panel>
+  const columns = useMemo<ColumnDef<GenericRecord>[]>(
+    () => [
+      {
+        id: "employee",
+        header: "Employee",
+        accessorFn: (record) => person(record),
+        cell: ({ row }) => (
+          <span className="font-medium">{person(row.original)}</span>
+        ),
+      },
+      ...fields.map<ColumnDef<GenericRecord>>((field: ResponsibilityField) => ({
+        id: field.key,
+        header: field.label,
+        cell: ({ row }) => (
+          <div className="line-clamp-4 max-w-[320px] warp-break-words">
+            {displayValue(row.original.payload[field.key])}
+          </div>
+        ),
+      })),
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => <Pill>{row.original.status}</Pill>,
+      },
+      {
+        id: "updated",
+        header: "Updated",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {formatDateTime(row.original.updatedAt ?? row.original.createdAt)}
+          </span>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fields],
   );
+
+  return <DataTableReusable columns={columns} data={records} />;
 }
 
 function CardsOutput({
@@ -186,7 +188,7 @@ function CardsOutput({
                 <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {field.label}
                 </dt>
-                <dd className="mt-1 break-words text-sm">
+                <dd className="mt-1 wrap-break-words text-sm">
                   {displayValue(record.payload[field.key])}
                 </dd>
               </div>
@@ -228,7 +230,7 @@ function DetailOutput({
                 <dt className="text-xs font-medium text-muted-foreground">
                   {field.label}
                 </dt>
-                <dd className="mt-1 break-words text-sm">
+                <dd className="mt-1 wrap-break-words text-sm">
                   {displayValue(record.payload[field.key])}
                 </dd>
               </div>
