@@ -4493,43 +4493,6 @@ function AutomaticAppInspector({
           }
         />
       </Field>
-
-      <div className="rounded-xl border p-4">
-        <div className="text-sm font-semibold">Saved work</div>
-        <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          Control whether employees can review entries they have already submitted.
-        </div>
-
-        <label className="mt-4 flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={kernel.metadata.ui?.employeeOwnHistoryVisible !== false}
-            onChange={(event) =>
-              onChange({
-                ...kernel,
-                metadata: {
-                  ...kernel.metadata,
-                  ui: {
-                    ...(kernel.metadata.ui ?? { layout: [] }),
-                    employeeOwnHistoryVisible: event.target.checked,
-                  },
-                },
-              })
-            }
-          />
-          <div>
-            <div className="text-sm font-medium">
-              Let employees see their own saved entries
-            </div>
-            <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Each employee only sees their own records. For example, a Junior
-              Executive can review their own attendance, not another employee&apos;s.
-            </div>
-          </div>
-        </label>
-      </div>
-
       <div className="rounded-xl border bg-muted/10 p-4">
         <div className="flex items-center gap-2 text-xs font-semibold">
           <Sparkles className="h-4 w-4 text-primary" /> App brain · automatic

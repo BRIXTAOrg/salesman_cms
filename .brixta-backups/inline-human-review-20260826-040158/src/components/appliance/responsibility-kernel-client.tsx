@@ -22,10 +22,7 @@ import type {
   PlatformDataSource,
   ResponsibilityExtensionConfig,
 } from "@/lib/platform-vnext-types";
-import type {
-  KernelAction,
-  ResponsibilityKernel,
-} from "@/lib/responsibility-kernel-types";
+import type { ResponsibilityKernel } from "@/lib/responsibility-kernel-types";
 import {
   STARTER_TEMPLATES,
   blankResponsibilityKernel,
@@ -82,9 +79,7 @@ function asKernel(
   responsibility?: Responsibility | null,
 ): ResponsibilityKernel {
   const metadata =
-    config.metadata && typeof config.metadata === "object"
-      ? config.metadata
-      : {};
+    config.metadata && typeof config.metadata === "object" ? config.metadata : {};
   const candidate = metadata[RESPONSIBILITY_KERNEL_METADATA_KEY];
   if (
     candidate &&
@@ -106,7 +101,9 @@ function asKernel(
 function targetRoleIdsFrom(config: ResponsibilityExtensionConfig) {
   const raw = config.metadata?.[BUILDER_TARGET_ROLE_IDS_KEY];
   return Array.isArray(raw)
-    ? raw.map(Number).filter((item) => Number.isInteger(item) && item > 0)
+    ? raw
+        .map(Number)
+        .filter((item) => Number.isInteger(item) && item > 0)
     : [];
 }
 
@@ -125,39 +122,8 @@ function withBuilderState(
   };
 }
 
-function builderActionOperation(action: KernelAction): "create" | "update" {
-  return ["create", "submit", "start"].includes(action.kind)
-    ? "create"
-    : "update";
-}
-
-function inlineReviewIntent(action: KernelAction) {
-  const required = action.config.reviewRequired === true;
-  const rawApprover =
-    typeof action.config.reviewApprover === "string"
-      ? action.config.reviewApprover.trim()
-      : "";
-
-  if (!required) return null;
-
-  if (rawApprover.startsWith("role:")) {
-    const roleId = Number(rawApprover.slice("role:".length));
-    return Number.isInteger(roleId) && roleId > 0
-      ? { kind: "role" as const, roleId }
-      : { kind: "reports_to" as const };
-  }
-
-  return { kind: "reports_to" as const };
-}
-
-function inlineReviewWorkflowKey(responsibilityKey: string, actionId: string) {
-  return `auto_review_${normalizeKey(responsibilityKey)}_${normalizeKey(actionId)}`;
-}
-
 export default function ResponsibilityKernelClient() {
-  const [responsibilities, setResponsibilities] = useState<Responsibility[]>(
-    [],
-  );
+  const [responsibilities, setResponsibilities] = useState<Responsibility[]>([]);
   const [responsibilityId, setResponsibilityId] = useState<number | null>(null);
   const [extension, setExtension] =
     useState<ResponsibilityExtensionConfig | null>(null);
@@ -183,7 +149,8 @@ export default function ResponsibilityKernelClient() {
   const [newTargetRoleIds, setNewTargetRoleIds] = useState<number[]>([]);
 
   const selectedResponsibility = useMemo(
-    () => responsibilities.find((item) => item.id === responsibilityId) ?? null,
+    () =>
+      responsibilities.find((item) => item.id === responsibilityId) ?? null,
     [responsibilities, responsibilityId],
   );
 
@@ -225,7 +192,7 @@ export default function ResponsibilityKernelClient() {
       setResponsibilityId((current) =>
         current && active.some((item) => item.id === current)
           ? current
-          : (active[0]?.id ?? null),
+          : active[0]?.id ?? null,
       );
     } catch (error) {
       setMessage(
@@ -285,7 +252,11 @@ export default function ResponsibilityKernelClient() {
 
     setSaving(true);
     try {
-      const nextExtension = withBuilderState(extension, kernel, targetRoleIds);
+      const nextExtension = withBuilderState(
+        extension,
+        kernel,
+        targetRoleIds,
+      );
 
       await apiJson(
         `/api/platform/responsibility-extensions/${responsibilityId}`,
@@ -303,119 +274,6 @@ export default function ResponsibilityKernelClient() {
       }
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function syncInlineReviewWorkflows() {
-    if (!selectedResponsibility) return;
-
-    const layout = kernel.metadata.ui?.layout ?? [];
-    const orderedActions = layout
-      .map((possibilityId) =>
-        kernel.possibilities.find((item) => item.id === possibilityId),
-      )
-      .filter(
-        (
-          item,
-        ): item is Extract<
-          ResponsibilityKernel["possibilities"][number],
-          { type: "action" }
-        > => Boolean(item && item.type === "action"),
-      );
-
-    const workflowBody = await apiJson<{
-      workflows: Array<{
-        id: number;
-        key: string;
-        isActive: boolean;
-      }>;
-    }>("/api/appliance/workflows");
-
-    const existingWorkflows = workflowBody.workflows ?? [];
-    const prefix = `auto_review_${normalizeKey(selectedResponsibility.key)}_`;
-    const desiredKeys = new Set<string>();
-
-    for (let index = 0; index < orderedActions.length; index += 1) {
-      const current = orderedActions[index].action;
-      const review = inlineReviewIntent(current);
-      if (!review) continue;
-
-      const workflowKey = inlineReviewWorkflowKey(
-        selectedResponsibility.key,
-        current.id,
-      );
-      desiredKeys.add(workflowKey);
-
-      const steps: Array<Record<string, unknown>> = [
-        {
-          stepType: "action",
-          title: current.label,
-          responsibilityKey: selectedResponsibility.key,
-          operation: builderActionOperation(current),
-        },
-        {
-          stepType: "approval",
-          title: `Verify ${current.label}`,
-          ...(review.kind === "role"
-            ? { approverRoleIds: [review.roleId] }
-            : { approverKind: "reports_to" }),
-        },
-      ];
-
-      const next = orderedActions[index + 1]?.action;
-      if (
-        next &&
-        builderActionOperation(next) !== builderActionOperation(current)
-      ) {
-        steps.push({
-          stepType: "action",
-          title: next.label,
-          responsibilityKey: selectedResponsibility.key,
-          operation: builderActionOperation(next),
-        });
-      }
-
-      const existing = existingWorkflows.find(
-        (workflow) => workflow.key === workflowKey,
-      );
-
-      if (existing) {
-        if (!existing.isActive) {
-          await apiJson(`/api/appliance/workflows/${existing.id}`, {
-            method: "PATCH",
-            body: JSON.stringify({ isActive: true }),
-          });
-        }
-
-        await apiJson(`/api/appliance/workflows/${existing.id}/versions`, {
-          method: "POST",
-          body: JSON.stringify({ steps }),
-        });
-      } else {
-        await apiJson("/api/appliance/workflows", {
-          method: "POST",
-          body: JSON.stringify({
-            key: workflowKey,
-            name: `${selectedResponsibility.title} - ${current.label} review`,
-            description:
-              "Generated automatically from an inline Responsibility review gate.",
-            steps,
-          }),
-        });
-      }
-    }
-
-    for (const workflow of existingWorkflows) {
-      if (
-        workflow.key.startsWith(prefix) &&
-        !desiredKeys.has(workflow.key) &&
-        workflow.isActive
-      ) {
-        await apiJson(`/api/appliance/workflows/${workflow.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ isActive: false }),
-        });
-      }
     }
   }
 
@@ -442,12 +300,9 @@ export default function ResponsibilityKernelClient() {
         { method: "POST" },
       );
       setPublishedVersion(body.version ?? publishedVersion + 1);
-
-      await syncInlineReviewWorkflows();
-
       setMessage(
         body.message ??
-          "Published. The employee app and any inline human review flow are now active.",
+          "Published. The employee app can now receive this Responsibility.",
       );
 
       const refreshed = await apiJson<{ responsibilities: Responsibility[] }>(
@@ -489,7 +344,8 @@ export default function ResponsibilityKernelClient() {
     nextKernel.metadata.ui = {
       ...(nextKernel.metadata.ui ?? { layout: [] }),
       title,
-      description: newDescription.trim() || nextKernel.metadata.ui?.description,
+      description:
+        newDescription.trim() || nextKernel.metadata.ui?.description,
     };
 
     const key = normalizeKey(title);
@@ -532,10 +388,13 @@ export default function ResponsibilityKernelClient() {
         newTargetRoleIds,
       );
 
-      await apiJson(`/api/platform/responsibility-extensions/${created.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ config: nextExtension }),
-      });
+      await apiJson(
+        `/api/platform/responsibility-extensions/${created.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ config: nextExtension }),
+        },
+      );
 
       setResponsibilityId(created.id);
       setExtension(nextExtension);
@@ -802,7 +661,6 @@ export default function ResponsibilityKernelClient() {
         <ResponsibilityAppBuilder
           kernel={kernel}
           dataSources={dataSources}
-          roles={roles}
           onChange={setKernel}
         />
       )}

@@ -1857,6 +1857,22 @@ function BuilderDialog({
           </div>
 
           <div className="flex items-center gap-2">
+            <SecondaryButton
+              type="button"
+              onClick={() => {
+                const template = checkInOutTemplate(catalog);
+                setState({
+                  ...template,
+                  title: state.title.trim() || template.title,
+                  description: state.description.trim() || template.description,
+                });
+                setSelected(null);
+              }}
+              className="hidden sm:inline-flex"
+            >
+              Attendance starter
+            </SecondaryButton>
+
             <SecondaryButton type="button" onClick={onClose}>
               <X className="h-4 w-4" />
               Close

@@ -10,7 +10,6 @@ import {
 } from "@/lib/responsibility-compiler";
 import { sanitizeResponsibilityExtensionKernel } from "@/lib/responsibility-kernel-normalizer";
 import { compileKernelToBaseDefinition } from "@/lib/responsibility-kernel-compiler";
-import { compileResponsibilitySemantics } from "@/lib/responsibility-semantic-compiler";
 import {
   RESPONSIBILITY_KERNEL_METADATA_KEY,
   type ResponsibilityKernel,
@@ -128,25 +127,13 @@ export const POST = withTenantDb<Context>(
     // base definition is generated only at Publish, so Save Draft never leaks
     // unfinished UI/behavior to company devices.
     const kernel = kernelFromMetadata(normalized.metadata);
-    const publishedKernel = kernel
-      ? compileResponsibilitySemantics(kernel)
-      : null;
-    const publishedNormalized = publishedKernel
-      ? {
-          ...normalized,
-          metadata: {
-            ...(normalized.metadata ?? {}),
-            [RESPONSIBILITY_KERNEL_METADATA_KEY]: publishedKernel,
-          },
-        }
-      : normalized;
-    const publishedBaseDefinition = publishedKernel
-      ? compileKernelToBaseDefinition(publishedKernel)
+    const publishedBaseDefinition = kernel
+      ? compileKernelToBaseDefinition(kernel)
       : (responsibility.config ?? {});
 
     const validationIssues = validateResponsibilityDefinition({
       baseDefinition: publishedBaseDefinition,
-      extension: publishedNormalized,
+      extension: normalized,
       roles: roleRows,
       dataSources: sourceRows,
     });
@@ -170,7 +157,7 @@ export const POST = withTenantDb<Context>(
       responsibilityTitle: responsibility.title,
       version: nextVersion,
       baseDefinition: publishedBaseDefinition,
-      extension: publishedNormalized,
+      extension: normalized,
     });
 
     const manifestHash = hashResponsibilityManifest(manifest);
@@ -181,7 +168,7 @@ export const POST = withTenantDb<Context>(
       .values({
         responsibilityId,
         draftConfig: normalized,
-        publishedConfig: publishedNormalized,
+        publishedConfig: normalized,
         publishedVersion: nextVersion,
         compiledHash: manifestHash,
         publishedAt: now,
@@ -191,7 +178,7 @@ export const POST = withTenantDb<Context>(
         target: responsibilityExtensions.responsibilityId,
         set: {
           draftConfig: normalized,
-          publishedConfig: publishedNormalized,
+          publishedConfig: normalized,
           publishedVersion: nextVersion,
           compiledHash: manifestHash,
           publishedAt: now,
@@ -204,7 +191,7 @@ export const POST = withTenantDb<Context>(
       version: nextVersion,
       status: "published",
       baseDefinition: publishedBaseDefinition,
-      extensionDefinition: publishedNormalized,
+      extensionDefinition: normalized,
       createdByUserId: session.userId,
       publishedAt: now,
     });
@@ -284,7 +271,7 @@ export const POST = withTenantDb<Context>(
         version: nextVersion,
         manifestHash,
         manifestVersion: 2,
-        kernelVersion: publishedKernel?.kernelVersion ?? null,
+        kernelVersion: kernel?.kernelVersion ?? null,
         generatedBaseDefinition: Boolean(kernel),
         warningCount: validationIssues.filter(
           (issue) => issue.severity === "warning",

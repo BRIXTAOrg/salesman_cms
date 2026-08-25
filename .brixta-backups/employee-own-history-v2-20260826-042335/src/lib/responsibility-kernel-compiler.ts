@@ -314,8 +314,6 @@ export function compileKernelToBaseDefinition(
           })
           .filter(Boolean),
         kernelVersion: kernel.kernelVersion,
-        employeeOwnHistoryVisible:
-          kernel.metadata.ui?.employeeOwnHistoryVisible !== false,
       },
     },
     output: {
@@ -391,8 +389,6 @@ export function hydrateKernelFromBaseDefinition(
       ui: {
         layout: [],
         title,
-        employeeOwnHistoryVisible:
-          definition.app?.config?.employeeOwnHistoryVisible !== false,
         previewActorId: "current_employee",
         previewStateId: "draft",
       },

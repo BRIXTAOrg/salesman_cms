@@ -3,7 +3,6 @@ import type {
   ResponsibilityDefinition,
   ResponsibilityField,
 } from "@/lib/appliance-types";
-import { compileResponsibilitySemantics } from "@/lib/responsibility-semantic-compiler";
 import type {
   KernelAction,
   KernelCapture,
@@ -202,7 +201,6 @@ function actionToBaseAction(
 export function compileKernelToBaseDefinition(
   kernel: ResponsibilityKernel,
 ): ResponsibilityDefinition {
-  kernel = compileResponsibilitySemantics(kernel);
   const captures = kernel.possibilities.filter(
     (item): item is Extract<KernelPossibility, { type: "capture" }> =>
       item.type === "capture",
@@ -283,20 +281,6 @@ export function compileKernelToBaseDefinition(
       actions: appActions,
       config: {
         generatedBy: "responsibility_unified_studio_v4",
-
-        /*
-         * Runtime state contract:
-         *
-         * A Responsibility with no records is NOT stateless.
-         * Its effective state is the Kernel's configured initial state.
-         *
-         * Flutter uses this before the first record exists so the real
-         * employee app behaves exactly like the CMS simulator.
-         */
-        initialState:
-          kernel.runtimeWorld.states.find((state) => state.initial)?.id ??
-          kernel.runtimeWorld.states[0]?.id ??
-          null,
         layout: (kernel.metadata.ui?.layout ?? [])
           .map((possibilityId) => {
             const possibility = kernel.possibilities.find(
@@ -314,8 +298,6 @@ export function compileKernelToBaseDefinition(
           })
           .filter(Boolean),
         kernelVersion: kernel.kernelVersion,
-        employeeOwnHistoryVisible:
-          kernel.metadata.ui?.employeeOwnHistoryVisible !== false,
       },
     },
     output: {
@@ -391,8 +373,6 @@ export function hydrateKernelFromBaseDefinition(
       ui: {
         layout: [],
         title,
-        employeeOwnHistoryVisible:
-          definition.app?.config?.employeeOwnHistoryVisible !== false,
         previewActorId: "current_employee",
         previewStateId: "draft",
       },
@@ -440,13 +420,7 @@ export function hydrateKernelFromBaseDefinition(
     kernel.metadata.ui!.layout.push(possibilityId);
   }
 
-  const configuredInitialState =
-    typeof definition.app?.config?.initialState === "string"
-      ? String(definition.app.config.initialState).trim()
-      : "";
-  const knownStates = new Set<string>(
-    configuredInitialState ? [configuredInitialState] : ["draft"],
-  );
+  const knownStates = new Set<string>(["draft"]);
   for (const action of definition.app?.actions ?? []) {
     if (action.status) knownStates.add(action.status);
     if (action.visibility?.status) knownStates.add(action.visibility.status);
@@ -515,9 +489,7 @@ export function hydrateKernelFromBaseDefinition(
       .replace(/_/g, " ")
       .replace(/\b\w/g, (letter) => letter.toUpperCase()),
     dimension: "process",
-    initial: configuredInitialState
-      ? stateId === configuredInitialState
-      : index === 0,
+    initial: index === 0,
     terminal: stateId === "completed",
   }));
   if (!kernel.runtimeWorld.states.some((state) => state.initial)) {

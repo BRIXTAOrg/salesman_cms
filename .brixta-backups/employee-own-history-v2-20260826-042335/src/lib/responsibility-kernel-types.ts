@@ -318,12 +318,6 @@ export type KernelUiDefinition = {
   title?: string;
   description?: string;
   /** Preview defaults only; runtime never trusts these for authorization. */
-  /**
-   * Whether employees can see their own previously saved entries.
-   * Separate from CRUD read because the runtime still needs the latest own
-   * record internally for lifecycle/state decisions.
-   */
-  employeeOwnHistoryVisible?: boolean;
   previewActorId?: string;
   previewStateId?: string;
   /** Builder-only hints. Runtime may ignore these safely. */
