@@ -7,6 +7,7 @@ import {
   blankResponsibilityExtension,
   normalizeResponsibilityExtension,
 } from "@/lib/responsibility-compiler";
+import { sanitizeResponsibilityExtensionKernel } from "@/lib/responsibility-kernel-normalizer";
 import {
   responsibilityExtensions,
 } from "../../../../../../drizzle/platformVNextSchema";
@@ -56,7 +57,14 @@ export const GET = withTenantDb<Context>(
     return NextResponse.json({
       success: true,
       responsibility,
-      extension: extension ?? {
+      extension: extension
+        ? {
+            ...extension,
+            draftConfig: sanitizeResponsibilityExtensionKernel(
+              normalizeResponsibilityExtension(extension.draftConfig),
+            ).config,
+          }
+        : {
         responsibilityId,
         draftConfig: blankResponsibilityExtension(),
         publishedConfig: blankResponsibilityExtension(),
@@ -89,7 +97,9 @@ export const PUT = withTenantDb<Context>(
       );
     }
 
-    const config = normalizeResponsibilityExtension(body?.config);
+    const config = sanitizeResponsibilityExtensionKernel(
+      normalizeResponsibilityExtension(body?.config),
+    ).config;
 
     await db
       .insert(responsibilityExtensions)

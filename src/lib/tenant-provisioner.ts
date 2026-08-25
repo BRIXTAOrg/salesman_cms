@@ -12,6 +12,11 @@ const TENANT_PLATFORM_SQL = path.join(
   "drizzle",
   "tenant-platform-provision.sql",
 );
+const ROLE_CONTEXT_SQL = path.join(
+  process.cwd(),
+  "drizzle",
+  "role-context-provision.sql",
+);
 
 const DEFAULT_ROLES = [
   {
@@ -93,7 +98,6 @@ export async function provisionCompany(input: ProvisionCompanyInput) {
     await client.query("BEGIN");
     await client.query("SET LOCAL statement_timeout = '60000ms'");
 
-    // Prevent concurrent signup races for the same company code.
     await client.query(
       "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
       [`brixta:tenant:${input.schemaName}`],
@@ -117,7 +121,6 @@ export async function provisionCompany(input: ProvisionCompanyInput) {
       );
     }
 
-    // Ownership is established synchronously. No sleeps/retries.
     await client.query(
       `CREATE SCHEMA "${input.schemaName}" AUTHORIZATION CURRENT_USER`,
     );
@@ -128,6 +131,8 @@ export async function provisionCompany(input: ProvisionCompanyInput) {
 
     await runSqlFile(client, CORE_SQL);
     await runSqlFile(client, TENANT_PLATFORM_SQL);
+    // V3: Role Context + desired device runtime state.
+    await runSqlFile(client, ROLE_CONTEXT_SQL);
 
     const roleIds = new Map<string, number>();
     for (const role of DEFAULT_ROLES) {
@@ -177,8 +182,6 @@ export async function provisionCompany(input: ProvisionCompanyInput) {
       [admin.rows[0].id, adminRoleId],
     );
 
-    // Shared control-plane writes happen behind SECURITY DEFINER.
-    // This permanently avoids direct organization_entitlements INSERT ACL failures.
     await client.query(`SET LOCAL search_path TO public`);
 
     const registered = await client.query<{

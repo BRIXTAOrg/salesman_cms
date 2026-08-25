@@ -198,10 +198,10 @@
     "semantic_hash": "a1e3dffd8bd974b5feeb3e964760e7dd"
   },
   "src/app/api/dashboardPagesAPI/users-and-team/users/[userId]/route.ts": {
-    "mtime": 1787317146.5881763,
-    "seen": 1787590993.602999,
-    "ast_hash": "a167e5358e64414a9605349c7ab1a056",
-    "semantic_hash": "a167e5358e64414a9605349c7ab1a056"
+    "mtime": 1787661335.1261535,
+    "seen": 1787661612.25014,
+    "ast_hash": "b83064ac7f542ea2a3936533de3a90d6",
+    "semantic_hash": ""
   },
   "src/app/api/dashboardPagesAPI/users-and-team/users/helpers.ts": {
     "mtime": 1786781770.8229766,
@@ -456,10 +456,10 @@
     "semantic_hash": "a7f6f51be92a1ae83506716316b389d8"
   },
   "src/components/appliance/approvals-client.tsx": {
-    "mtime": 1787317162.457177,
-    "seen": 1787590993.6030111,
-    "ast_hash": "bec6aec5e629be3ed004cc62491aacaf",
-    "semantic_hash": "bec6aec5e629be3ed004cc62491aacaf"
+    "mtime": 1787661335.1267257,
+    "seen": 1787661612.250947,
+    "ast_hash": "5108b3bede472977b4b1b2088a1c659e",
+    "semantic_hash": ""
   },
   "src/components/appliance/assignments-client.tsx": {
     "mtime": 1787317162.4575143,
@@ -480,10 +480,10 @@
     "semantic_hash": "372661337483b98eece80bf92027e7d6"
   },
   "src/components/appliance/dashboard-access-client.tsx": {
-    "mtime": 1787652773.4655852,
-    "seen": 1787653052.9343202,
-    "ast_hash": "b4c964264e9416f1a20489e3c37375f4",
-    "semantic_hash": "b4c964264e9416f1a20489e3c37375f4"
+    "mtime": 1787661335.1272705,
+    "seen": 1787661612.250992,
+    "ast_hash": "90b62e0f1885705c2643bedf84d5e947",
+    "semantic_hash": ""
   },
   "src/components/appliance/data-sources-client.tsx": {
     "mtime": 1787595175.554491,
@@ -498,10 +498,10 @@
     "semantic_hash": "023150d833c395f811cc0749ee2d60ec"
   },
   "src/components/appliance/employees-client.tsx": {
-    "mtime": 1787652773.4658418,
-    "seen": 1787653052.9343722,
-    "ast_hash": "e5f21e1fd2f18f37cbde09d6db0f9ae6",
-    "semantic_hash": "e5f21e1fd2f18f37cbde09d6db0f9ae6"
+    "mtime": 1787661335.127579,
+    "seen": 1787661612.251023,
+    "ast_hash": "9ce4e994e86d3f0048bbe9c8dc280521",
+    "semantic_hash": ""
   },
   "src/components/appliance/entities-client.tsx": {
     "mtime": 1787595192.9161866,
@@ -516,10 +516,10 @@
     "semantic_hash": "78005019d6eb7d87eb0d5435966e5f9c"
   },
   "src/components/appliance/primitives.tsx": {
-    "mtime": 1787652773.4661334,
-    "seen": 1787653052.934425,
-    "ast_hash": "7fe960450b9b3568b8308864f29bbff1",
-    "semantic_hash": "7fe960450b9b3568b8308864f29bbff1"
+    "mtime": 1787661335.127837,
+    "seen": 1787661612.2510521,
+    "ast_hash": "73d7f9109dc4022797a95349b45829a7",
+    "semantic_hash": ""
   },
   "src/components/appliance/record-map.tsx": {
     "mtime": 1787317162.4590275,
@@ -528,10 +528,10 @@
     "semantic_hash": "203cc0bb6a9a14c6eb6cd0e39c1e32b3"
   },
   "src/components/appliance/record-output.tsx": {
-    "mtime": 1787317162.4592767,
-    "seen": 1787590993.603014,
-    "ast_hash": "a871c8bb73c3f68c06635ca5ce1eab72",
-    "semantic_hash": "a871c8bb73c3f68c06635ca5ce1eab72"
+    "mtime": 1787661335.1281455,
+    "seen": 1787661612.251067,
+    "ast_hash": "ef750ab820c28f53bb64ae8f0ea7b803",
+    "semantic_hash": ""
   },
   "src/components/appliance/responsibilities-client.tsx": {
     "mtime": 1787317162.4596972,
@@ -540,8 +540,8 @@
     "semantic_hash": "6707e3429bfc67aa4105391bf0d9cdf0"
   },
   "src/components/appliance/responsibility-kernel-client.tsx": {
-    "mtime": 1787595245.6497784,
-    "seen": 1787633785.1064792,
+    "mtime": 1787653968.554604,
+    "seen": 1787661612.2510982,
     "ast_hash": "abca487ad4af2b2990b730ad534ac644",
     "semantic_hash": "abca487ad4af2b2990b730ad534ac644"
   },
@@ -924,10 +924,10 @@
     "semantic_hash": "f6b0ed37c92dde73c49d16157eaa56a2"
   },
   "src/lib/responsibility-kernel-types.ts": {
-    "mtime": 1787595099.3008165,
-    "seen": 1787633785.1081128,
-    "ast_hash": "6f0e23e4fb40636ca6d94fed288dbdfa",
-    "semantic_hash": "6f0e23e4fb40636ca6d94fed288dbdfa"
+    "mtime": 1787661335.1634562,
+    "seen": 1787661612.2520692,
+    "ast_hash": "ec1081038706d7c50bb0543f7a6f5c28",
+    "semantic_hash": ""
   },
   "src/lib/responsibility-power-catalog.ts": {
     "mtime": 1787458004.3643548,
@@ -1008,10 +1008,10 @@
     "semantic_hash": "43534b7e3de2408105bcc9f011f5419c"
   },
   "src/components/appliance/responsibility-app-builder.tsx": {
-    "mtime": 1787595212.7975278,
-    "seen": 1787633785.106478,
-    "ast_hash": "04c91628238870e2e51b572f3e395c1b",
-    "semantic_hash": "04c91628238870e2e51b572f3e395c1b"
+    "mtime": 1787661335.1630723,
+    "seen": 1787661612.251082,
+    "ast_hash": "83839437bd949790d90a73f937a10bd9",
+    "semantic_hash": ""
   },
   "src/components/appliance/responsibility-event-editor.tsx": {
     "mtime": 1787595232.9353943,

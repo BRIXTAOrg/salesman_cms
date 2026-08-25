@@ -359,20 +359,15 @@ function actionFromDefinition(action: ResponsibilityAppAction): BuilderAction {
     requiredFieldKeys: stringArray(action.requiredFieldKeys),
     style: (action.style ?? "primary") as ResponsibilityActionStyle,
     visibility: {
-      mode: (visibility.mode ??
-        "always") as ResponsibilityActionVisibilityMode,
+      mode: (visibility.mode ?? "always") as ResponsibilityActionVisibilityMode,
       status:
-        typeof visibility.status === "string"
-          ? visibility.status
-          : undefined,
+        typeof visibility.status === "string" ? visibility.status : undefined,
     },
     visibilityStatus:
       typeof visibility.status === "string" ? visibility.status : "",
     target: {
       strategy:
-        target.strategy === "latest_status"
-          ? "latest_status"
-          : "latest_record",
+        target.strategy === "latest_status" ? "latest_status" : "latest_record",
       status: typeof target.status === "string" ? target.status : undefined,
     },
     targetStatus: typeof target.status === "string" ? target.status : "",
@@ -450,9 +445,7 @@ function layoutFromDefinition(
   return layout;
 }
 
-function stateFromResponsibility(
-  responsibility: Responsibility,
-): BuilderState {
+function stateFromResponsibility(responsibility: Responsibility): BuilderState {
   const definition = responsibility.definition;
   const app = appFromDefinition(definition);
 
@@ -506,10 +499,7 @@ function serializeVisibleField(
     delete config.helpText;
   }
 
-  if (
-    field.inputType === "select" ||
-    field.inputType === "multi_select"
-  ) {
+  if (field.inputType === "select" || field.inputType === "multi_select") {
     config.options = options;
   } else {
     delete config.options;
@@ -528,18 +518,13 @@ function serializeVisibleField(
   };
 }
 
-function serializeAction(
-  action: BuilderAction,
-): ResponsibilityAppAction {
+function serializeAction(action: BuilderAction): ResponsibilityAppAction {
   const key =
-    normalizeKey(action.key) ||
-    normalizeKey(action.label) ||
-    "action";
+    normalizeKey(action.key) || normalizeKey(action.label) || "action";
   const visibilityStatus = action.visibilityStatus.trim();
   const targetStatus = action.targetStatus.trim();
   const locationKey =
-    normalizeKey(action.captureLocationKey) ||
-    `${key}_location`;
+    normalizeKey(action.captureLocationKey) || `${key}_location`;
 
   return {
     key,
@@ -547,13 +532,9 @@ function serializeAction(
     operation: action.operation,
     status: normalizeKey(action.status) || "submitted",
     style: action.style,
-    fieldKeys: [
-      ...new Set(action.fieldKeys.map(normalizeKey).filter(Boolean)),
-    ],
+    fieldKeys: [...new Set(action.fieldKeys.map(normalizeKey).filter(Boolean))],
     requiredFieldKeys: [
-      ...new Set(
-        action.requiredFieldKeys.map(normalizeKey).filter(Boolean),
-      ),
+      ...new Set(action.requiredFieldKeys.map(normalizeKey).filter(Boolean)),
     ],
     visibility: {
       mode: action.visibility.mode,
@@ -562,9 +543,7 @@ function serializeAction(
     ...(action.operation === "update"
       ? {
           target: {
-            strategy: targetStatus
-              ? "latest_status"
-              : "latest_record",
+            strategy: targetStatus ? "latest_status" : "latest_record",
             ...(targetStatus ? { status: targetStatus } : {}),
           } as const,
         }
@@ -585,33 +564,22 @@ function serializeAction(
   };
 }
 
-function configFromState(
-  state: BuilderState,
-): ResponsibilityDefinition {
+function configFromState(state: BuilderState): ResponsibilityDefinition {
   const visibleFields = state.fields.map(serializeVisibleField);
   const actions = state.actions.map(serializeAction);
 
   const serializedFieldByLocal = new Map(
-    state.fields.map((field, index) => [
-      field.localId,
-      visibleFields[index],
-    ]),
+    state.fields.map((field, index) => [field.localId, visibleFields[index]]),
   );
   const serializedActionByLocal = new Map(
-    state.actions.map((action, index) => [
-      action.localId,
-      actions[index],
-    ]),
+    state.actions.map((action, index) => [action.localId, actions[index]]),
   );
 
   const systemFields: ResponsibilityField[] = [];
-  const knownKeys = new Set(
-    visibleFields.map((field) => field.key),
-  );
+  const knownKeys = new Set(visibleFields.map((field) => field.key));
 
   for (const action of actions) {
-    const locationKey =
-      action.capture?.location?.fieldKey;
+    const locationKey = action.capture?.location?.fieldKey;
     if (locationKey && !knownKeys.has(locationKey)) {
       knownKeys.add(locationKey);
       systemFields.push({
@@ -636,15 +604,11 @@ function configFromState(
   const layout = state.layout.flatMap((block) => {
     if (block.kind === "field") {
       const field = serializedFieldByLocal.get(block.refId);
-      return field
-        ? [{ kind: "field", key: field.key }]
-        : [];
+      return field ? [{ kind: "field", key: field.key }] : [];
     }
 
     const action = serializedActionByLocal.get(block.refId);
-    return action
-      ? [{ kind: "action", key: action.key }]
-      : [];
+    return action ? [{ kind: "action", key: action.key }] : [];
   });
 
   return {
@@ -679,9 +643,7 @@ function validateState(state: BuilderState) {
 
   for (let index = 0; index < state.fields.length; index += 1) {
     const field = state.fields[index];
-    const key =
-      normalizeKey(field.key) ||
-      normalizeKey(field.label);
+    const key = normalizeKey(field.key) || normalizeKey(field.label);
 
     if (!field.label.trim()) {
       return `Block ${index + 1} needs a label.`;
@@ -695,8 +657,7 @@ function validateState(state: BuilderState) {
     fieldKeys.add(key);
 
     if (
-      (field.inputType === "select" ||
-        field.inputType === "multi_select") &&
+      (field.inputType === "select" || field.inputType === "multi_select") &&
       field.optionsText
         .split("\n")
         .map((item) => item.trim())
@@ -710,9 +671,7 @@ function validateState(state: BuilderState) {
 
   for (let index = 0; index < state.actions.length; index += 1) {
     const action = state.actions[index];
-    const key =
-      normalizeKey(action.key) ||
-      normalizeKey(action.label);
+    const key = normalizeKey(action.key) || normalizeKey(action.label);
 
     if (!action.label.trim()) {
       return `Button ${index + 1} needs a label.`;
@@ -749,14 +708,13 @@ function validateState(state: BuilderState) {
   return null;
 }
 
-function checkInOutTemplate(
-  catalog: PrimitiveCatalog | null,
-): BuilderState {
-  const photoPrimitive =
-    catalog?.input.find((item) => item.key === "photo") ?? {
-      key: "photo",
-      dataType: "media",
-    };
+function checkInOutTemplate(catalog: PrimitiveCatalog | null): BuilderState {
+  const photoPrimitive = catalog?.input.find(
+    (item) => item.key === "photo",
+  ) ?? {
+    key: "photo",
+    dataType: "media",
+  };
 
   const checkInPhoto = createField(
     photoPrimitive.key,
@@ -765,8 +723,7 @@ function checkInOutTemplate(
   );
   checkInPhoto.key = "check_in_photo";
   checkInPhoto.label = "Check-in photo";
-  checkInPhoto.helpText =
-    "Take a quick photo before checking in.";
+  checkInPhoto.helpText = "Take a quick photo before checking in.";
 
   const checkOutPhoto = createField(
     photoPrimitive.key,
@@ -775,8 +732,7 @@ function checkInOutTemplate(
   );
   checkOutPhoto.key = "check_out_photo";
   checkOutPhoto.label = "Check-out photo";
-  checkOutPhoto.helpText =
-    "Take a quick photo before checking out.";
+  checkOutPhoto.helpText = "Take a quick photo before checking out.";
 
   const fields = [checkInPhoto, checkOutPhoto];
 
@@ -847,8 +803,7 @@ function checkInOutTemplate(
 
   return {
     title: "Attendance",
-    description:
-      "Check in and check out with photo and location evidence.",
+    description: "Check in and check out with photo and location evidence.",
     outputRenderer: "snapshot",
     strict: true,
     crud: {
@@ -874,19 +829,14 @@ function PaletteBlock({
   icon: typeof Blocks;
   data: PaletteDragData;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    isDragging,
-  } = useDraggable({
-    id:
-      data.kind === "field"
-        ? `palette-field-${data.primitiveKey}`
-        : "palette-action",
-    data,
-  });
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id:
+        data.kind === "field"
+          ? `palette-field-${data.primitiveKey}`
+          : "palette-action",
+      data,
+    });
 
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -1105,16 +1055,13 @@ function Canvas({
           <div className="space-y-3">
             {state.layout.map((block) => {
               const field =
-                block.kind === "field"
-                  ? fieldById.get(block.refId)
-                  : undefined;
+                block.kind === "field" ? fieldById.get(block.refId) : undefined;
               const action =
                 block.kind === "action"
                   ? actionById.get(block.refId)
                   : undefined;
               const isSelected =
-                selected?.kind === block.kind &&
-                selected.refId === block.refId;
+                selected?.kind === block.kind && selected.refId === block.refId;
 
               return (
                 <SortableCanvasBlock
@@ -1251,9 +1198,7 @@ function FieldProperties({
     onChange({
       ...state,
       fields: state.fields.map((item) =>
-        item.localId === field.localId
-          ? { ...item, ...patchValue }
-          : item,
+        item.localId === field.localId ? { ...item, ...patchValue } : item,
       ),
     });
   }
@@ -1308,9 +1253,7 @@ function FieldProperties({
         <input
           type="checkbox"
           checked={field.required}
-          onChange={(event) =>
-            patch({ required: event.target.checked })
-          }
+          onChange={(event) => patch({ required: event.target.checked })}
         />
         <div>
           <div className="font-medium">Required</div>
@@ -1323,9 +1266,7 @@ function FieldProperties({
       <Field label="Placeholder">
         <input
           value={field.placeholder}
-          onChange={(event) =>
-            patch({ placeholder: event.target.value })
-          }
+          onChange={(event) => patch({ placeholder: event.target.value })}
           className={inputClass}
           placeholder="Optional hint"
         />
@@ -1334,22 +1275,17 @@ function FieldProperties({
       <Field label="Help text">
         <textarea
           value={field.helpText}
-          onChange={(event) =>
-            patch({ helpText: event.target.value })
-          }
+          onChange={(event) => patch({ helpText: event.target.value })}
           className={textareaClass}
           placeholder="Optional explanation"
         />
       </Field>
 
-      {(field.inputType === "select" ||
-        field.inputType === "multi_select") && (
+      {(field.inputType === "select" || field.inputType === "multi_select") && (
         <Field label="Choices" hint="One choice per line.">
           <textarea
             value={field.optionsText}
-            onChange={(event) =>
-              patch({ optionsText: event.target.value })
-            }
+            onChange={(event) => patch({ optionsText: event.target.value })}
             className={textareaClass}
           />
         </Field>
@@ -1401,9 +1337,7 @@ function ActionProperties({
     onChange({
       ...state,
       actions: state.actions.map((item) =>
-        item.localId === action.localId
-          ? { ...item, ...patchValue }
-          : item,
+        item.localId === action.localId ? { ...item, ...patchValue } : item,
       ),
     });
   }
@@ -1417,27 +1351,16 @@ function ActionProperties({
       fieldKeys: next,
       requiredFieldKeys: enabled
         ? action.requiredFieldKeys
-        : action.requiredFieldKeys.filter(
-            (key) => key !== field.key,
-          ),
+        : action.requiredFieldKeys.filter((key) => key !== field.key),
     });
   }
 
   function setFieldRequired(field: BuilderField, required: boolean) {
     patch({
-      fieldKeys: [
-        ...new Set([...action.fieldKeys, field.key]),
-      ],
+      fieldKeys: [...new Set([...action.fieldKeys, field.key])],
       requiredFieldKeys: required
-        ? [
-            ...new Set([
-              ...action.requiredFieldKeys,
-              field.key,
-            ]),
-          ]
-        : action.requiredFieldKeys.filter(
-            (key) => key !== field.key,
-          ),
+        ? [...new Set([...action.requiredFieldKeys, field.key])]
+        : action.requiredFieldKeys.filter((key) => key !== field.key),
     });
   }
 
@@ -1458,8 +1381,7 @@ function ActionProperties({
           onChange={(event) => {
             const label = event.target.value;
             const nextKey =
-              !action.key ||
-              action.key === normalizeKey(action.label)
+              !action.key || action.key === normalizeKey(action.label)
                 ? normalizeKey(label)
                 : action.key;
             patch({ label, key: nextKey });
@@ -1486,8 +1408,7 @@ function ActionProperties({
           onChange={(event) =>
             patch({
               visibility: {
-                mode: event.target
-                  .value as ResponsibilityActionVisibilityMode,
+                mode: event.target.value as ResponsibilityActionVisibilityMode,
               },
             })
           }
@@ -1495,9 +1416,7 @@ function ActionProperties({
         >
           <option value="always">Always</option>
           <option value="no_record">Only before first record</option>
-          <option value="latest_status_is">
-            When latest state IS...
-          </option>
+          <option value="latest_status_is">When latest state IS...</option>
           <option value="latest_status_is_not">
             When latest state IS NOT...
           </option>
@@ -1511,9 +1430,7 @@ function ActionProperties({
             value={action.visibilityStatus}
             onChange={(event) =>
               patch({
-                visibilityStatus: normalizeKey(
-                  event.target.value,
-                ),
+                visibilityStatus: normalizeKey(event.target.value),
               })
             }
             className={inputClass}
@@ -1533,25 +1450,17 @@ function ActionProperties({
             </div>
           ) : (
             state.fields.map((field) => {
-              const enabled =
-                action.fieldKeys.includes(field.key);
-              const required =
-                action.requiredFieldKeys.includes(field.key);
+              const enabled = action.fieldKeys.includes(field.key);
+              const required = action.requiredFieldKeys.includes(field.key);
 
               return (
-                <div
-                  key={field.localId}
-                  className="rounded-lg border p-3"
-                >
+                <div key={field.localId} className="rounded-lg border p-3">
                   <label className="flex items-center gap-2 text-sm font-medium">
                     <input
                       type="checkbox"
                       checked={enabled}
                       onChange={(event) =>
-                        setFieldEnabled(
-                          field,
-                          event.target.checked,
-                        )
+                        setFieldEnabled(field, event.target.checked)
                       }
                     />
                     {field.label || field.key}
@@ -1563,10 +1472,7 @@ function ActionProperties({
                         type="checkbox"
                         checked={required}
                         onChange={(event) =>
-                          setFieldRequired(
-                            field,
-                            event.target.checked,
-                          )
+                          setFieldRequired(field, event.target.checked)
                         }
                       />
                       Must be completed before this button works
@@ -1598,7 +1504,8 @@ function ActionProperties({
             Capture current location automatically
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            The employee does not type anything. The app captures GPS when the button is pressed.
+            The employee does not type anything. The app captures GPS when the
+            button is pressed.
           </div>
         </div>
       </label>
@@ -1643,9 +1550,7 @@ function ActionProperties({
               value={action.operation}
               onChange={(event) =>
                 patch({
-                  operation: event.target.value as
-                    | "create"
-                    | "update",
+                  operation: event.target.value as "create" | "update",
                 })
               }
               className={inputClass}
@@ -1660,9 +1565,7 @@ function ActionProperties({
               value={action.style}
               onChange={(event) =>
                 patch({
-                  style:
-                    event.target
-                      .value as ResponsibilityActionStyle,
+                  style: event.target.value as ResponsibilityActionStyle,
                 })
               }
               className={inputClass}
@@ -1694,9 +1597,7 @@ function ActionProperties({
                 value={action.targetStatus}
                 onChange={(event) =>
                   patch({
-                    targetStatus: normalizeKey(
-                      event.target.value,
-                    ),
+                    targetStatus: normalizeKey(event.target.value),
                   })
                 }
                 className={inputClass}
@@ -1710,9 +1611,7 @@ function ActionProperties({
                 value={action.captureLocationKey}
                 onChange={(event) =>
                   patch({
-                    captureLocationKey: normalizeKey(
-                      event.target.value,
-                    ),
+                    captureLocationKey: normalizeKey(event.target.value),
                   })
                 }
                 className={inputClass}
@@ -1743,12 +1642,9 @@ function BuilderDialog({
   onSave: (state: BuilderState) => Promise<void>;
 }) {
   const [state, setState] = useState<BuilderState>(initialState);
-  const [selected, setSelected] =
-    useState<SelectedBlock>(null);
-  const [activeLabel, setActiveLabel] =
-    useState<string | null>(null);
-  const [error, setError] =
-    useState<string | null>(null);
+  const [selected, setSelected] = useState<SelectedBlock>(null);
+  const [activeLabel, setActiveLabel] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1768,28 +1664,18 @@ function BuilderDialog({
 
   const selectedField =
     selected?.kind === "field"
-      ? state.fields.find(
-          (field) => field.localId === selected.refId,
-        ) ?? null
+      ? (state.fields.find((field) => field.localId === selected.refId) ?? null)
       : null;
 
   const selectedAction =
     selected?.kind === "action"
-      ? state.actions.find(
-          (action) => action.localId === selected.refId,
-        ) ?? null
+      ? (state.actions.find((action) => action.localId === selected.refId) ??
+        null)
       : null;
 
-  function addPaletteItem(
-    data: PaletteDragData,
-    overId?: string | null,
-  ) {
+  function addPaletteItem(data: PaletteDragData, overId?: string | null) {
     if (data.kind === "field") {
-      const field = createField(
-        data.primitiveKey,
-        data.dataType,
-        state.fields,
-      );
+      const field = createField(data.primitiveKey, data.dataType, state.fields);
       const block: CanvasBlock = {
         id: localId("block"),
         kind: "field",
@@ -1797,9 +1683,7 @@ function BuilderDialog({
       };
       const nextLayout = [...state.layout];
       const overIndex = overId
-        ? nextLayout.findIndex(
-            (item) => item.id === overId,
-          )
+        ? nextLayout.findIndex((item) => item.id === overId)
         : -1;
       nextLayout.splice(
         overIndex >= 0 ? overIndex : nextLayout.length,
@@ -1819,12 +1703,9 @@ function BuilderDialog({
     }
 
     const action = blankAction(state.fields);
-    const used = new Set(
-      state.actions.map((item) => normalizeKey(item.key)),
-    );
+    const used = new Set(state.actions.map((item) => normalizeKey(item.key)));
     action.key = uniqueKey("submit", used);
-    action.label =
-      state.actions.length === 0 ? "Submit" : "Action";
+    action.label = state.actions.length === 0 ? "Submit" : "Action";
     const block: CanvasBlock = {
       id: localId("block"),
       kind: "action",
@@ -1834,11 +1715,7 @@ function BuilderDialog({
     const overIndex = overId
       ? nextLayout.findIndex((item) => item.id === overId)
       : -1;
-    nextLayout.splice(
-      overIndex >= 0 ? overIndex : nextLayout.length,
-      0,
-      block,
-    );
+    nextLayout.splice(overIndex >= 0 ? overIndex : nextLayout.length, 0, block);
     setState({
       ...state,
       actions: [...state.actions, action],
@@ -1852,60 +1729,40 @@ function BuilderDialog({
 
   function removeBlock(block: CanvasBlock) {
     if (block.kind === "field") {
-      const field = state.fields.find(
-        (item) => item.localId === block.refId,
-      );
+      const field = state.fields.find((item) => item.localId === block.refId);
       setState({
         ...state,
-        fields: state.fields.filter(
-          (item) => item.localId !== block.refId,
-        ),
+        fields: state.fields.filter((item) => item.localId !== block.refId),
         actions: field
           ? state.actions.map((action) => ({
               ...action,
-              fieldKeys: action.fieldKeys.filter(
+              fieldKeys: action.fieldKeys.filter((key) => key !== field.key),
+              requiredFieldKeys: action.requiredFieldKeys.filter(
                 (key) => key !== field.key,
               ),
-              requiredFieldKeys:
-                action.requiredFieldKeys.filter(
-                  (key) => key !== field.key,
-                ),
             }))
           : state.actions,
-        layout: state.layout.filter(
-          (item) => item.id !== block.id,
-        ),
+        layout: state.layout.filter((item) => item.id !== block.id),
       });
     } else {
       setState({
         ...state,
-        actions: state.actions.filter(
-          (item) => item.localId !== block.refId,
-        ),
-        layout: state.layout.filter(
-          (item) => item.id !== block.id,
-        ),
+        actions: state.actions.filter((item) => item.localId !== block.refId),
+        layout: state.layout.filter((item) => item.id !== block.id),
       });
     }
 
-    if (
-      selected?.kind === block.kind &&
-      selected.refId === block.refId
-    ) {
+    if (selected?.kind === block.kind && selected.refId === block.refId) {
       setSelected(null);
     }
   }
 
   function handleDragStart(event: DragStartEvent) {
-    const data = event.active.data.current as
-      | PaletteDragData
-      | undefined;
+    const data = event.active.data.current as PaletteDragData | undefined;
 
     if (data?.source === "palette") {
       setActiveLabel(
-        data.kind === "field"
-          ? primitiveLabel(data.primitiveKey)
-          : "Button",
+        data.kind === "field" ? primitiveLabel(data.primitiveKey) : "Button",
       );
       return;
     }
@@ -1931,28 +1788,16 @@ function BuilderDialog({
   function handleDragEnd(event: DragEndEvent) {
     setActiveLabel(null);
 
-    const data = event.active.data.current as
-      | PaletteDragData
-      | undefined;
-    const overId = event.over?.id
-      ? String(event.over.id)
-      : null;
+    const data = event.active.data.current as PaletteDragData | undefined;
+    const overId = event.over?.id ? String(event.over.id) : null;
 
     if (data?.source === "palette") {
       if (!event.over) return;
-      addPaletteItem(
-        data,
-        overId === "responsibility-canvas"
-          ? null
-          : overId,
-      );
+      addPaletteItem(data, overId === "responsibility-canvas" ? null : overId);
       return;
     }
 
-    if (
-      event.active.id === event.over?.id ||
-      !event.over
-    ) {
+    if (event.active.id === event.over?.id || !event.over) {
       return;
     }
 
@@ -1962,19 +1807,13 @@ function BuilderDialog({
     const newIndex =
       overId === "responsibility-canvas"
         ? state.layout.length - 1
-        : state.layout.findIndex(
-            (item) => item.id === event.over?.id,
-          );
+        : state.layout.findIndex((item) => item.id === event.over?.id);
 
     if (oldIndex < 0 || newIndex < 0) return;
 
     setState({
       ...state,
-      layout: arrayMove(
-        state.layout,
-        oldIndex,
-        newIndex,
-      ),
+      layout: arrayMove(state.layout, oldIndex, newIndex),
     });
   }
 
@@ -2004,10 +1843,7 @@ function BuilderDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      <form
-        onSubmit={submit}
-        className="flex min-h-0 flex-1 flex-col"
-      >
+      <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center justify-between gap-4 border-b px-4 py-3 md:px-6">
           <div className="min-w-0">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -2024,16 +1860,11 @@ function BuilderDialog({
             <SecondaryButton
               type="button"
               onClick={() => {
-                const template =
-                  checkInOutTemplate(catalog);
+                const template = checkInOutTemplate(catalog);
                 setState({
                   ...template,
-                  title:
-                    state.title.trim() ||
-                    template.title,
-                  description:
-                    state.description.trim() ||
-                    template.description,
+                  title: state.title.trim() || template.title,
+                  description: state.description.trim() || template.description,
                 });
                 setSelected(null);
               }}
@@ -2042,26 +1873,18 @@ function BuilderDialog({
               Attendance starter
             </SecondaryButton>
 
-            <SecondaryButton
-              type="button"
-              onClick={onClose}
-            >
+            <SecondaryButton type="button" onClick={onClose}>
               <X className="h-4 w-4" />
               Close
             </SecondaryButton>
 
-            <PrimaryButton
-              type="submit"
-              disabled={saving}
-            >
+            <PrimaryButton type="submit" disabled={saving}>
               {saving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              {mode === "create"
-                ? "Create app"
-                : "Save app"}
+              {mode === "create" ? "Create app" : "Save app"}
             </PrimaryButton>
           </div>
         </div>
@@ -2078,222 +1901,209 @@ function BuilderDialog({
           onDragEnd={handleDragEnd}
         >
           <div className="grid min-h-0 flex-1 xl:grid-cols-[250px_minmax(520px,1fr)_360px]">
-          <aside className="overflow-y-auto border-r p-4">
-            <div className="mb-4">
-              <div className="text-sm font-semibold">
-                Blocks
-              </div>
-              <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                Drag anything onto the canvas.
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {(catalog?.input ?? []).map((primitive) => {
-                const Icon = primitiveIcon(primitive.key);
-                return (
-                  <PaletteBlock
-                    key={primitive.key}
-                    label={primitiveLabel(primitive.key)}
-                    subtitle={humanize(primitive.dataType)}
-                    icon={Icon}
-                    data={{
-                      source: "palette",
-                      kind: "field",
-                      primitiveKey: primitive.key,
-                      dataType: primitive.dataType,
-                    }}
-                  />
-                );
-              })}
-
-              <div className="my-4 border-t" />
-
-              <PaletteBlock
-                label="Button"
-                subtitle="Submit, check in, approve, finish..."
-                icon={MousePointerClick}
-                data={{
-                  source: "palette",
-                  kind: "action",
-                }}
-              />
-            </div>
-          </aside>
-
-          <main className="min-w-0 overflow-y-auto p-4 md:p-6">
-            <div className="mx-auto max-w-4xl">
-              <div className="mb-5 grid gap-4 md:grid-cols-2">
-                <Field label="App name">
-                  <input
-                    value={state.title}
-                    onChange={(event) =>
-                      setState({
-                        ...state,
-                        title: event.target.value,
-                      })
-                    }
-                    className={inputClass}
-                    placeholder="Attendance"
-                  />
-                </Field>
-
-                <Field label="What is this for?">
-                  <input
-                    value={state.description}
-                    onChange={(event) =>
-                      setState({
-                        ...state,
-                        description:
-                          event.target.value,
-                      })
-                    }
-                    className={inputClass}
-                    placeholder="Check in and check out with evidence"
-                  />
-                </Field>
+            <aside className="overflow-y-auto border-r p-4">
+              <div className="mb-4">
+                <div className="text-sm font-semibold">Blocks</div>
+                <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Drag anything onto the canvas.
+                </div>
               </div>
 
-              <Canvas
-                state={state}
-                selected={selected}
-                onSelect={setSelected}
-                onRemove={removeBlock}
-              />
+              <div className="space-y-2">
+                {(catalog?.input ?? []).map((primitive) => {
+                  const Icon = primitiveIcon(primitive.key);
+                  return (
+                    <PaletteBlock
+                      key={primitive.key}
+                      label={primitiveLabel(primitive.key)}
+                      subtitle={humanize(primitive.dataType)}
+                      icon={Icon}
+                      data={{
+                        source: "palette",
+                        kind: "field",
+                        primitiveKey: primitive.key,
+                        dataType: primitive.dataType,
+                      }}
+                    />
+                  );
+                })}
 
-              <details className="mt-5 rounded-xl border bg-card">
-                <summary className="flex cursor-pointer items-center gap-2 p-4 text-sm font-semibold">
-                  <Settings2 className="h-4 w-4" />
-                  App settings
-                  <span className="ml-auto text-xs font-normal text-muted-foreground">
-                    Output + advanced record controls
-                  </span>
-                </summary>
+                <div className="my-4 border-t" />
 
-                <div className="grid gap-5 border-t p-4 md:grid-cols-2">
-                  <Field label="Dashboard output">
-                    <select
-                      value={state.outputRenderer}
+                <PaletteBlock
+                  label="Button"
+                  subtitle="Submit, check in, approve, finish..."
+                  icon={MousePointerClick}
+                  data={{
+                    source: "palette",
+                    kind: "action",
+                  }}
+                />
+              </div>
+            </aside>
+
+            <main className="min-w-0 overflow-y-auto p-4 md:p-6">
+              <div className="mx-auto max-w-4xl">
+                <div className="mb-5 grid gap-4 md:grid-cols-2">
+                  <Field label="App name">
+                    <input
+                      value={state.title}
                       onChange={(event) =>
                         setState({
                           ...state,
-                          outputRenderer:
-                            event.target.value,
+                          title: event.target.value,
                         })
                       }
                       className={inputClass}
-                    >
-                      {(catalog?.output ?? []).map(
-                        (item) => (
-                          <option
-                            key={item.key}
-                            value={item.key}
-                          >
-                            {humanize(item.key)}
-                          </option>
-                        ),
-                      )}
-                    </select>
+                      placeholder="Attendance"
+                    />
                   </Field>
 
-                  <div>
-                    <div className="text-xs font-medium uppercase tracking-wide">
-                      Record operations
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-3">
-                      {(
-                        [
-                          "create",
-                          "read",
-                          "update",
-                          "delete",
-                        ] as CrudOperation[]
-                      ).map((operation) => (
-                        <label
-                          key={operation}
-                          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={
-                              state.crud[operation]
-                            }
-                            onChange={(event) =>
-                              setState({
-                                ...state,
-                                crud: {
-                                  ...state.crud,
-                                  [operation]:
-                                    event.target
-                                      .checked,
-                                },
-                              })
-                            }
-                          />
-                          {humanize(operation)}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <label className="flex items-start gap-3 rounded-lg border p-3 text-sm md:col-span-2">
+                  <Field label="What is this for?">
                     <input
-                      type="checkbox"
-                      checked={state.strict}
+                      value={state.description}
                       onChange={(event) =>
                         setState({
                           ...state,
-                          strict:
-                            event.target.checked,
+                          description: event.target.value,
                         })
                       }
+                      className={inputClass}
+                      placeholder="Check in and check out with evidence"
                     />
+                  </Field>
+                </div>
+
+                <Canvas
+                  state={state}
+                  selected={selected}
+                  onSelect={setSelected}
+                  onRemove={removeBlock}
+                />
+
+                <details className="mt-5 rounded-xl border bg-card">
+                  <summary className="flex cursor-pointer items-center gap-2 p-4 text-sm font-semibold">
+                    <Settings2 className="h-4 w-4" />
+                    App settings
+                    <span className="ml-auto text-xs font-normal text-muted-foreground">
+                      Output + advanced record controls
+                    </span>
+                  </summary>
+
+                  <div className="grid gap-5 border-t p-4 md:grid-cols-2">
+                    <Field label="Dashboard output">
+                      <select
+                        value={state.outputRenderer}
+                        onChange={(event) =>
+                          setState({
+                            ...state,
+                            outputRenderer: event.target.value,
+                          })
+                        }
+                        className={inputClass}
+                      >
+                        {(catalog?.output ?? []).map((item) => (
+                          <option key={item.key} value={item.key}>
+                            {humanize(item.key)}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+
                     <div>
-                      <div className="font-medium">
-                        Strict payload validation
+                      <div className="text-xs font-medium uppercase tracking-wide">
+                        Record operations
                       </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Reject data the app definition does not declare. Recommended.
+                      <div className="mt-2 flex flex-wrap gap-3">
+                        {(
+                          [
+                            "create",
+                            "read",
+                            "update",
+                            "delete",
+                          ] as CrudOperation[]
+                        ).map((operation) => (
+                          <label
+                            key={operation}
+                            className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={state.crud[operation]}
+                              onChange={(event) =>
+                                setState({
+                                  ...state,
+                                  crud: {
+                                    ...state.crud,
+                                    [operation]: event.target.checked,
+                                  },
+                                })
+                              }
+                            />
+                            {humanize(operation)}
+                          </label>
+                        ))}
                       </div>
                     </div>
-                  </label>
-                </div>
-              </details>
-            </div>
-          </main>
 
-          <aside className="overflow-y-auto border-l p-4">
-            {selectedField ? (
-              <FieldProperties
-                field={selectedField}
-                state={state}
-                onChange={setState}
-              />
-            ) : selectedAction ? (
-              <ActionProperties
-                action={selectedAction}
-                state={state}
-                onChange={setState}
-              />
-            ) : (
-              <div className="space-y-6">
-                <div>
-                  <div className="text-sm font-semibold">
-                    Preview
+                    <label className="flex items-start gap-3 rounded-lg border p-3 text-sm md:col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={state.strict}
+                        onChange={(event) =>
+                          setState({
+                            ...state,
+                            strict: event.target.checked,
+                          })
+                        }
+                      />
+                      <div>
+                        <div className="font-medium">
+                          Strict payload validation
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Reject data the app definition does not declare.
+                          Recommended.
+                        </div>
+                      </div>
+                    </label>
                   </div>
-                  <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                    Click a block to edit it. This preview updates while you build.
-                  </div>
-                </div>
-
-                <PhonePreview state={state} />
-
-                <div className="rounded-lg border bg-muted/20 p-3 text-xs leading-5 text-muted-foreground">
-                  Drag blocks from the left, reorder them in the middle, then click any block to edit its simple properties here.
-                </div>
+                </details>
               </div>
-            )}
-          </aside>
+            </main>
+
+            <aside className="overflow-y-auto border-l p-4">
+              {selectedField ? (
+                <FieldProperties
+                  field={selectedField}
+                  state={state}
+                  onChange={setState}
+                />
+              ) : selectedAction ? (
+                <ActionProperties
+                  action={selectedAction}
+                  state={state}
+                  onChange={setState}
+                />
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <div className="text-sm font-semibold">Preview</div>
+                    <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Click a block to edit it. This preview updates while you
+                      build.
+                    </div>
+                  </div>
+
+                  <PhonePreview state={state} />
+
+                  <div className="rounded-lg border bg-muted/20 p-3 text-xs leading-5 text-muted-foreground">
+                    Drag blocks from the left, reorder them in the middle, then
+                    click any block to edit its simple properties here.
+                  </div>
+                </div>
+              )}
+            </aside>
           </div>
 
           <DragOverlay>
@@ -2310,40 +2120,32 @@ function BuilderDialog({
 }
 
 export default function ResponsibilitiesClient() {
-  const [catalog, setCatalog] =
-    useState<PrimitiveCatalog | null>(null);
-  const [responsibilities, setResponsibilities] =
-    useState<Responsibility[]>([]);
-  const [rules, setRules] =
-    useState<ResponsibilityRule[]>([]);
-  const [employees, setEmployees] =
-    useState<Employee[]>([]);
-  const [roles, setRoles] =
-    useState<Role[]>([]);
-  const [loading, setLoading] =
-    useState(true);
-  const [saving, setSaving] =
-    useState(false);
-  const [message, setMessage] =
-    useState<string | null>(null);
-  const [canCreate, setCanCreate] =
-    useState(false);
+  const [catalog, setCatalog] = useState<PrimitiveCatalog | null>(null);
+  const [responsibilities, setResponsibilities] = useState<Responsibility[]>(
+    [],
+  );
 
-  const [builderOpen, setBuilderOpen] =
-    useState(false);
-  const [editing, setEditing] =
-    useState<Responsibility | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const [rules, setRules] = useState<ResponsibilityRule[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [canCreate, setCanCreate] = useState(false);
+
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [editing, setEditing] = useState<Responsibility | null>(null);
   const [builderInitial, setBuilderInitial] =
     useState<BuilderState>(blankState());
 
-  const [ruleResponsibilityId, setRuleResponsibilityId] =
-    useState<number | null>(null);
-  const [ruleType, setRuleType] =
-    useState("all");
-  const [ruleValue, setRuleValue] =
-    useState("");
-  const [ruleEffect, setRuleEffect] =
-    useState("allow");
+  const [ruleResponsibilityId, setRuleResponsibilityId] = useState<
+    number | null
+  >(null);
+  const [ruleType, setRuleType] = useState("all");
+  const [ruleValue, setRuleValue] = useState("");
+  const [ruleEffect, setRuleEffect] = useState("allow");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2358,35 +2160,25 @@ export default function ResponsibilitiesClient() {
         roleBody,
         me,
       ] = await Promise.all([
-        apiJson<{ primitives: PrimitiveCatalog }>(
-          "/api/appliance/primitives",
-        ),
+        apiJson<{ primitives: PrimitiveCatalog }>("/api/appliance/primitives"),
         apiJson<{
           responsibilities: Responsibility[];
         }>("/api/appliance/responsibilities"),
         apiJson<{
           rules: ResponsibilityRule[];
         }>("/api/appliance/responsibility-rules"),
-        apiJson<{ employees: Employee[] }>(
-          "/api/appliance/employees",
-        ),
-        apiJson<{ roles: Role[] }>(
-          "/api/appliance/roles",
-        ),
+        apiJson<{ employees: Employee[] }>("/api/appliance/employees"),
+        apiJson<{ roles: Role[] }>("/api/appliance/roles"),
         apiJson<MeResponse>("/api/me"),
       ]);
 
       setCatalog(primitiveBody.primitives);
-      setResponsibilities(
-        responsibilityBody.responsibilities ?? [],
-      );
+      setResponsibilities(responsibilityBody.responsibilities ?? []);
       setRules(ruleBody.rules ?? []);
       setEmployees(employeeBody.employees ?? []);
       setRoles(roleBody.roles ?? []);
       setCanCreate(
-        me.entitlements?.[
-          RESPONSIBILITY_CREATE_ENTITLEMENT
-        ] === true,
+        me.entitlements?.[RESPONSIBILITY_CREATE_ENTITLEMENT] === true,
       );
     } catch (error) {
       setMessage(
@@ -2409,10 +2201,7 @@ export default function ResponsibilitiesClient() {
 
   const totalActions = responsibilities.reduce(
     (total, responsibility) =>
-      total +
-      appFromDefinition(
-        responsibility.definition,
-      ).actions.length,
+      total + appFromDefinition(responsibility.definition).actions.length,
     0,
   );
 
@@ -2422,10 +2211,7 @@ export default function ResponsibilitiesClient() {
         ...new Set(
           employees
             .map((employee) => employee.department)
-            .filter(
-              (value): value is string =>
-                Boolean(value),
-            ),
+            .filter((value): value is string => Boolean(value)),
         ),
       ].sort(),
     [employees],
@@ -2437,10 +2223,7 @@ export default function ResponsibilitiesClient() {
         ...new Set(
           employees
             .map((employee) => employee.designation)
-            .filter(
-              (value): value is string =>
-                Boolean(value),
-            ),
+            .filter((value): value is string => Boolean(value)),
         ),
       ].sort(),
     [employees],
@@ -2453,13 +2236,9 @@ export default function ResponsibilitiesClient() {
     setMessage(null);
   }
 
-  function openEdit(
-    responsibility: Responsibility,
-  ) {
+  function openEdit(responsibility: Responsibility) {
     setEditing(responsibility);
-    setBuilderInitial(
-      stateFromResponsibility(responsibility),
-    );
+    setBuilderInitial(stateFromResponsibility(responsibility));
     setBuilderOpen(true);
     setMessage(null);
   }
@@ -2476,41 +2255,31 @@ export default function ResponsibilitiesClient() {
 
     try {
       if (editing) {
-        await apiJson(
-          `/api/appliance/responsibilities/${editing.id}`,
-          {
-            method: "PATCH",
-            body: JSON.stringify({
-              title: state.title.trim(),
-              description:
-                state.description.trim() || null,
-              config: configFromState(state),
-            }),
-          },
-        );
+        await apiJson(`/api/appliance/responsibilities/${editing.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            title: state.title.trim(),
+            description: state.description.trim() || null,
+            config: configFromState(state),
+          }),
+        });
 
         setMessage(
           `“${state.title.trim()}” updated. Employees receive the new app definition on workspace refresh.`,
         );
       } else {
-        await apiJson(
-          "/api/appliance/responsibilities",
-          {
-            method: "POST",
-            body: JSON.stringify({
-              key: normalizeKey(state.title),
-              title: state.title.trim(),
-              description:
-                state.description.trim() || null,
-              icon: "blocks",
-              config: configFromState(state),
-            }),
-          },
-        );
+        await apiJson("/api/appliance/responsibilities", {
+          method: "POST",
+          body: JSON.stringify({
+            key: normalizeKey(state.title),
+            title: state.title.trim(),
+            description: state.description.trim() || null,
+            icon: "blocks",
+            config: configFromState(state),
+          }),
+        });
 
-        setMessage(
-          `“${state.title.trim()}” app is ready to assign.`,
-        );
+        setMessage(`“${state.title.trim()}” app is ready to assign.`);
       }
 
       setBuilderOpen(false);
@@ -2523,23 +2292,17 @@ export default function ResponsibilitiesClient() {
     }
   }
 
-  async function toggleResponsibility(
-    responsibility: Responsibility,
-  ) {
+  async function toggleResponsibility(responsibility: Responsibility) {
     setSaving(true);
     setMessage(null);
 
     try {
-      await apiJson(
-        `/api/appliance/responsibilities/${responsibility.id}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            isActive:
-              responsibility.isActive === false,
-          }),
-        },
-      );
+      await apiJson(`/api/appliance/responsibilities/${responsibility.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          isActive: responsibility.isActive === false,
+        }),
+      });
       await load();
     } catch (error) {
       setMessage(
@@ -2569,9 +2332,7 @@ export default function ResponsibilitiesClient() {
       return employees.map((employee) => ({
         value: String(employee.id),
         label:
-          employee.name ??
-          employee.employeeCode ??
-          `Employee ${employee.id}`,
+          employee.name ?? employee.employeeCode ?? `Employee ${employee.id}`,
       }));
     }
     if (ruleType === "role") {
@@ -2583,16 +2344,12 @@ export default function ResponsibilitiesClient() {
     return [];
   }
 
-  async function createRule(
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  async function createRule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!ruleResponsibilityId) return;
 
     if (ruleType !== "all" && !ruleValue) {
-      setMessage(
-        "Choose who this assignment rule applies to.",
-      );
+      setMessage("Choose who this assignment rule applies to.");
       return;
     }
 
@@ -2600,28 +2357,18 @@ export default function ResponsibilitiesClient() {
     setMessage(null);
 
     try {
-      await apiJson(
-        "/api/appliance/responsibility-rules",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            responsibilityId:
-              ruleResponsibilityId,
-            subjectType: ruleType,
-            subjectValue:
-              ruleType === "all"
-                ? null
-                : ruleValue,
-            roleId:
-              ruleType === "role"
-                ? Number(ruleValue)
-                : undefined,
-            effect: ruleEffect,
-            priority: 0,
-            config: {},
-          }),
-        },
-      );
+      await apiJson("/api/appliance/responsibility-rules", {
+        method: "POST",
+        body: JSON.stringify({
+          responsibilityId: ruleResponsibilityId,
+          subjectType: ruleType,
+          subjectValue: ruleType === "all" ? null : ruleValue,
+          roleId: ruleType === "role" ? Number(ruleValue) : undefined,
+          effect: ruleEffect,
+          priority: 0,
+          config: {},
+        }),
+      });
 
       setRuleValue("");
       setRuleType("all");
@@ -2640,23 +2387,60 @@ export default function ResponsibilitiesClient() {
     }
   }
 
-  async function toggleRule(
-    rule: ResponsibilityRule,
-  ) {
+  async function toggleRule(rule: ResponsibilityRule) {
     setSaving(true);
     try {
-      await apiJson(
-        `/api/appliance/responsibility-rules/${rule.id}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            enabled: !rule.enabled,
-          }),
-        },
-      );
+      await apiJson(`/api/appliance/responsibility-rules/${rule.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          enabled: !rule.enabled,
+        }),
+      });
       await load();
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function deleteResponsibility(responsibility: Responsibility) {
+    const confirmed = window.confirm(
+      [
+        `Delete "${responsibility.title}"?`,
+        "",
+        "This removes the Responsibility from the company and employee apps.",
+        "Existing submitted records will be preserved.",
+      ].join("\n"),
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(responsibility.id);
+
+    try {
+      await apiJson(`/api/appliance/responsibilities/${responsibility.id}`, {
+        method: "DELETE",
+      });
+
+      setResponsibilities((current) =>
+        current.filter((item) => item.id !== responsibility.id),
+      );
+
+      /*
+       * Reload so the server-generated sidebar manifest is refreshed too.
+       *
+       * This removes the direct Responsibility nav item immediately.
+       */
+      window.location.reload();
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete Responsibility.",
+      );
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -2668,19 +2452,13 @@ export default function ResponsibilitiesClient() {
         description="Build employee apps visually. Drag inputs and buttons onto a canvas, assign the Responsibility, then connect it to a Workflow."
         action={
           <div className="flex gap-2">
-            <SecondaryButton
-              type="button"
-              onClick={() => void load()}
-            >
+            <SecondaryButton type="button" onClick={() => void load()}>
               <RefreshCw className="h-4 w-4" />
               Refresh
             </SecondaryButton>
 
             {canCreate && (
-              <PrimaryButton
-                type="button"
-                onClick={openCreate}
-              >
+              <PrimaryButton type="button" onClick={openCreate}>
                 <Plus className="h-4 w-4" />
                 Build Responsibility
               </PrimaryButton>
@@ -2691,47 +2469,33 @@ export default function ResponsibilitiesClient() {
 
       {message && (
         <Panel className="py-3">
-          <div className="text-sm">
-            {message}
-          </div>
+          <div className="text-sm">{message}</div>
         </Panel>
       )}
 
       <div className="grid gap-3 sm:grid-cols-4">
         <div className="rounded-lg border bg-card p-5">
-          <div className="text-2xl font-semibold">
-            {activeCount}
-          </div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            Active apps
-          </div>
+          <div className="text-2xl font-semibold">{activeCount}</div>
+          <div className="mt-1 text-sm text-muted-foreground">Active apps</div>
         </div>
 
         <div className="rounded-lg border bg-card p-5">
           <div className="text-2xl font-semibold">
             {catalog?.input.length ?? 0}
           </div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            Input blocks
-          </div>
+          <div className="mt-1 text-sm text-muted-foreground">Input blocks</div>
         </div>
 
         <div className="rounded-lg border bg-card p-5">
           <div className="text-2xl font-semibold">
             {catalog?.output.length ?? 0}
           </div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            Output views
-          </div>
+          <div className="mt-1 text-sm text-muted-foreground">Output views</div>
         </div>
 
         <div className="rounded-lg border bg-card p-5">
-          <div className="text-2xl font-semibold">
-            {totalActions}
-          </div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            App buttons
-          </div>
+          <div className="text-2xl font-semibold">{totalActions}</div>
+          <div className="mt-1 text-sm text-muted-foreground">App buttons</div>
         </div>
       </div>
 
@@ -2746,216 +2510,175 @@ export default function ResponsibilitiesClient() {
         />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          {responsibilities.map(
-            (responsibility) => {
-              const definition =
-                responsibility.definition;
-              const app =
-                appFromDefinition(definition);
-              const responsibilityRules =
-                rules.filter(
-                  (rule) =>
-                    rule.capabilityId ===
-                    responsibility.id,
-                );
+          {responsibilities.map((responsibility) => {
+            const definition = responsibility.definition;
+            const app = appFromDefinition(definition);
+            const responsibilityRules = rules.filter(
+              (rule) => rule.capabilityId === responsibility.id,
+            );
 
-              return (
-                <Panel key={responsibility.id}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Blocks className="h-5 w-5" />
-                        <div className="text-lg font-semibold">
-                          {responsibility.title}
-                        </div>
-                        <Pill
-                          tone={
-                            responsibility.isActive ===
-                            false
-                              ? "neutral"
-                              : "good"
-                          }
-                        >
-                          {responsibility.isActive ===
-                          false
-                            ? "Disabled"
-                            : "Active"}
-                        </Pill>
+            return (
+              <Panel key={responsibility.id}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Blocks className="h-5 w-5" />
+                      <div className="text-lg font-semibold">
+                        {responsibility.title}
                       </div>
-
-                      {responsibility.description && (
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {
-                            responsibility.description
-                          }
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex gap-2">
-                      <SecondaryButton
-                        type="button"
-                        className="h-9 px-3"
-                        onClick={() =>
-                          openEdit(
-                            responsibility,
-                          )
+                      <Pill
+                        tone={
+                          responsibility.isActive === false ? "neutral" : "good"
                         }
                       >
-                        <Edit3 className="h-4 w-4" />
-                        Edit app
-                      </SecondaryButton>
-
-                      <SecondaryButton
-                        type="button"
-                        className="h-9 px-3"
-                        disabled={saving}
-                        onClick={() =>
-                          void toggleResponsibility(
-                            responsibility,
-                          )
-                        }
-                        aria-label={
-                          responsibility.isActive ===
-                          false
-                            ? "Enable"
-                            : "Disable"
-                        }
-                      >
-                        {responsibility.isActive ===
-                        false ? (
-                          <ToggleLeft className="h-4 w-4" />
-                        ) : (
-                          <ToggleRight className="h-4 w-4" />
-                        )}
-                      </SecondaryButton>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-3 sm:grid-cols-4">
-                    <div className="rounded-md border p-3">
-                      <div className="text-xl font-semibold">
-                        {
-                          definition.input.fields.filter(
-                            (field) =>
-                              objectValue(
-                                field.config,
-                              ).hidden !== true,
-                          ).length
-                        }
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        blocks
-                      </div>
+                        {responsibility.isActive === false
+                          ? "Disabled"
+                          : "Active"}
+                      </Pill>
                     </div>
 
-                    <div className="rounded-md border p-3">
-                      <div className="text-xl font-semibold">
-                        {app.actions.length}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        buttons
-                      </div>
-                    </div>
-
-                    <div className="rounded-md border p-3">
-                      <div className="text-sm font-semibold">
-                        {humanize(
-                          definition.output.renderer,
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        output
-                      </div>
-                    </div>
-
-                    <div className="rounded-md border p-3">
-                      <div className="text-xl font-semibold">
-                        {responsibility.directAssignments ??
-                          0}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        assigned
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 border-t pt-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <div className="text-sm font-semibold">
-                          Assignment rules
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {
-                            responsibilityRules.filter(
-                              (rule) =>
-                                rule.enabled,
-                            ).length
-                          }{" "}
-                          active
-                        </div>
-                      </div>
-
-                      <SecondaryButton
-                        type="button"
-                        className="h-9"
-                        onClick={() => {
-                          setRuleResponsibilityId(
-                            responsibility.id,
-                          );
-                          setRuleType("all");
-                          setRuleValue("");
-                        }}
-                      >
-                        <Plus className="h-4 w-4" />
-                        Rule
-                      </SecondaryButton>
-                    </div>
-
-                    {responsibilityRules.length >
-                      0 && (
-                      <div className="mt-3 space-y-2">
-                        {responsibilityRules.map(
-                          (rule) => (
-                            <div
-                              key={rule.id}
-                              className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
-                            >
-                              <div>
-                                <span className="font-medium">
-                                  {rule.effect}
-                                </span>{" "}
-                                {
-                                  rule.subjectType
-                                }
-                                {rule.subjectValue
-                                  ? ` · ${rule.subjectValue}`
-                                  : ""}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  void toggleRule(
-                                    rule,
-                                  )
-                                }
-                                className="text-xs font-medium text-muted-foreground hover:text-foreground"
-                              >
-                                {rule.enabled
-                                  ? "Disable"
-                                  : "Enable"}
-                              </button>
-                            </div>
-                          ),
-                        )}
-                      </div>
+                    {responsibility.description && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {responsibility.description}
+                      </p>
                     )}
                   </div>
-                </Panel>
-              );
-            },
-          )}
+
+                  <div className="flex gap-2">
+                    <SecondaryButton
+                      type="button"
+                      className="h-9 px-3"
+                      onClick={() => openEdit(responsibility)}
+                    >
+                      <Edit3 className="h-4 w-4" />
+                      Edit app
+                    </SecondaryButton>
+
+                    <SecondaryButton
+                      type="button"
+                      className="h-9 px-3 text-destructive hover:text-destructive"
+                      disabled={deletingId === responsibility.id}
+                      onClick={() => void deleteResponsibility(responsibility)}
+                      aria-label="Delete Responsibility"
+                    >
+                      {deletingId === responsibility.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      Delete
+                    </SecondaryButton>
+
+                    <SecondaryButton
+                      type="button"
+                      className="h-9 px-3"
+                      disabled={saving}
+                      onClick={() => void toggleResponsibility(responsibility)}
+                      aria-label={
+                        responsibility.isActive === false ? "Enable" : "Disable"
+                      }
+                    >
+                      {responsibility.isActive === false ? (
+                        <ToggleLeft className="h-4 w-4" />
+                      ) : (
+                        <ToggleRight className="h-4 w-4" />
+                      )}
+                    </SecondaryButton>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-4">
+                  <div className="rounded-md border p-3">
+                    <div className="text-xl font-semibold">
+                      {
+                        definition.input.fields.filter(
+                          (field) => objectValue(field.config).hidden !== true,
+                        ).length
+                      }
+                    </div>
+                    <div className="text-xs text-muted-foreground">blocks</div>
+                  </div>
+
+                  <div className="rounded-md border p-3">
+                    <div className="text-xl font-semibold">
+                      {app.actions.length}
+                    </div>
+                    <div className="text-xs text-muted-foreground">buttons</div>
+                  </div>
+
+                  <div className="rounded-md border p-3">
+                    <div className="text-sm font-semibold">
+                      {humanize(definition.output.renderer)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">output</div>
+                  </div>
+
+                  <div className="rounded-md border p-3">
+                    <div className="text-xl font-semibold">
+                      {responsibility.directAssignments ?? 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      assigned
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 border-t pt-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-semibold">
+                        Assignment rules
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {
+                          responsibilityRules.filter((rule) => rule.enabled)
+                            .length
+                        }{" "}
+                        active
+                      </div>
+                    </div>
+
+                    <SecondaryButton
+                      type="button"
+                      className="h-9"
+                      onClick={() => {
+                        setRuleResponsibilityId(responsibility.id);
+                        setRuleType("all");
+                        setRuleValue("");
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Rule
+                    </SecondaryButton>
+                  </div>
+
+                  {responsibilityRules.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {responsibilityRules.map((rule) => (
+                        <div
+                          key={rule.id}
+                          className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
+                        >
+                          <div>
+                            <span className="font-medium">{rule.effect}</span>{" "}
+                            {rule.subjectType}
+                            {rule.subjectValue ? ` · ${rule.subjectValue}` : ""}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void toggleRule(rule)}
+                            className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                          >
+                            {rule.enabled ? "Disable" : "Enable"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Panel>
+            );
+          })}
         </div>
       )}
 
@@ -2976,40 +2699,23 @@ export default function ResponsibilitiesClient() {
         open={Boolean(ruleResponsibilityId)}
         title="Assignment rule"
         description="Choose who automatically receives this Responsibility."
-        onClose={() =>
-          setRuleResponsibilityId(null)
-        }
+        onClose={() => setRuleResponsibilityId(null)}
       >
-        <form
-          onSubmit={createRule}
-          className="space-y-4"
-        >
+        <form onSubmit={createRule} className="space-y-4">
           <Field label="Who">
             <select
               value={ruleType}
               onChange={(event) => {
-                setRuleType(
-                  event.target.value,
-                );
+                setRuleType(event.target.value);
                 setRuleValue("");
               }}
               className={inputClass}
             >
-              <option value="all">
-                Everyone
-              </option>
-              <option value="user">
-                Specific employee
-              </option>
-              <option value="department">
-                Department
-              </option>
-              <option value="designation">
-                Designation
-              </option>
-              <option value="role">
-                Organization role
-              </option>
+              <option value="all">Everyone</option>
+              <option value="user">Specific employee</option>
+              <option value="department">Department</option>
+              <option value="designation">Designation</option>
+              <option value="role">Organization role</option>
             </select>
           </Field>
 
@@ -3017,27 +2723,16 @@ export default function ResponsibilitiesClient() {
             <Field label="Value">
               <select
                 value={ruleValue}
-                onChange={(event) =>
-                  setRuleValue(
-                    event.target.value,
-                  )
-                }
+                onChange={(event) => setRuleValue(event.target.value)}
                 className={inputClass}
                 required
               >
-                <option value="">
-                  Choose...
-                </option>
-                {ruleOptions().map(
-                  (option) => (
-                    <option
-                      key={option.value}
-                      value={option.value}
-                    >
-                      {option.label}
-                    </option>
-                  ),
-                )}
+                <option value="">Choose...</option>
+                {ruleOptions().map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </Field>
           )}
@@ -3045,36 +2740,23 @@ export default function ResponsibilitiesClient() {
           <Field label="Effect">
             <select
               value={ruleEffect}
-              onChange={(event) =>
-                setRuleEffect(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setRuleEffect(event.target.value)}
               className={inputClass}
             >
-              <option value="allow">
-                Allow
-              </option>
-              <option value="deny">
-                Deny
-              </option>
+              <option value="allow">Allow</option>
+              <option value="deny">Deny</option>
             </select>
           </Field>
 
           <div className="flex justify-end gap-2">
             <SecondaryButton
               type="button"
-              onClick={() =>
-                setRuleResponsibilityId(null)
-              }
+              onClick={() => setRuleResponsibilityId(null)}
             >
               Cancel
             </SecondaryButton>
 
-            <PrimaryButton
-              type="submit"
-              disabled={saving}
-            >
+            <PrimaryButton type="submit" disabled={saving}>
               Create rule
             </PrimaryButton>
           </div>

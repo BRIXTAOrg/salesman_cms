@@ -263,7 +263,14 @@ export default function ResponsibilityEventEditor({
     const ruleId = randomKey("rule");
     onChange({
       ...kernel,
-      events: [...kernel.events, { id: eventId, label: "New event", kind: "action" }],
+      events: [
+        ...kernel.events,
+        {
+          id: eventId,
+          label: "Record created",
+          kind: "record_created",
+        },
+      ],
       rules: [
         ...kernel.rules,
         {
@@ -331,10 +338,76 @@ export default function ResponsibilityEventEditor({
                         onChange={(e) => {
                           if (!event) return;
                           const kind = e.target.value as KernelEventKind;
-                          onChange({ ...kernel, events: kernel.events.map((item) => item.id === event.id ? { ...item, kind, actionId: kind === "action" ? item.actionId : undefined } : item) });
+                          if (kind === "action") {
+                            const existingAction = actions.find(
+                              (item) =>
+                                item.type === "action" &&
+                                item.action.id === event.actionId,
+                            );
+
+                            const fallbackAction =
+                              existingAction ??
+                              actions.find(
+                                (
+                                  item,
+                                ): item is Extract<
+                                  typeof item,
+                                  { type: "action" }
+                                > => item.type === "action",
+                              );
+
+                            if (!fallbackAction || fallbackAction.type !== "action") {
+                              return;
+                            }
+
+                            onChange({
+                              ...kernel,
+                              events: kernel.events.map((item) =>
+                                item.id === event.id
+                                  ? {
+                                      ...item,
+                                      kind,
+                                      actionId: fallbackAction.action.id,
+                                      sourceKey: undefined,
+                                      label: `${fallbackAction.action.label} happened`,
+                                    }
+                                  : item,
+                              ),
+                            });
+
+                            return;
+                          }
+
+                          onChange({
+                            ...kernel,
+                            events: kernel.events.map((item) =>
+                              item.id === event.id
+                                ? {
+                                    ...item,
+                                    kind,
+                                    actionId: undefined,
+                                    label:
+                                      kind === "record_created"
+                                        ? "Record created"
+                                        : item.label,
+                                  }
+                                : item,
+                            ),
+                          });
                         }}
                       >
-                        {EVENT_KINDS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                        {EVENT_KINDS.map((item) => (
+                          <option
+                            key={item.value}
+                            value={item.value}
+                            disabled={
+                              item.value === "action" &&
+                              actions.length === 0
+                            }
+                          >
+                            {item.label}
+                          </option>
+                        ))}
                       </select>
                     </Field>
                     {event?.kind === "action" ? (

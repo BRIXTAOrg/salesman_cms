@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { hasPermission, withTenantDb } from "@/lib/auth";
 import { ensureTenantPlatformVNext } from "@/lib/platform-vnext-db";
@@ -8,6 +8,7 @@ import {
   hashResponsibilityManifest,
   normalizeResponsibilityExtension,
 } from "@/lib/responsibility-compiler";
+import { sanitizeResponsibilityExtensionKernel } from "@/lib/responsibility-kernel-normalizer";
 import { compileKernelToBaseDefinition } from "@/lib/responsibility-kernel-compiler";
 import {
   RESPONSIBILITY_KERNEL_METADATA_KEY,
@@ -24,10 +25,24 @@ import {
   responsibilityExtensions,
   responsibilityVersions,
 } from "../../../../../../../drizzle/platformVNextSchema";
-import {
-  mobileCapabilities,
-  roles,
-} from "../../../../../../../drizzle/schema";
+import { capabilityAssignmentRules } from "../../../../../../../drizzle/applianceSchema";
+import { mobileCapabilities, roles } from "../../../../../../../drizzle/schema";
+
+const BUILDER_TARGET_ROLE_IDS_KEY = "builderTargetRoleIds";
+
+function builderTargetRoleIds(metadata: Record<string, unknown> | undefined) {
+  const raw = metadata?.[BUILDER_TARGET_ROLE_IDS_KEY];
+
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      raw.map(Number).filter((value) => Number.isInteger(value) && value > 0),
+    ),
+  ];
+}
 
 type Context = {
   params: Promise<{ id: string }>;
@@ -48,7 +63,9 @@ function kernelFromMetadata(metadata: Record<string, unknown> | undefined) {
 
 export const POST = withTenantDb<Context>(
   async (_request, db, session, context) => {
-    if (!hasPermission(session.permissions, ["WRITE", "UPDATE", "ALL_ACCESS"])) {
+    if (
+      !hasPermission(session.permissions, ["WRITE", "UPDATE", "ALL_ACCESS"])
+    ) {
       return NextResponse.json(
         { success: false, error: "Permission denied." },
         { status: 403 },
@@ -102,7 +119,9 @@ export const POST = withTenantDb<Context>(
     ]);
 
     const nextVersion = (extension?.publishedVersion ?? 0) + 1;
-    const normalized = normalizeResponsibilityExtension(extension?.draftConfig ?? {});
+    const normalized = sanitizeResponsibilityExtensionKernel(
+      normalizeResponsibilityExtension(extension?.draftConfig ?? {}),
+    ).config;
 
     // IMPORTANT: Draft Kernel metadata is the source of truth. The employee app
     // base definition is generated only at Publish, so Save Draft never leaks
@@ -124,7 +143,8 @@ export const POST = withTenantDb<Context>(
         {
           success: false,
           code: "RESPONSIBILITY_VALIDATION_FAILED",
-          error: "Publish blocked. Fix the Responsibility validation errors first.",
+          error:
+            "Publish blocked. Fix the Responsibility validation errors first.",
           issues: validationIssues,
         },
         { status: 422 },
@@ -194,6 +214,54 @@ export const POST = withTenantDb<Context>(
       })
       .where(eq(mobileCapabilities.id, responsibilityId));
 
+    /*
+     * RESPONSIBILITY → ROLE ASSIGNMENT BRIDGE
+     *
+     * The Builder's "This Responsibility is for" Role chips are authored
+     * in draft metadata. Publish materializes them into the runtime control
+     * plane used by salesapp_backend.
+     *
+     * Save Draft does NOT affect employee devices.
+     * Publish DOES.
+     */
+    const knownRoleIds = new Set(roleRows.map((role) => role.id));
+
+    const publishedTargetRoleIds = builderTargetRoleIds(
+      normalized.metadata,
+    ).filter((roleId) => knownRoleIds.has(roleId));
+
+    // Remove only rules owned by this Builder bridge. Other explicit
+    // user/department/designation/manual rules remain untouched.
+    await db
+      .delete(capabilityAssignmentRules)
+      .where(
+        and(
+          eq(capabilityAssignmentRules.capabilityId, responsibilityId),
+          eq(capabilityAssignmentRules.subjectType, "role"),
+          sql`${capabilityAssignmentRules.config} ->> 'origin' = 'responsibility_builder_role_target'`,
+        ),
+      );
+
+    if (publishedTargetRoleIds.length > 0) {
+      await db.insert(capabilityAssignmentRules).values(
+        publishedTargetRoleIds.map((roleId) => ({
+          capabilityId: responsibilityId,
+          subjectType: "role",
+          subjectValue: String(roleId),
+          effect: "allow",
+          priority: 100,
+          enabled: true,
+          config: {
+            origin: "responsibility_builder_role_target",
+            source: BUILDER_TARGET_ROLE_IDS_KEY,
+            publishedVersion: nextVersion,
+          },
+          createdByUserId: session.userId,
+          updatedAt: now,
+        })),
+      );
+    }
+
     await db.insert(platformAuditEvents).values({
       actorUserId: session.userId,
       eventType: "responsibility.published",
@@ -205,7 +273,9 @@ export const POST = withTenantDb<Context>(
         manifestVersion: 2,
         kernelVersion: kernel?.kernelVersion ?? null,
         generatedBaseDefinition: Boolean(kernel),
-        warningCount: validationIssues.filter((issue) => issue.severity === "warning").length,
+        warningCount: validationIssues.filter(
+          (issue) => issue.severity === "warning",
+        ).length,
       },
     });
 

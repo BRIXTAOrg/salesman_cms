@@ -4,17 +4,33 @@ import {
   FormEvent,
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import {
+  ArrowRight,
+  Check,
   Loader2,
   Plus,
   RefreshCw,
+  Save,
   ShieldCheck,
   Trash2,
+  UsersRound,
+  Workflow,
+  Wrench,
 } from "lucide-react";
 
-import { apiJson } from "./client";
+import type {
+  RoleCapabilityKey,
+  RoleContextDefinition,
+  RoleTargetResolver,
+  WorkflowPurpose,
+} from "@/lib/roles/role-context-types";
+import { BASE_ROLE_CAPABILITIES } from "@/lib/roles/role-context-types";
+import { BUILDER_CAPABILITY_CATALOG } from "@/lib/roles/builder-capability-catalog";
+
+import { apiJson, cx } from "./client";
 import {
   EmptyState,
   Field,
@@ -33,25 +49,79 @@ type RoleRow = {
   label: string;
 };
 
+type Tab = "basics" | "relationships" | "workflow" | "capabilities";
+
+function targetValue(target?: RoleTargetResolver) {
+  if (!target) return "none";
+  if (target.kind === "role") return `role:${target.roleId}`;
+  return target.kind;
+}
+
+function targetFrom(value: string): RoleTargetResolver | null {
+  if (value === "none") return null;
+  if (value === "reporting_manager") return { kind: "reporting_manager" };
+  if (value === "self") return { kind: "self" };
+  if (value === "organization_admin") return { kind: "organization_admin" };
+  if (value.startsWith("role:")) {
+    const roleId = Number(value.slice(5));
+    return Number.isInteger(roleId) && roleId > 0
+      ? { kind: "role", roleId }
+      : null;
+  }
+  return null;
+}
+
 export default function RolesVNextClient() {
   const [roles, setRoles] = useState<RoleRow[]>([]);
+  const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
+  const [context, setContext] = useState<RoleContextDefinition | null>(null);
+  const [tab, setTab] = useState<Tab>("basics");
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+
   const [loading, setLoading] = useState(true);
+  const [contextLoading, setContextLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  const selectedRole = useMemo(
+    () => roles.find((item) => item.id === selectedRoleId) ?? null,
+    [roles, selectedRoleId],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const body = await apiJson<{ roles: RoleRow[] }>("/api/platform/roles");
-      setRoles(body.roles ?? []);
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Unable to load Roles.",
+      const next = body.roles ?? [];
+      setRoles(next);
+      setSelectedRoleId((current) =>
+        current && next.some((item) => item.id === current)
+          ? current
+          : next[0]?.id ?? null,
       );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to load Roles.");
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const loadContext = useCallback(async (roleId: number) => {
+    setContextLoading(true);
+    try {
+      const body = await apiJson<{ definition: RoleContextDefinition }>(
+        `/api/platform/roles/${roleId}/context`,
+      );
+      setContext(body.definition);
+    } catch (error) {
+      setContext(null);
+      setMessage(
+        error instanceof Error ? error.message : "Unable to load Role Context.",
+      );
+    } finally {
+      setContextLoading(false);
     }
   }, []);
 
@@ -59,13 +129,17 @@ export default function RolesVNextClient() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (selectedRoleId) void loadContext(selectedRoleId);
+  }, [selectedRoleId, loadContext]);
+
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     setMessage(null);
 
     try {
-      await apiJson("/api/platform/roles", {
+      const body = await apiJson<{ role: RoleRow }>("/api/platform/roles", {
         method: "POST",
         body: JSON.stringify({
           name: name.trim(),
@@ -75,11 +149,32 @@ export default function RolesVNextClient() {
       });
       setName("");
       setDescription("");
-      setMessage("Role created.");
       await load();
+      if (body.role?.id) setSelectedRoleId(body.role.id);
+      setMessage("Role created. Now define how this Role works.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to create Role.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveContext() {
+    if (!selectedRoleId || !context) return;
+    setSaving(true);
+    try {
+      const body = await apiJson<{ definition: RoleContextDefinition; message?: string }>(
+        `/api/platform/roles/${selectedRoleId}/context`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ definition: context }),
+        },
+      );
+      setContext(body.definition);
+      setMessage(body.message ?? "Role Context saved.");
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Unable to create Role.",
+        error instanceof Error ? error.message : "Unable to save Role Context.",
       );
     } finally {
       setSaving(false);
@@ -98,9 +193,7 @@ export default function RolesVNextClient() {
       });
       await load();
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Unable to rename Role.",
-      );
+      setMessage(error instanceof Error ? error.message : "Unable to rename Role.");
     } finally {
       setSaving(false);
     }
@@ -111,117 +204,424 @@ export default function RolesVNextClient() {
 
     setSaving(true);
     try {
-      await apiJson(`/api/platform/roles/${role.id}`, {
-        method: "DELETE",
-      });
+      await apiJson(`/api/platform/roles/${role.id}`, { method: "DELETE" });
+      setContext(null);
       await load();
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Unable to delete Role.",
-      );
+      setMessage(error instanceof Error ? error.message : "Unable to delete Role.");
     } finally {
       setSaving(false);
     }
   }
 
+  function setWorkflow(purpose: WorkflowPurpose, value: string) {
+    if (!context) return;
+    const target = targetFrom(value);
+    const others = context.workflows.filter((item) => item.purpose !== purpose);
+
+    setContext({
+      ...context,
+      workflows: target
+        ? [
+            ...others,
+            {
+              id: `workflow_${purpose}`,
+              purpose,
+              target,
+              enabled: true,
+            },
+          ]
+        : others,
+    });
+  }
+
+  function workflowValue(purpose: WorkflowPurpose) {
+    return targetValue(
+      context?.workflows.find((item) => item.enabled && item.purpose === purpose)
+        ?.target,
+    );
+  }
+
+  function toggleCapability(key: RoleCapabilityKey) {
+    if (!context) return;
+    const has = context.capabilities.includes(key);
+    setContext({
+      ...context,
+      capabilities: has
+        ? context.capabilities.filter((item) => item !== key)
+        : [...context.capabilities, key],
+    });
+  }
+
+  function reportingRelationshipEnabled() {
+    return Boolean(
+      context?.relationships.some(
+        (item) => item.kind === "reports_to" && item.enabled,
+      ),
+    );
+  }
+
+  function setReportingRelationship(enabled: boolean) {
+    if (!context) return;
+    const rest = context.relationships.filter(
+      (item) => item.kind !== "reports_to",
+    );
+    setContext({
+      ...context,
+      relationships: enabled
+        ? [
+            ...rest,
+            {
+              id: "relationship_reports_to",
+              kind: "reports_to",
+              enabled: true,
+              label: "Reporting manager",
+            },
+          ]
+        : rest,
+    });
+  }
+
+  const targetOptions = (
+    <>
+      <option value="none">Not used</option>
+      <option value="reporting_manager">Reporting manager</option>
+      <option value="organization_admin">Organization Admin</option>
+      <option value="self">Same person</option>
+      {roles
+        .filter((role) => role.id !== selectedRoleId)
+        .map((role) => (
+          <option key={role.id} value={`role:${role.id}`}>
+            Role: {role.label}
+          </option>
+        ))}
+    </>
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4">
       {message && (
-        <Panel className="py-3">
-          <div className="text-sm">{message}</div>
-        </Panel>
+        <div className="rounded-lg border bg-muted/20 px-3 py-2 text-sm">
+          {message}
+        </div>
       )}
 
-      <Panel>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-lg font-semibold">
-              <ShieldCheck className="h-5 w-5" />
-              Roles
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Roles are tenant data. Workflows and Responsibility access rules bind to stable Role IDs.
-            </p>
-          </div>
-          <SecondaryButton type="button" onClick={() => void load()}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </SecondaryButton>
-        </div>
-      </Panel>
-
-      <Panel>
-        <form onSubmit={create} className="grid gap-4 md:grid-cols-[1fr_1fr_auto]">
-          <Field label="New role">
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className={inputClass}
-              placeholder="Senior Executive"
-              required
-            />
-          </Field>
-          <Field label="Description">
-            <input
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              className={inputClass}
-              placeholder="Optional"
-            />
-          </Field>
-          <div className="flex items-end">
-            <PrimaryButton type="submit" disabled={saving}>
-              <Plus className="h-4 w-4" />
-              Add Role
-            </PrimaryButton>
-          </div>
-        </form>
-      </Panel>
-
-      {loading ? (
-        <div className="flex h-44 items-center justify-center rounded-lg border">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
-      ) : roles.length === 0 ? (
-        <EmptyState
-          title="No Roles"
-          description="Create the first organization Role."
-        />
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {roles.map((role) => (
-            <Panel key={role.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="font-semibold">{role.label}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Stable Role ID: {role.id}
-                  </div>
-                  {role.permDescription && (
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      {role.permDescription}
-                    </div>
-                  )}
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="space-y-4">
+          <Panel>
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-2 font-semibold">
+                  <ShieldCheck className="h-4 w-4" />
+                  Roles
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void remove(role)}
-                  className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Define people once. Responsibilities inherit this wiring.
+                </div>
               </div>
-              <SecondaryButton
+              <button
                 type="button"
-                className="mt-4 h-8"
-                onClick={() => void rename(role)}
+                onClick={() => void load()}
+                className="rounded-md p-2 text-muted-foreground hover:bg-muted"
               >
-                Rename
-              </SecondaryButton>
-            </Panel>
-          ))}
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {roles.map((role) => (
+                <button
+                  key={role.id}
+                  type="button"
+                  onClick={() => setSelectedRoleId(role.id)}
+                  className={cx(
+                    "w-full rounded-lg border p-3 text-left transition hover:bg-muted/30",
+                    selectedRoleId === role.id &&
+                      "border-primary bg-primary/[0.05] ring-1 ring-primary/20",
+                  )}
+                >
+                  <div className="font-medium">{role.label}</div>
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                    Role ID {role.id}
+                  </div>
+                </button>
+              ))}
+              {!loading && roles.length === 0 && (
+                <EmptyState
+                  title="No Roles"
+                  description="Create the first Role below."
+                />
+              )}
+            </div>
+          </Panel>
+
+          <Panel>
+            <form onSubmit={create} className="space-y-3">
+              <Field label="New Role">
+                <input
+                  className={inputClass}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Junior Executive"
+                  required
+                />
+              </Field>
+              <Field label="Description">
+                <input
+                  className={inputClass}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Optional"
+                />
+              </Field>
+              <PrimaryButton type="submit" disabled={saving}>
+                <Plus className="h-4 w-4" />
+                Add Role
+              </PrimaryButton>
+            </form>
+          </Panel>
         </div>
-      )}
+
+        <div className="min-w-0">
+          {!selectedRole ? (
+            <EmptyState
+              title="Choose a Role"
+              description="Select a Role to define its relationships, workflow and builder capabilities."
+            />
+          ) : contextLoading || !context ? (
+            <div className="flex h-64 items-center justify-center rounded-lg border">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <Panel>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="text-xl font-semibold">
+                      {selectedRole.label}
+                    </div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      This is the context contract inherited by Responsibilities
+                      built for this Role.
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <SecondaryButton
+                      type="button"
+                      onClick={() => void rename(selectedRole)}
+                    >
+                      Rename
+                    </SecondaryButton>
+                    <button
+                      type="button"
+                      onClick={() => void remove(selectedRole)}
+                      className="rounded-md border p-2 text-muted-foreground hover:border-destructive/40 hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                    <PrimaryButton
+                      type="button"
+                      disabled={saving}
+                      onClick={() => void saveContext()}
+                    >
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      Save Role
+                    </PrimaryButton>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(
+                    [
+                      ["basics", "Basics", ShieldCheck],
+                      ["relationships", "Relationships", UsersRound],
+                      ["workflow", "Workflow", Workflow],
+                      ["capabilities", "App Builder", Wrench],
+                    ] as const
+                  ).map(([key, label, Icon]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setTab(key)}
+                      className={cx(
+                        "flex items-center gap-2 rounded-md border px-3 py-2 text-sm",
+                        tab === key &&
+                          "border-primary bg-primary/[0.05] text-foreground",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </Panel>
+
+              {tab === "basics" && (
+                <Panel>
+                  <div className="font-semibold">Role contract</div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    Role ID {context.roleId}. The Role name remains normal tenant
+                    data; the sections beside this one define reusable behavior.
+                  </div>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg border p-3">
+                      <div className="text-xs text-muted-foreground">Capabilities</div>
+                      <div className="mt-1 text-2xl font-semibold">
+                        {context.capabilities.length}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <div className="text-xs text-muted-foreground">Workflow routes</div>
+                      <div className="mt-1 text-2xl font-semibold">
+                        {context.workflows.filter((item) => item.enabled).length}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <div className="text-xs text-muted-foreground">Visibility rules</div>
+                      <div className="mt-1 text-2xl font-semibold">
+                        {context.visibility.filter((item) => item.enabled).length}
+                      </div>
+                    </div>
+                  </div>
+                </Panel>
+              )}
+
+              {tab === "relationships" && (
+                <Panel>
+                  <div className="font-semibold">People relationships</div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    The actual manager is still stored on each employee through
+                    users.reports_to_id. This switch tells Responsibilities that
+                    the relationship is meaningful for this Role.
+                  </div>
+
+                  <label className="mt-5 flex items-start gap-3 rounded-lg border p-4">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={reportingRelationshipEnabled()}
+                      onChange={(event) =>
+                        setReportingRelationship(event.target.checked)
+                      }
+                    />
+                    <div>
+                      <div className="font-medium">Has a reporting manager</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Approval/review routing may resolve through the employee's
+                        current reports_to_id relationship.
+                      </div>
+                    </div>
+                  </label>
+                </Panel>
+              )}
+
+              {tab === "workflow" && (
+                <Panel>
+                  <div className="font-semibold">Default workflow routing</div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    Responsibilities only need to say “Needs approval” or “Needs
+                    review.” The Role decides where that work goes.
+                  </div>
+
+                  <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                    {(
+                      [
+                        ["approval", "Approval"],
+                        ["review", "Review"],
+                        ["escalation", "Escalation"],
+                        ["handoff", "Handoff"],
+                      ] as const
+                    ).map(([purpose, label]) => (
+                      <Field key={purpose} label={label}>
+                        <select
+                          className={inputClass}
+                          value={workflowValue(purpose)}
+                          onChange={(event) =>
+                            setWorkflow(purpose, event.target.value)
+                          }
+                        >
+                          {targetOptions}
+                        </select>
+                      </Field>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 rounded-lg border bg-muted/20 p-4 text-sm">
+                    <div className="flex items-center gap-2 font-medium">
+                      <ArrowRight className="h-4 w-4" />
+                      Example
+                    </div>
+                    <div className="mt-2 text-muted-foreground">
+                      Junior Executive → Approval = Reporting manager. Rahul
+                      submits → runtime reads Rahul.reports_to_id → Arjun receives
+                      the approval. Change Rahul's manager later and the
+                      Responsibility does not need editing.
+                    </div>
+                  </div>
+                </Panel>
+              )}
+
+              {tab === "capabilities" && (
+                <Panel>
+                  <div className="font-semibold">What can be built for this Role?</div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    These become the role-aware App Builder palette. They are the
+                    user-facing replacement for a separate “Possibilities” editor.
+                  </div>
+
+                  <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {BUILDER_CAPABILITY_CATALOG.map((capability) => {
+                      const checked = context.capabilities.includes(capability.key);
+                      return (
+                        <button
+                          key={capability.key}
+                          type="button"
+                          onClick={() => toggleCapability(capability.key)}
+                          className={cx(
+                            "rounded-lg border p-3 text-left transition hover:bg-muted/30",
+                            checked &&
+                              "border-primary bg-primary/[0.04] ring-1 ring-primary/20",
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="font-medium">{capability.label}</div>
+                            {checked && <Check className="h-4 w-4 text-primary" />}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {capability.description}
+                          </div>
+                          <div className="mt-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                            {capability.group}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 flex gap-2">
+                    <SecondaryButton
+                      type="button"
+                      onClick={() =>
+                        setContext({
+                          ...context,
+                          capabilities: [...BASE_ROLE_CAPABILITIES],
+                        })
+                      }
+                    >
+                      Reset to basic field role
+                    </SecondaryButton>
+                  </div>
+                </Panel>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

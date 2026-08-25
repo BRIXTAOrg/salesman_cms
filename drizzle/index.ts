@@ -2,3 +2,4 @@
 export * from "./schema";
 export * from "./applianceSchema";
 export * from "./workflowSchema";
+export * from "./roleContextSchema";

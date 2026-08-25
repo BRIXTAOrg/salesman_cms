@@ -74,13 +74,18 @@ function captureToField(capture: KernelCapture): ResponsibilityField {
   };
 }
 
-function ruleForAction(kernel: ResponsibilityKernel, actionId: string): KernelRule | undefined {
+function ruleForAction(
+  kernel: ResponsibilityKernel,
+  actionId: string,
+): KernelRule | undefined {
   const eventIds = new Set(
     kernel.events
       .filter((event) => event.kind === "action" && event.actionId === actionId)
       .map((event) => event.id),
   );
-  return kernel.rules.find((rule) => rule.eventId && eventIds.has(rule.eventId));
+  return kernel.rules.find(
+    (rule) => rule.eventId && eventIds.has(rule.eventId),
+  );
 }
 
 function resultingState(kernel: ResponsibilityKernel, action: KernelAction) {
@@ -89,7 +94,10 @@ function resultingState(kernel: ResponsibilityKernel, action: KernelAction) {
 
   const rule = ruleForAction(kernel, action.id);
   const effect = rule?.effects.find((item) => item.kind === "change_state");
-  if (effect?.value?.kind === "literal" && typeof effect.value.value === "string") {
+  if (
+    effect?.value?.kind === "literal" &&
+    typeof effect.value.value === "string"
+  ) {
     return effect.value.value;
   }
 
@@ -101,9 +109,13 @@ function requiredState(action: KernelAction) {
   if (typeof configured === "string" && configured) return configured;
 
   const condition = action.requires?.conditions.find(
-    (item) => item.left.kind === "state" && item.operator === "eq" && item.right?.kind === "literal",
+    (item) =>
+      item.left.kind === "state" &&
+      item.operator === "eq" &&
+      item.right?.kind === "literal",
   );
-  return condition?.right?.kind === "literal" && typeof condition.right.value === "string"
+  return condition?.right?.kind === "literal" &&
+    typeof condition.right.value === "string"
     ? condition.right.value
     : undefined;
 }
@@ -122,25 +134,34 @@ function actionToBaseAction(
     .map((field) => field.key);
   const state = requiredState(action);
   const result = resultingState(kernel, action);
-  const operation: "create" | "update" = ["create", "submit", "start"].includes(action.kind)
+  const operation: "create" | "update" = ["create", "submit", "start"].includes(
+    action.kind,
+  )
     ? "create"
     : "update";
 
   const captureLocationId = action.captureIds.find(
     (id) => captureMap.get(id)?.inputType === "location_point",
   );
-  const locationField = captureLocationId ? captureMap.get(captureLocationId) : undefined;
+  const locationField = captureLocationId
+    ? captureMap.get(captureLocationId)
+    : undefined;
 
   return {
     key: normalizeKey(action.id || action.label),
     label: action.label,
     operation,
     status: result,
-    style: action.kind === "reject" || action.kind === "cancel" || action.kind === "delete"
-      ? "danger"
-      : action.kind === "approve" || action.kind === "submit" || action.kind === "start"
-        ? "primary"
-        : "secondary",
+    style:
+      action.kind === "reject" ||
+      action.kind === "cancel" ||
+      action.kind === "delete"
+        ? "danger"
+        : action.kind === "approve" ||
+            action.kind === "submit" ||
+            action.kind === "start"
+          ? "primary"
+          : "secondary",
     fieldKeys,
     requiredFieldKeys,
     visibility: state
@@ -181,13 +202,16 @@ export function compileKernelToBaseDefinition(
   kernel: ResponsibilityKernel,
 ): ResponsibilityDefinition {
   const captures = kernel.possibilities.filter(
-    (item): item is Extract<KernelPossibility, { type: "capture" }> => item.type === "capture",
+    (item): item is Extract<KernelPossibility, { type: "capture" }> =>
+      item.type === "capture",
   );
   const actions = kernel.possibilities.filter(
-    (item): item is Extract<KernelPossibility, { type: "action" }> => item.type === "action",
+    (item): item is Extract<KernelPossibility, { type: "action" }> =>
+      item.type === "action",
   );
   const outputs = kernel.possibilities.filter(
-    (item): item is Extract<KernelPossibility, { type: "output" }> => item.type === "output",
+    (item): item is Extract<KernelPossibility, { type: "output" }> =>
+      item.type === "output",
   );
 
   const captureFields = new Map<string, ResponsibilityField>();
@@ -195,14 +219,54 @@ export function compileKernelToBaseDefinition(
     captureFields.set(item.capture.id, captureToField(item.capture));
   }
 
-  const orderedIds = kernel.metadata.ui?.layout ?? [];
-  const ordered = orderedIds
-    .map((id) => captures.find((item) => item.id === id))
-    .filter((item): item is Extract<KernelPossibility, { type: "capture" }> => Boolean(item));
-  const remaining = captures.filter((item) => !orderedIds.includes(item.id));
-  const fields = [...ordered, ...remaining].map((item) => captureFields.get(item.capture.id)!);
+  /*
+   * THE PHONE LAYOUT IS AUTHORITATIVE.
+   *
+   * Before this fix we did:
+   *
+   *   authored layout captures
+   *          +
+   *   every leftover Kernel capture
+   *
+   * That caused controls deleted from the App Builder to reappear on the
+   * employee phone because the old possibility node could still exist in the
+   * internal Kernel graph.
+   *
+   * From here onward:
+   *
+   *   metadata.ui.layout = what exists on the employee app.
+   *
+   * Internal Kernel possibilities may survive temporarily for history,
+   * validation or future tooling, but they DO NOT automatically become UI.
+   */
+  const layoutIds = kernel.metadata.ui?.layout;
+  const layoutIsAuthoritative = Array.isArray(layoutIds);
 
-  const appActions = actions.map((item) => actionToBaseAction(kernel, item.action, captureFields));
+  const publishedCaptures = layoutIsAuthoritative
+    ? layoutIds
+        .map((id) => captures.find((item) => item.id === id))
+        .filter(
+          (item): item is Extract<KernelPossibility, { type: "capture" }> =>
+            Boolean(item),
+        )
+    : captures;
+
+  const publishedActions = layoutIsAuthoritative
+    ? layoutIds
+        .map((id) => actions.find((item) => item.id === id))
+        .filter(
+          (item): item is Extract<KernelPossibility, { type: "action" }> =>
+            Boolean(item),
+        )
+    : actions;
+
+  const fields = publishedCaptures.map(
+    (item) => captureFields.get(item.capture.id)!,
+  );
+
+  const appActions = publishedActions.map((item) =>
+    actionToBaseAction(kernel, item.action, captureFields),
+  );
   const output = outputs[0]?.output;
 
   return {
@@ -219,10 +283,17 @@ export function compileKernelToBaseDefinition(
         generatedBy: "responsibility_unified_studio_v4",
         layout: (kernel.metadata.ui?.layout ?? [])
           .map((possibilityId) => {
-            const possibility = kernel.possibilities.find((item) => item.id === possibilityId);
+            const possibility = kernel.possibilities.find(
+              (item) => item.id === possibilityId,
+            );
             if (!possibility || possibility.type === "output") return null;
             return possibility.type === "capture"
-              ? { kind: "field", key: normalizeKey(possibility.capture.storeAs || possibility.capture.id) }
+              ? {
+                  kind: "field",
+                  key: normalizeKey(
+                    possibility.capture.storeAs || possibility.capture.id,
+                  ),
+                }
               : { kind: "action", key: normalizeKey(possibility.action.id) };
           })
           .filter(Boolean),
@@ -239,10 +310,12 @@ export function compileKernelToBaseDefinition(
       },
     },
     crud: {
-      create: appActions.some((action) => action.operation === "create") || captures.length > 0,
+      create:
+        appActions.some((action) => action.operation === "create") ||
+        publishedCaptures.length > 0,
       read: true,
       update: appActions.some((action) => action.operation === "update"),
-      delete: actions.some((item) => item.action.kind === "delete"),
+      delete: publishedActions.some((item) => item.action.kind === "delete"),
     },
   };
 }
@@ -260,20 +333,50 @@ export function hydrateKernelFromBaseDefinition(
     kernelVersion: 3,
     runtimeWorld: {
       actors: [
-        { id: "current_employee", label: "Current employee", resolver: { kind: "current_user" } },
+        {
+          id: "current_employee",
+          label: "Current employee",
+          resolver: { kind: "current_user" },
+        },
         { id: "system", label: "System", resolver: { kind: "system" } },
       ],
-      objects: [{ id: "current_record", label: "This Responsibility record", kind: "current_record" }],
-      contexts: [
-        { id: "current_employee", label: "Current employee", source: "current_user", mutable: false },
-        { id: "current_time", label: "Current date / time", source: "current_time", mutable: false },
+      objects: [
+        {
+          id: "current_record",
+          label: "This Responsibility record",
+          kind: "current_record",
+        },
       ],
-      states: [{ id: "draft", label: "Draft", dimension: "process", initial: true }],
+      contexts: [
+        {
+          id: "current_employee",
+          label: "Current employee",
+          source: "current_user",
+          mutable: false,
+        },
+        {
+          id: "current_time",
+          label: "Current date / time",
+          source: "current_time",
+          mutable: false,
+        },
+      ],
+      states: [
+        { id: "draft", label: "Draft", dimension: "process", initial: true },
+      ],
     },
     possibilities: [],
     events: [],
     rules: [],
-    metadata: { createdFrom: "legacy_builder_import", ui: { layout: [], title, previewActorId: "current_employee", previewStateId: "draft" } },
+    metadata: {
+      createdFrom: "legacy_builder_import",
+      ui: {
+        layout: [],
+        title,
+        previewActorId: "current_employee",
+        previewStateId: "draft",
+      },
+    },
   };
 
   const fieldKeyToCaptureId = new Map<string, string>();
@@ -323,7 +426,10 @@ export function hydrateKernelFromBaseDefinition(
     if (action.visibility?.status) knownStates.add(action.visibility.status);
     const actionId = normalizeKey(action.key || action.label);
     const possibilityId = `action_${actionId}`;
-    const availableState = action.visibility?.mode === "latest_status_is" ? action.visibility.status : "";
+    const availableState =
+      action.visibility?.mode === "latest_status_is"
+        ? action.visibility.status
+        : "";
     kernel.possibilities.push({
       id: possibilityId,
       type: "action",
@@ -333,7 +439,9 @@ export function hydrateKernelFromBaseDefinition(
         kind: action.operation === "create" ? "submit" : "update",
         actorId: "current_employee",
         objectId: "current_record",
-        captureIds: (action.fieldKeys ?? []).map((fieldKey) => fieldKeyToCaptureId.get(fieldKey)).filter((value): value is string => Boolean(value)),
+        captureIds: (action.fieldKeys ?? [])
+          .map((fieldKey) => fieldKeyToCaptureId.get(fieldKey))
+          .filter((value): value is string => Boolean(value)),
         config: {
           availableState: availableState ?? "",
           resultingState: action.status ?? "",
@@ -344,15 +452,30 @@ export function hydrateKernelFromBaseDefinition(
     kernel.metadata.ui!.layout.push(possibilityId);
     if (action.status) {
       const eventId = `event_${actionId}`;
-      kernel.events.push({ id: eventId, label: `${action.label} happened`, kind: "action", actionId });
+      kernel.events.push({
+        id: eventId,
+        label: `${action.label} happened`,
+        kind: "action",
+        actionId,
+      });
       kernel.rules.push({
         id: `rule_${actionId}`,
         label: `${action.label} behavior`,
         eventId,
         when: { mode: "all", conditions: [] },
         effects: [
-          { id: `effect_${actionId}_state`, kind: "change_state", targetKey: "process", value: { kind: "literal", value: action.status }, config: {} },
-          { id: `effect_${actionId}_history`, kind: "append_history", config: { label: action.label } },
+          {
+            id: `effect_${actionId}_state`,
+            kind: "change_state",
+            targetKey: "process",
+            value: { kind: "literal", value: action.status },
+            config: {},
+          },
+          {
+            id: `effect_${actionId}_history`,
+            kind: "append_history",
+            config: { label: action.label },
+          },
         ],
         priority: 100,
         enabled: true,
@@ -362,15 +485,22 @@ export function hydrateKernelFromBaseDefinition(
 
   kernel.runtimeWorld.states = [...knownStates].map((stateId, index) => ({
     id: stateId,
-    label: stateId.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+    label: stateId
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase()),
     dimension: "process",
     initial: index === 0,
     terminal: stateId === "completed",
   }));
   if (!kernel.runtimeWorld.states.some((state) => state.initial)) {
-    kernel.runtimeWorld.states[0] = { ...kernel.runtimeWorld.states[0], initial: true };
+    kernel.runtimeWorld.states[0] = {
+      ...kernel.runtimeWorld.states[0],
+      initial: true,
+    };
   }
-  kernel.metadata.ui!.previewStateId = kernel.runtimeWorld.states.find((state) => state.initial)?.id;
+  kernel.metadata.ui!.previewStateId = kernel.runtimeWorld.states.find(
+    (state) => state.initial,
+  )?.id;
 
   kernel.possibilities.push({
     id: "output_primary",
@@ -381,7 +511,9 @@ export function hydrateKernelFromBaseDefinition(
       kind: (definition.output?.renderer as KernelOutput["kind"]) || "detail",
       actorIds: ["current_employee"],
       stateIds: [],
-      visibleKeys: (definition.input?.fields ?? []).filter((field) => field.config?.hidden !== true).map((field) => field.key),
+      visibleKeys: (definition.input?.fields ?? [])
+        .filter((field) => field.config?.hidden !== true)
+        .map((field) => field.key),
       config: { ...(definition.output?.config ?? {}) },
     },
   });

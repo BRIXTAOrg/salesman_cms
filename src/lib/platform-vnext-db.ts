@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 
 import type { AppDatabase } from "@/lib/drizzle";
 
-export const TENANT_PLATFORM_VERSION = 2;
+export const TENANT_PLATFORM_VERSION = 3;
 
 /**
  * Runtime guard only. Provisioning/migrations create tables.
@@ -29,7 +29,7 @@ export async function ensureTenantPlatformVNext(db: AppDatabase) {
 
   if (!Number.isFinite(version) || version < TENANT_PLATFORM_VERSION) {
     throw new Error(
-      `Tenant platform is not ready. Expected v${TENANT_PLATFORM_VERSION}. Run the tenant upgrader.`,
+      `Tenant platform is not ready. Expected v${TENANT_PLATFORM_VERSION}. Run drizzle/role-context-provision.sql for existing tenants.`,
     );
   }
 }

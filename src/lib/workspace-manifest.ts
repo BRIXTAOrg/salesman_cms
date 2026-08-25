@@ -25,6 +25,7 @@ export type WorkspaceIdentity = {
 type BuildWorkspaceInput = {
   identity: WorkspaceIdentity;
   responsibilities: Responsibility[];
+  archivedResponsibilities?: Responsibility[];
   runtime: PlatformRuntime;
   pendingApprovals?: number;
 };
@@ -37,10 +38,13 @@ function keyForGroup(label: string) {
 }
 
 function addNav(
-  map: Map<string, {
-    label: string;
-    items: Map<string, WorkspaceNavItem>;
-  }>,
+  map: Map<
+    string,
+    {
+      label: string;
+      items: Map<string, WorkspaceNavItem>;
+    }
+  >,
   label: string,
   item: WorkspaceNavItem,
 ) {
@@ -58,15 +62,15 @@ function addNav(
 }
 
 function navGroups(
-  map: Map<string, {
-    label: string;
-    items: Map<string, WorkspaceNavItem>;
-  }>,
+  map: Map<
+    string,
+    {
+      label: string;
+      items: Map<string, WorkspaceNavItem>;
+    }
+  >,
 ): WorkspaceNavGroup[] {
-  const preferred = [
-    "Management",
-    "Field App Control",
-  ];
+  const preferred = ["Management", "Field App Control"];
 
   return [...map.entries()]
     .map(([key, group]) => ({
@@ -111,9 +115,7 @@ function emptyStepRuntime() {
   };
 }
 
-function mapWorkflow(
-  workflow: WorkflowRuntime,
-): WorkspaceFlow | null {
+function mapWorkflow(workflow: WorkflowRuntime): WorkspaceFlow | null {
   if (!workflow.version) {
     return null;
   }
@@ -168,6 +170,7 @@ function mapWorkflow(
 export function buildWorkspaceManifest({
   identity,
   responsibilities,
+  archivedResponsibilities = [],
   runtime,
   pendingApprovals = 0,
 }: BuildWorkspaceInput): WorkspaceManifest {
@@ -185,10 +188,13 @@ export function buildWorkspaceManifest({
     .map(mapWorkflow)
     .filter((item): item is WorkspaceFlow => Boolean(item));
 
-  const nav = new Map<string, {
-    label: string;
-    items: Map<string, WorkspaceNavItem>;
-  }>();
+  const nav = new Map<
+    string,
+    {
+      label: string;
+      items: Map<string, WorkspaceNavItem>;
+    }
+  >();
 
   // ---- Management -----------------------------------------------------
   addNav(nav, "Management", {
@@ -207,6 +213,13 @@ export function buildWorkspaceManifest({
     });
 
     addNav(nav, "Management", {
+      key: "organization",
+      label: "Organization",
+      href: "/dashboard/workforce/organization",
+      icon: "network",
+    });
+
+    addNav(nav, "Management", {
       key: "dashboard_access",
       label: "Dashboard Access",
       href: "/dashboard/usersAndTeam",
@@ -217,7 +230,7 @@ export function buildWorkspaceManifest({
   // ---- Field App Control -------------------------------------------
   // Two sub-sections within the same group: "App Setup" (the builder
   // surfaces an admin uses to define how the field app behaves) and
-  // "Dynamic Fields" (the actual Responsibilities/fields created via the
+  // "Responsibilities Created" (the actual Responsibilities/fields created via the
   // builder, i.e. what shows up as work in the app).
   if (canManage) {
     addNav(nav, "Field App Control", {
@@ -259,6 +272,16 @@ export function buildWorkspaceManifest({
     });
   }
 
+  addNav(nav, "Field App Control", {
+    key: "all_responsibilities",
+    label: "All Responsibilities",
+    href: "/dashboard/workspace/all-responsibilities",
+    icon: "list",
+    description:
+      "See and manage every Responsibility created for this company.",
+    section: "Responsibilities Created",
+  });
+
   for (const responsibility of activeResponsibilities) {
     addNav(nav, "Field App Control", {
       key: `responsibility:${responsibility.key}`,
@@ -266,7 +289,29 @@ export function buildWorkspaceManifest({
       href: `/dashboard/work/${encodeURIComponent(responsibility.key)}`,
       icon: responsibility.icon || "blocks",
       description: responsibility.description,
-      section: "Dynamic Fields",
+      section: "Responsibilities Created",
+    });
+  }
+
+  /*
+   * ARCHIVED RESPONSIBILITIES
+   *
+   * These remain dashboard-visible for historical data access but are not
+   * active work and are never included in employee runtime delivery.
+   */
+  for (const responsibility of archivedResponsibilities) {
+    addNav(nav, "Field App Control", {
+      key: `archived:${responsibility.key}`,
+
+      label: responsibility.title,
+
+      href: `/dashboard/archive/${encodeURIComponent(responsibility.key)}`,
+
+      icon: "archive",
+
+      description: "Archived Responsibility — historical records only.",
+
+      section: "Archived Responsibilities",
     });
   }
 
@@ -339,9 +384,7 @@ export function buildWorkspaceManifest({
       hint: workflows.length
         ? `${workflows.length} published workflow${workflows.length === 1 ? "" : "s"}`
         : "No published workflow yet",
-      href: canManage
-        ? "/dashboard/workspace/responsibilities"
-        : "/dashboard",
+      href: canManage ? "/dashboard/workspace/responsibilities" : "/dashboard",
     });
   }
 
@@ -375,12 +418,10 @@ export function buildWorkspaceManifest({
   }
 
   const fieldAppControlItems =
-    navigation.find(
-      (group) => group.key === "field_app_control",
-    )?.items ?? [];
+    navigation.find((group) => group.key === "field_app_control")?.items ?? [];
 
   const workItems = fieldAppControlItems.filter(
-    (item) => item.section === "Dynamic Fields",
+    (item) => item.section === "Responsibilities Created",
   );
 
   const workspaceItems = fieldAppControlItems.filter(
@@ -393,10 +434,9 @@ export function buildWorkspaceManifest({
       userId: identity.userId,
       companyName: identity.companyName,
       username: identity.username || identity.email || "User",
-      roles: [
-        identity.orgRole,
-        ...(identity.jobRoles ?? []),
-      ].filter((value): value is string => Boolean(value)),
+      roles: [identity.orgRole, ...(identity.jobRoles ?? [])].filter(
+        (value): value is string => Boolean(value),
+      ),
       permissions,
     },
     navigation,
