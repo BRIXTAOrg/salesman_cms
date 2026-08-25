@@ -1,5 +1,5 @@
 /**
- * BRIXTA Responsibility Kernel v3/v4 UI contract.
+ * BRIXTA Responsibility Kernel v3/v5 UI contract.
  *
  * One Responsibility = one operational unit.
  * The visual builder and runtime kernel share the SAME IDs.
@@ -81,6 +81,12 @@ export type KernelObject = {
   description?: string;
 };
 
+/**
+ * Context can be live runtime information, a configured literal, a centrally
+ * managed organization setting, or a value resolved from another source.
+ * `literal` and `company_setting` are deliberately first-class so business
+ * policy does not need to be hard-coded into source code.
+ */
 export type KernelContextSource =
   | "current_user"
   | "current_manager"
@@ -94,7 +100,10 @@ export type KernelContextSource =
   | "session"
   | "query"
   | "object"
-  | "external";
+  | "external"
+  | "literal"
+  | "company_setting"
+  | "native";
 
 export type KernelContext = {
   id: KernelId;
@@ -102,6 +111,10 @@ export type KernelContext = {
   source: KernelContextSource;
   sourceKey?: string;
   path?: string;
+  /** Used when source === "literal". */
+  value?: unknown;
+  /** UI/runtime hints such as valueType, unit, nativeCapability, permissions. */
+  config?: Record<string, unknown>;
   mutable: boolean;
   frozenAfterState?: string;
 };
@@ -149,6 +162,11 @@ export type KernelCapture = {
   required?: boolean;
   sourceKey?: string;
   storeAs?: string;
+  /**
+   * Native-capability blocks intentionally use the existing generic capture
+   * kinds and describe richer phone behavior in config. This keeps the
+   * compatibility compiler stable while Kernel metadata remains expressive.
+   */
   config: Record<string, unknown>;
 };
 
@@ -302,6 +320,12 @@ export type KernelUiDefinition = {
   /** Preview defaults only; runtime never trusts these for authorization. */
   previewActorId?: string;
   previewStateId?: string;
+  /** Builder-only hints. Runtime may ignore these safely. */
+  canvas?: {
+    zoom?: number;
+    density?: "comfortable" | "compact";
+    showBehaviorChips?: boolean;
+  };
 };
 
 export type ResponsibilityKernel = {

@@ -1,21 +1,62 @@
 {
   "communities": {
     "0": [
-      "src_app_dashboard_dashboardshell",
-      "src_app_dashboard_dashboardshell_dashboardshellprops",
-      "src_app_dashboard_dashboardshell_user",
+      "drizzle_schema_roles",
+      "drizzle_schema_userroles",
+      "drizzle_schema_users",
+      "drizzle_workflowschema_approvalpolicyactors",
+      "src_app_api_dashboardpagesapi_users_and_team_team_overview_datafetch_route",
+      "src_app_api_dashboardpagesapi_users_and_team_team_overview_datafetch_route_get",
+      "src_app_api_dashboardpagesapi_users_and_team_team_overview_editmapping_route",
+      "src_app_api_dashboardpagesapi_users_and_team_team_overview_editmapping_route_editmappingschema",
+      "src_app_api_dashboardpagesapi_users_and_team_team_overview_editmapping_route_post",
+      "src_app_api_dashboardpagesapi_users_and_team_team_overview_editrole_route",
+      "src_app_api_dashboardpagesapi_users_and_team_team_overview_editrole_route_editroleschema",
+      "src_app_api_dashboardpagesapi_users_and_team_team_overview_editrole_route_post",
+      "src_app_api_dashboardpagesapi_users_and_team_users_helpers",
+      "src_app_api_dashboardpagesapi_users_and_team_users_helpers_generaterandompassword",
+      "src_app_api_dashboardpagesapi_users_and_team_users_route",
+      "src_app_api_dashboardpagesapi_users_and_team_users_route_get",
+      "src_app_api_dashboardpagesapi_users_and_team_users_route_post",
+      "src_app_api_dashboardpagesapi_users_and_team_users_route_rationale_75",
+      "src_app_api_dashboardpagesapi_users_and_team_users_user_locations_route",
+      "src_app_api_dashboardpagesapi_users_and_team_users_user_locations_route_get",
+      "src_app_api_dashboardpagesapi_users_and_team_users_user_roles_route",
+      "src_app_api_dashboardpagesapi_users_and_team_users_user_roles_route_get",
+      "src_app_api_dashboardpagesapi_users_and_team_users_userid_route",
+      "src_app_api_dashboardpagesapi_users_and_team_users_userid_route_get",
+      "src_app_api_dashboardpagesapi_users_and_team_users_userid_route_put",
+      "src_app_api_dashboardpagesapi_users_and_team_users_userid_route_rationale_95",
+      "src_app_api_dashboardpagesapi_users_and_team_users_userid_route_routecontext",
+      "src_app_api_dashboardpagesapi_users_and_team_users_userid_route_updateuserschema",
+      "src_app_api_platform_data_sources_id_route",
+      "src_app_api_platform_data_sources_id_route_context",
+      "src_app_api_platform_data_sources_id_route_datasourcepatch",
+      "src_app_api_platform_data_sources_id_route_delete",
+      "src_app_api_platform_data_sources_id_route_editable_fields",
+      "src_app_api_platform_data_sources_id_route_patch",
+      "src_app_api_platform_roles_id_route",
+      "src_app_api_platform_roles_id_route_context",
+      "src_app_api_platform_roles_id_route_delete",
+      "src_app_api_platform_roles_id_route_patch",
+      "src_app_api_platform_roles_route",
+      "src_app_api_platform_roles_route_get",
+      "src_app_api_platform_roles_route_post",
+      "src_lib_auth_haspermission",
+      "src_lib_auth_withtenantdb",
+      "src_lib_rolehierarchy",
+      "src_lib_rolehierarchy_canassignrole",
+      "src_lib_rolehierarchy_getroleweight",
+      "src_lib_rolehierarchy_getvisibleroles",
+      "src_lib_rolehierarchy_issuperuser",
+      "src_lib_rolehierarchy_org_role_weights",
+      "src_lib_rolehierarchy_sortroleshighesttolowest",
+      "src_lib_rolehierarchy_super_user_roles"
+    ],
+    "1": [
       "src_components_app_sidebar",
-      "src_components_app_sidebar_appsidebar",
-      "src_components_app_sidebar_appsidebar_load",
       "src_components_app_sidebar_icons",
       "src_components_app_sidebar_props",
-      "src_components_site_header",
-      "src_components_site_header_siteheader",
-      "src_components_site_header_siteheader_go",
-      "src_components_site_header_siteheader_load",
-      "src_components_site_header_siteheader_onkeydown",
-      "src_components_site_header_siteheader_onpointerdown",
-      "src_components_site_header_titleforpath",
       "src_components_ui_separator",
       "src_components_ui_separator_separator",
       "src_components_ui_sheet",
@@ -41,7 +82,6 @@
       "src_components_ui_sidebar_sidebargrouplabel",
       "src_components_ui_sidebar_sidebarheader",
       "src_components_ui_sidebar_sidebarinput",
-      "src_components_ui_sidebar_sidebarinset",
       "src_components_ui_sidebar_sidebarmenu",
       "src_components_ui_sidebar_sidebarmenuaction",
       "src_components_ui_sidebar_sidebarmenubadge",
@@ -62,10 +102,59 @@
       "src_components_ui_tooltip_tooltip",
       "src_components_ui_tooltip_tooltipcontent",
       "src_components_ui_tooltip_tooltipprovider",
-      "src_components_ui_tooltip_tooltiptrigger",
-      "src_lib_workspace_types_workspacemanifest"
+      "src_components_ui_tooltip_tooltiptrigger"
     ],
-    "1": [
+    "2": [
+      "src_app_dashboard_welcome_page",
+      "src_app_dashboard_welcome_page_simplewelcomepage",
+      "src_app_dashboard_welcome_page_welcomeviewprops",
+      "src_app_home_signedouthomepage",
+      "src_app_home_signedouthomepage_signedouthomepage",
+      "src_app_login_page",
+      "src_app_login_page_loginpage",
+      "src_app_login_page_loginpage_handlelogin",
+      "src_app_page",
+      "src_app_page_authboundary",
+      "src_app_page_landingpage",
+      "src_app_signup_page",
+      "src_app_signup_page_signuppage",
+      "src_app_signup_page_slugify",
+      "src_components_chart_area_reusable",
+      "src_components_chart_area_reusable_chartareainteractive",
+      "src_components_chart_area_reusable_chartareainteractiveprops",
+      "src_components_chart_area_reusable_chartdataitem",
+      "src_components_chart_area_reusable_chartpiereusable",
+      "src_components_chart_area_reusable_chartpiereusableprops",
+      "src_components_chart_area_reusable_pie_colors",
+      "src_components_chart_area_reusable_renderactiveshape",
+      "src_components_section_cards",
+      "src_components_section_cards_sectioncards",
+      "src_components_ui_card",
+      "src_components_ui_card_card",
+      "src_components_ui_card_cardaction",
+      "src_components_ui_card_cardcontent",
+      "src_components_ui_card_carddescription",
+      "src_components_ui_card_cardfooter",
+      "src_components_ui_card_cardheader",
+      "src_components_ui_card_cardtitle",
+      "src_components_ui_chart",
+      "src_components_ui_chart_chartconfig",
+      "src_components_ui_chart_chartcontainer",
+      "src_components_ui_chart_chartcontext",
+      "src_components_ui_chart_chartcontextprops",
+      "src_components_ui_chart_chartlegendcontent",
+      "src_components_ui_chart_chartstyle",
+      "src_components_ui_chart_charttooltipcontent",
+      "src_components_ui_chart_getpayloadconfigfrompayload",
+      "src_components_ui_chart_themes",
+      "src_components_ui_chart_usechart",
+      "src_components_ui_input",
+      "src_components_ui_input_input",
+      "src_components_ui_sidebar_sidebarprovider",
+      "src_hooks_use_mobile",
+      "src_hooks_use_mobile_useismobile"
+    ],
+    "3": [
       "src_components_ui_alert",
       "src_components_ui_alert_alert",
       "src_components_ui_alert_alertdescription",
@@ -85,17 +174,6 @@
       "src_components_ui_breadcrumb_breadcrumbseparator",
       "src_components_ui_checkbox",
       "src_components_ui_checkbox_checkbox",
-      "src_components_ui_drawer",
-      "src_components_ui_drawer_drawer",
-      "src_components_ui_drawer_drawerclose",
-      "src_components_ui_drawer_drawercontent",
-      "src_components_ui_drawer_drawerdescription",
-      "src_components_ui_drawer_drawerfooter",
-      "src_components_ui_drawer_drawerheader",
-      "src_components_ui_drawer_draweroverlay",
-      "src_components_ui_drawer_drawerportal",
-      "src_components_ui_drawer_drawertitle",
-      "src_components_ui_drawer_drawertrigger",
       "src_components_ui_progress",
       "src_components_ui_progress_progress",
       "src_components_ui_radio_group",
@@ -125,54 +203,7 @@
       "src_lib_utils",
       "src_lib_utils_cn"
     ],
-    "2": [
-      "drizzle_platformvnextschema",
-      "drizzle_platformvnextschema_compiledresponsibilitymanifests",
-      "drizzle_platformvnextschema_entityfielddefinition",
-      "drizzle_platformvnextschema_entityfieldmemory",
-      "drizzle_platformvnextschema_platformauditevents",
-      "drizzle_platformvnextschema_platformmeta",
-      "drizzle_platformvnextschema_recordlinks",
-      "drizzle_platformvnextschema_responsibilityextensions",
-      "drizzle_platformvnextschema_responsibilityversions",
-      "drizzle_schema_mobilecapabilities",
-      "src_app_api_platform_data_sources_discover_route",
-      "src_app_api_platform_data_sources_discover_route_get",
-      "src_app_api_platform_data_sources_discover_route_system_tables",
-      "src_app_api_platform_responsibility_extensions_id_publish_route",
-      "src_app_api_platform_responsibility_extensions_id_publish_route_context",
-      "src_app_api_platform_responsibility_extensions_id_publish_route_kernelfrommetadata",
-      "src_app_api_platform_responsibility_extensions_id_publish_route_post",
-      "src_app_api_platform_responsibility_extensions_id_publish_route_rationale_107",
-      "src_app_api_platform_responsibility_extensions_id_route",
-      "src_app_api_platform_responsibility_extensions_id_route_context",
-      "src_app_api_platform_responsibility_extensions_id_route_get",
-      "src_app_api_platform_responsibility_extensions_id_route_put",
-      "src_app_api_platform_responsibility_extensions_id_runtime_route",
-      "src_app_api_platform_responsibility_extensions_id_runtime_route_asobject",
-      "src_app_api_platform_responsibility_extensions_id_runtime_route_context",
-      "src_app_api_platform_responsibility_extensions_id_runtime_route_get",
-      "src_app_api_platform_responsibility_extensions_id_runtime_route_numeric",
-      "src_app_api_platform_responsibility_extensions_id_validate_route",
-      "src_app_api_platform_responsibility_extensions_id_validate_route_context",
-      "src_app_api_platform_responsibility_extensions_id_validate_route_post",
-      "src_app_api_platform_responsibility_extensions_id_versions_route",
-      "src_app_api_platform_responsibility_extensions_id_versions_route_context",
-      "src_app_api_platform_responsibility_extensions_id_versions_route_get",
-      "src_lib_platform_vnext_types_compiledresponsibilitymanifest",
-      "src_lib_responsibility_compiler",
-      "src_lib_responsibility_compiler_asarray",
-      "src_lib_responsibility_compiler_asobject",
-      "src_lib_responsibility_compiler_blankresponsibilityextension",
-      "src_lib_responsibility_compiler_compileresponsibilitymanifest",
-      "src_lib_responsibility_compiler_hashresponsibilitymanifest",
-      "src_lib_responsibility_compiler_normalizeresponsibilityextension",
-      "src_lib_responsibility_compiler_numberarray",
-      "src_lib_responsibility_kernel_types_responsibility_kernel_metadata_key",
-      "src_lib_responsibility_power_catalog_createblankresponsibilityextension",
-      "src_lib_responsibility_validation_haspublishblockingissues"
-    ],
-    "3": [
+    "4": [
       "drizzle_schema",
       "drizzle_schema_dailyvisitreports",
       "drizzle_schema_dealers",
@@ -218,53 +249,6 @@
       "drizzle_zodschemas_selectsyncstateschema",
       "drizzle_zodschemas_selectuserrolesschema",
       "drizzle_zodschemas_selectuserschema"
-    ],
-    "4": [
-      "src_app_dashboard_page",
-      "src_app_dashboard_page_dashboardpage",
-      "src_components_appliance_approvals_client",
-      "src_components_appliance_client",
-      "src_components_appliance_client_cx",
-      "src_components_appliance_client_formatwhen",
-      "src_components_appliance_control_center_client",
-      "src_components_appliance_control_center_client_controlcenterclient",
-      "src_components_appliance_dashboard_access_client",
-      "src_components_appliance_dashboard_access_client_dashboarduser",
-      "src_components_appliance_data_sources_client",
-      "src_components_appliance_data_sources_client_discovered",
-      "src_components_appliance_employees_client",
-      "src_components_appliance_entities_client",
-      "src_components_appliance_entities_client_entityfield",
-      "src_components_appliance_entities_client_entitytype",
-      "src_components_appliance_entities_client_field_types",
-      "src_components_appliance_primitives",
-      "src_components_appliance_primitives_emptystate",
-      "src_components_appliance_primitives_field",
-      "src_components_appliance_primitives_inputclass",
-      "src_components_appliance_primitives_modal",
-      "src_components_appliance_primitives_pageintro",
-      "src_components_appliance_primitives_panel",
-      "src_components_appliance_primitives_pill",
-      "src_components_appliance_primitives_primarybutton",
-      "src_components_appliance_primitives_secondarybutton",
-      "src_components_appliance_primitives_textareaclass",
-      "src_components_appliance_responsibility_kernel_client",
-      "src_components_appliance_responsibility_kernel_client_extensionresponse",
-      "src_components_appliance_responsibility_kernel_client_possibilitykind",
-      "src_components_appliance_responsibility_kernel_client_possibilitylabel",
-      "src_components_appliance_responsibility_kernel_client_studiotab",
-      "src_components_appliance_responsibility_kernel_client_tabs",
-      "src_components_appliance_responsibility_output_editor",
-      "src_components_appliance_responsibility_output_editor_randomkey",
-      "src_components_appliance_responsibility_output_editor_responsibilityoutputeditor",
-      "src_components_appliance_responsibility_output_editor_responsibilityoutputeditor_addoutput",
-      "src_components_appliance_responsibility_output_editor_responsibilityoutputeditor_patch",
-      "src_components_appliance_roles_vnext_client",
-      "src_components_appliance_roles_vnext_client_rolerow",
-      "src_lib_appliance_types_role",
-      "src_lib_responsibility_kernel_catalog_output_catalog",
-      "src_lib_responsibility_kernel_types_kerneloutput",
-      "src_lib_responsibility_kernel_types_kernelpossibility"
     ],
     "5": [
       "src_components_appliance_responsibilities_client_actionfromdefinition",
@@ -313,50 +297,135 @@
       "src_components_appliance_responsibilities_client_validatestate"
     ],
     "6": [
-      "src_app_dashboard_work_key_page",
-      "src_app_dashboard_work_key_page_dynamicworkpage",
-      "src_app_dashboard_workspace_assignments_page",
-      "src_app_dashboard_workspace_assignments_page_assignmentspage",
-      "src_components_appliance_assignments_client",
-      "src_components_appliance_assignments_client_assignmentsclient",
-      "src_components_appliance_assignments_client_assignmentsclient_save",
-      "src_components_appliance_assignments_client_assignmentsclient_toggle",
-      "src_components_appliance_dynamic_work_client",
-      "src_components_appliance_dynamic_work_client_dynamicworkclient",
-      "src_components_appliance_record_output_recordoutput",
-      "src_components_appliance_responsibilities_client",
-      "src_components_appliance_responsibilities_client_builderaction",
-      "src_components_appliance_responsibilities_client_builderfield",
-      "src_components_appliance_responsibilities_client_builderstate",
-      "src_components_appliance_responsibilities_client_canvas",
-      "src_components_appliance_responsibilities_client_canvasblock",
-      "src_components_appliance_responsibilities_client_meresponse",
-      "src_components_appliance_responsibilities_client_paletteblock",
-      "src_components_appliance_responsibilities_client_palettedragdata",
-      "src_components_appliance_responsibilities_client_selectedblock",
-      "src_lib_appliance_types",
-      "src_lib_appliance_types_approval",
-      "src_lib_appliance_types_capability",
-      "src_lib_appliance_types_capabilityrule",
-      "src_lib_appliance_types_employee",
-      "src_lib_appliance_types_employeedetail",
-      "src_lib_appliance_types_genericrecord",
-      "src_lib_appliance_types_primitivecatalog",
-      "src_lib_appliance_types_primitiveinput",
-      "src_lib_appliance_types_primitiveoutput",
-      "src_lib_appliance_types_responsibility",
-      "src_lib_appliance_types_responsibilityactionstyle",
-      "src_lib_appliance_types_responsibilityactionvisibilitymode",
-      "src_lib_appliance_types_responsibilityappaction",
-      "src_lib_appliance_types_responsibilityappdefinition",
-      "src_lib_appliance_types_responsibilityfield",
-      "src_lib_appliance_types_responsibilityrule"
+      "src_components_appliance_responsibility_event_editor",
+      "src_components_appliance_responsibility_event_editor_conditioneditor",
+      "src_components_appliance_responsibility_event_editor_effecteditor",
+      "src_components_appliance_responsibility_event_editor_event_kinds",
+      "src_components_appliance_responsibility_event_editor_humanize",
+      "src_components_appliance_responsibility_event_editor_makeref",
+      "src_components_appliance_responsibility_event_editor_refdisplay",
+      "src_components_appliance_responsibility_event_editor_refkind",
+      "src_components_appliance_responsibility_world_editor",
+      "src_components_appliance_responsibility_world_editor_actorresolverneedstarget",
+      "src_components_appliance_responsibility_world_editor_currentuserresolver",
+      "src_components_appliance_responsibility_world_editor_randomkey",
+      "src_components_appliance_responsibility_world_editor_resolvertargetlabel",
+      "src_components_appliance_responsibility_world_editor_responsibilityworldeditor",
+      "src_components_appliance_responsibility_world_editor_responsibilityworldeditor_patchactor",
+      "src_components_appliance_responsibility_world_editor_responsibilityworldeditor_patchcontext",
+      "src_components_appliance_responsibility_world_editor_responsibilityworldeditor_patchobject",
+      "src_components_appliance_responsibility_world_editor_responsibilityworldeditor_patchstate",
+      "src_components_appliance_responsibility_world_editor_responsibilityworldeditor_updateworld",
+      "src_lib_responsibility_kernel_catalog_context_catalog",
+      "src_lib_responsibility_kernel_catalog_effect_catalog",
+      "src_lib_responsibility_kernel_types",
+      "src_lib_responsibility_kernel_types_kernelaction",
+      "src_lib_responsibility_kernel_types_kernelactionkind",
+      "src_lib_responsibility_kernel_types_kernelactor",
+      "src_lib_responsibility_kernel_types_kernelactorresolver",
+      "src_lib_responsibility_kernel_types_kernelcapturekind",
+      "src_lib_responsibility_kernel_types_kernelcondition",
+      "src_lib_responsibility_kernel_types_kernelconditiongroup",
+      "src_lib_responsibility_kernel_types_kernelcontext",
+      "src_lib_responsibility_kernel_types_kernelcontextsource",
+      "src_lib_responsibility_kernel_types_kerneleffectkind",
+      "src_lib_responsibility_kernel_types_kernelevent",
+      "src_lib_responsibility_kernel_types_kerneleventkind",
+      "src_lib_responsibility_kernel_types_kernelid",
+      "src_lib_responsibility_kernel_types_kernelobject",
+      "src_lib_responsibility_kernel_types_kernelobjectkind",
+      "src_lib_responsibility_kernel_types_kerneloperator",
+      "src_lib_responsibility_kernel_types_kernelrule",
+      "src_lib_responsibility_kernel_types_kernelstate",
+      "src_lib_responsibility_kernel_types_kerneluidefinition",
+      "src_lib_responsibility_kernel_types_kernelvalueref",
+      "src_lib_responsibility_kernel_types_responsibility_kernel_metadata_key"
     ],
     "7": [
-      "src_components_data_table_reusable",
-      "src_components_data_table_reusable_datatableprops",
+      "drizzle_platformvnextschema",
+      "drizzle_platformvnextschema_datasources",
+      "drizzle_platformvnextschema_entityfielddefinition",
+      "drizzle_platformvnextschema_entityfieldmemory",
+      "drizzle_platformvnextschema_entityrecords",
+      "drizzle_platformvnextschema_entitytypes",
+      "drizzle_platformvnextschema_platformmeta",
+      "drizzle_platformvnextschema_recordlinks",
+      "drizzle_platformvnextschema_responsibilityversions",
+      "drizzle_schema_mobilecapabilities",
+      "src_app_api_platform_data_sources_discover_route",
+      "src_app_api_platform_data_sources_discover_route_get",
+      "src_app_api_platform_data_sources_discover_route_system_tables",
+      "src_app_api_platform_data_sources_route",
+      "src_app_api_platform_data_sources_route_get",
+      "src_app_api_platform_data_sources_route_normalizekey",
+      "src_app_api_platform_data_sources_route_post",
+      "src_app_api_platform_entities_id_route",
+      "src_app_api_platform_entities_id_route_context",
+      "src_app_api_platform_entities_id_route_delete",
+      "src_app_api_platform_entities_id_route_patch",
+      "src_app_api_platform_entities_route",
+      "src_app_api_platform_entities_route_get",
+      "src_app_api_platform_entities_route_normalizekey",
+      "src_app_api_platform_entities_route_post",
+      "src_app_api_platform_entity_records_route",
+      "src_app_api_platform_entity_records_route_get",
+      "src_app_api_platform_entity_records_route_post",
+      "src_app_api_platform_responsibility_extensions_id_runtime_route",
+      "src_app_api_platform_responsibility_extensions_id_runtime_route_asobject",
+      "src_app_api_platform_responsibility_extensions_id_runtime_route_context",
+      "src_app_api_platform_responsibility_extensions_id_runtime_route_get",
+      "src_app_api_platform_responsibility_extensions_id_runtime_route_numeric",
+      "src_app_api_platform_responsibility_extensions_id_versions_route",
+      "src_app_api_platform_responsibility_extensions_id_versions_route_context",
+      "src_app_api_platform_responsibility_extensions_id_versions_route_get",
+      "src_lib_drizzle_appdatabase",
+      "src_lib_platform_vnext_db",
+      "src_lib_platform_vnext_db_ensuretenantplatformvnext",
+      "src_lib_platform_vnext_db_tenant_platform_version"
+    ],
+    "8": [
+      "src_components_appliance_approvals_client",
+      "src_components_appliance_assignments_client",
+      "src_components_appliance_client",
+      "src_components_appliance_client_formatwhen",
+      "src_components_appliance_control_center_client",
+      "src_components_appliance_dashboard_access_client",
+      "src_components_appliance_dashboard_access_client_credentials",
+      "src_components_appliance_dashboard_access_client_dashboarduser",
+      "src_components_appliance_data_sources_client",
+      "src_components_appliance_data_sources_client_discovered",
+      "src_components_appliance_employees_client",
+      "src_components_appliance_employees_client_sectionheading",
+      "src_components_appliance_entities_client",
+      "src_components_appliance_entities_client_entityfield",
+      "src_components_appliance_entities_client_entitytype",
+      "src_components_appliance_entities_client_field_types",
+      "src_components_appliance_organization_client",
+      "src_components_appliance_organization_client_companycard",
+      "src_components_appliance_organization_client_empty_totals",
+      "src_components_appliance_organization_client_portfoliocompany",
+      "src_components_appliance_organization_client_portfolioresponse",
+      "src_components_appliance_primitives",
+      "src_components_appliance_primitives_emptystate",
+      "src_components_appliance_primitives_field",
+      "src_components_appliance_primitives_inputclass",
+      "src_components_appliance_primitives_modal",
+      "src_components_appliance_primitives_pageintro",
+      "src_components_appliance_primitives_panel",
+      "src_components_appliance_primitives_pill",
+      "src_components_appliance_primitives_primarybutton",
+      "src_components_appliance_primitives_secondarybutton",
+      "src_components_appliance_primitives_stat",
+      "src_components_appliance_roles_vnext_client",
+      "src_components_appliance_roles_vnext_client_rolerow",
       "src_components_data_table_reusable_datatablereusable",
       "src_components_data_table_reusable_datatablereusable_handledragend",
+      "src_lib_appliance_types_employee",
+      "src_lib_appliance_types_employeedetail"
+    ],
+    "9": [
+      "src_components_data_table_reusable",
+      "src_components_data_table_reusable_datatableprops",
       "src_components_data_table_reusable_draggablerow",
       "src_components_data_table_reusable_draghandle",
       "src_components_global_filter_bar",
@@ -380,6 +449,8 @@
       "src_components_ui_dropdown_menu_dropdownmenusubcontent",
       "src_components_ui_dropdown_menu_dropdownmenusubtrigger",
       "src_components_ui_dropdown_menu_dropdownmenutrigger",
+      "src_components_ui_label",
+      "src_components_ui_label_label",
       "src_components_ui_select",
       "src_components_ui_select_select",
       "src_components_ui_select_selectcontent",
@@ -392,84 +463,52 @@
       "src_components_ui_select_selecttrigger",
       "src_components_ui_select_selectvalue"
     ],
-    "8": [
-      "drizzle_platformvnextschema_datasources",
-      "drizzle_platformvnextschema_entityrecords",
-      "drizzle_platformvnextschema_entitytypes",
-      "src_app_api_dashboardpagesapi_users_and_team_users_route",
-      "src_app_api_dashboardpagesapi_users_and_team_users_route_get",
-      "src_app_api_dashboardpagesapi_users_and_team_users_route_post",
-      "src_app_api_dashboardpagesapi_users_and_team_users_route_rationale_75",
-      "src_app_api_dashboardpagesapi_users_and_team_users_user_locations_route",
-      "src_app_api_dashboardpagesapi_users_and_team_users_user_locations_route_get",
-      "src_app_api_platform_data_sources_id_route",
-      "src_app_api_platform_data_sources_id_route_context",
-      "src_app_api_platform_data_sources_id_route_datasourcepatch",
-      "src_app_api_platform_data_sources_id_route_delete",
-      "src_app_api_platform_data_sources_id_route_editable_fields",
-      "src_app_api_platform_data_sources_id_route_patch",
-      "src_app_api_platform_data_sources_route",
-      "src_app_api_platform_data_sources_route_get",
-      "src_app_api_platform_data_sources_route_normalizekey",
-      "src_app_api_platform_data_sources_route_post",
-      "src_app_api_platform_entities_id_route",
-      "src_app_api_platform_entities_id_route_context",
-      "src_app_api_platform_entities_id_route_delete",
-      "src_app_api_platform_entities_id_route_patch",
-      "src_app_api_platform_entities_route",
-      "src_app_api_platform_entities_route_get",
-      "src_app_api_platform_entities_route_normalizekey",
-      "src_app_api_platform_entities_route_post",
-      "src_app_api_platform_entity_records_route",
-      "src_app_api_platform_entity_records_route_get",
-      "src_app_api_platform_entity_records_route_post",
-      "src_app_api_platform_roles_route",
-      "src_app_api_platform_roles_route_get",
-      "src_app_api_platform_roles_route_post",
-      "src_lib_auth_haspermission",
-      "src_lib_auth_withtenantdb",
-      "src_lib_platform_vnext_db_ensuretenantplatformvnext"
-    ],
-    "9": [
-      "src_components_appliance_responsibility_app_builder",
-      "src_components_appliance_responsibility_app_builder_actioneventrule",
-      "src_components_appliance_responsibility_app_builder_actioninspector",
-      "src_components_appliance_responsibility_app_builder_actioninspector_patchaction",
-      "src_components_appliance_responsibility_app_builder_actioninspector_patchconfig",
-      "src_components_appliance_responsibility_app_builder_captureicon",
-      "src_components_appliance_responsibility_app_builder_captureinspector",
-      "src_components_appliance_responsibility_app_builder_captureinspector_patch",
-      "src_components_appliance_responsibility_app_builder_clone",
-      "src_components_appliance_responsibility_app_builder_configstring",
-      "src_components_appliance_responsibility_app_builder_ensureactionbehavior",
-      "src_components_appliance_responsibility_app_builder_humanize",
-      "src_components_appliance_responsibility_app_builder_initialstate",
-      "src_components_appliance_responsibility_app_builder_normalizekey",
-      "src_components_appliance_responsibility_app_builder_paletteitem",
-      "src_components_appliance_responsibility_app_builder_phonedropzone",
-      "src_components_appliance_responsibility_app_builder_playphone",
-      "src_components_appliance_responsibility_app_builder_playphone_execute",
-      "src_components_appliance_responsibility_app_builder_playphone_rendercapture",
-      "src_components_appliance_responsibility_app_builder_possibilitysubtitle",
-      "src_components_appliance_responsibility_app_builder_possibilitytitle",
-      "src_components_appliance_responsibility_app_builder_randomkey",
-      "src_components_appliance_responsibility_app_builder_referencefilterseditor",
-      "src_components_appliance_responsibility_app_builder_referencefilterseditor_setfilters",
-      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder",
-      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder_addaction",
-      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder_addcapture",
-      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder_ondragend",
-      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder_ondragstart",
-      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder_removeselected",
-      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder_setlayout",
-      "src_components_appliance_responsibility_app_builder_sortablecanvasitem",
-      "src_components_appliance_responsibility_app_builder_updatepossibility",
-      "src_lib_responsibility_kernel_types_kernelconditiongroup"
-    ],
     "10": [
+      "src_app_dashboard_work_key_page",
+      "src_app_dashboard_work_key_page_dynamicworkpage",
+      "src_components_appliance_dynamic_work_client",
+      "src_components_appliance_dynamic_work_client_dynamicworkclient",
+      "src_components_appliance_primitives_textareaclass",
+      "src_components_appliance_responsibilities_client",
+      "src_components_appliance_responsibilities_client_builderaction",
+      "src_components_appliance_responsibilities_client_builderfield",
+      "src_components_appliance_responsibilities_client_builderstate",
+      "src_components_appliance_responsibilities_client_canvasblock",
+      "src_components_appliance_responsibilities_client_meresponse",
+      "src_components_appliance_responsibilities_client_palettedragdata",
+      "src_components_appliance_responsibilities_client_selectedblock",
+      "src_components_appliance_workflows_client",
+      "src_components_appliance_workflows_client_builderstate",
+      "src_components_appliance_workflows_client_builderstep",
+      "src_lib_appliance_types",
+      "src_lib_appliance_types_approval",
+      "src_lib_appliance_types_capability",
+      "src_lib_appliance_types_capabilityrule",
+      "src_lib_appliance_types_crudoperation",
+      "src_lib_appliance_types_genericrecord",
+      "src_lib_appliance_types_primitivecatalog",
+      "src_lib_appliance_types_primitiveinput",
+      "src_lib_appliance_types_primitiveoutput",
+      "src_lib_appliance_types_responsibility",
+      "src_lib_appliance_types_responsibilityactionstyle",
+      "src_lib_appliance_types_responsibilityactionvisibilitymode",
+      "src_lib_appliance_types_responsibilityappaction",
+      "src_lib_appliance_types_responsibilityappdefinition",
+      "src_lib_appliance_types_responsibilityfield",
+      "src_lib_appliance_types_responsibilityrule",
+      "src_lib_appliance_types_role",
+      "src_lib_appliance_types_workflowdefinition",
+      "src_lib_appliance_types_workflowstep",
+      "src_lib_appliance_types_workflowversion"
+    ],
+    "11": [
       "src_components_multi_select",
       "src_components_multi_select_multiselectprops",
       "src_components_multi_select_option",
+      "src_components_search_select",
+      "src_components_search_select_option",
+      "src_components_search_select_searchselect",
+      "src_components_search_select_searchselectprops",
       "src_components_ui_badge",
       "src_components_ui_badge_badge",
       "src_components_ui_badge_badgevariants",
@@ -500,7 +539,77 @@
       "src_components_ui_popover_popovercontent",
       "src_components_ui_popover_popovertrigger"
     ],
-    "11": [
+    "12": [
+      "src_components_appliance_responsibility_kernel_client",
+      "src_components_appliance_responsibility_kernel_client_askernel",
+      "src_components_appliance_responsibility_kernel_client_extensionresponse",
+      "src_components_appliance_responsibility_kernel_client_humanize",
+      "src_components_appliance_responsibility_kernel_client_normalizekey",
+      "src_components_appliance_responsibility_kernel_client_possibilitieseditor",
+      "src_components_appliance_responsibility_kernel_client_possibilitieseditor_addaction",
+      "src_components_appliance_responsibility_kernel_client_possibilitieseditor_addcapture",
+      "src_components_appliance_responsibility_kernel_client_possibilitykind",
+      "src_components_appliance_responsibility_kernel_client_possibilitylabel",
+      "src_components_appliance_responsibility_kernel_client_randomkey",
+      "src_components_appliance_responsibility_kernel_client_responsibilitykernelclient",
+      "src_components_appliance_responsibility_kernel_client_responsibilitykernelclient_createresponsibility",
+      "src_components_appliance_responsibility_kernel_client_responsibilitykernelclient_publish",
+      "src_components_appliance_responsibility_kernel_client_responsibilitykernelclient_savedraft",
+      "src_components_appliance_responsibility_kernel_client_studiotab",
+      "src_components_appliance_responsibility_kernel_client_tabs",
+      "src_components_appliance_responsibility_kernel_client_withkernel",
+      "src_lib_responsibility_kernel_compiler",
+      "src_lib_responsibility_kernel_compiler_actiontobaseaction",
+      "src_lib_responsibility_kernel_compiler_capturetofield",
+      "src_lib_responsibility_kernel_compiler_capturetype",
+      "src_lib_responsibility_kernel_compiler_compilekerneltobasedefinition",
+      "src_lib_responsibility_kernel_compiler_hydratekernelfrombasedefinition",
+      "src_lib_responsibility_kernel_compiler_normalizekey",
+      "src_lib_responsibility_kernel_compiler_requiredstate",
+      "src_lib_responsibility_kernel_compiler_resultingstate",
+      "src_lib_responsibility_kernel_compiler_ruleforaction",
+      "src_lib_responsibility_kernel_types_kerneleffect",
+      "src_lib_responsibility_kernel_types_kernelpossibility",
+      "src_lib_responsibility_kernel_types_responsibilitykernel",
+      "src_lib_responsibility_kernel_validation",
+      "src_lib_responsibility_kernel_validation_effectissue",
+      "src_lib_responsibility_kernel_validation_kernelvalidationissue",
+      "src_lib_responsibility_kernel_validation_validateresponsibilitykernel"
+    ],
+    "13": [
+      "drizzle_index",
+      "src_app_actions_cache",
+      "src_app_actions_cache_refreshcompanycache",
+      "src_app_api_account_switch_route",
+      "src_app_api_account_switch_route_post",
+      "src_app_api_auth_login_route",
+      "src_app_api_auth_login_route_post",
+      "src_app_api_auth_login_route_rationale_84",
+      "src_app_api_delete_user_route",
+      "src_app_api_delete_user_route_post",
+      "src_components_refreshdatabutton",
+      "src_components_refreshdatabutton_refreshdatabutton",
+      "src_components_refreshdatabutton_refreshdatabuttonprops",
+      "src_lib_appliance_backend",
+      "src_lib_auth",
+      "src_lib_auth_decrypt",
+      "src_lib_auth_encrypt",
+      "src_lib_auth_key",
+      "src_lib_auth_session",
+      "src_lib_auth_verifysession",
+      "src_lib_drizzle",
+      "src_lib_drizzle_globalfordb",
+      "src_lib_drizzle_withtenantschema",
+      "src_lib_mobile_workspace_backend",
+      "src_lib_mobile_workspace_backend_forwardbackendjson",
+      "src_lib_mobile_workspace_backend_mobileworkspacebackendfetch",
+      "src_lib_mobile_workspace_backend_requiremobileworkspaceadmin",
+      "src_proxy",
+      "src_proxy_allowedorigins",
+      "src_proxy_config",
+      "src_proxy_proxy"
+    ],
+    "14": [
       "ref_dom",
       "ref_dom_iterable",
       "ref_esnext",
@@ -531,36 +640,37 @@
       "tsconfig_exclude",
       "tsconfig_include"
     ],
-    "12": [
-      "src_app_dashboard_workspace_workflows_page",
-      "src_app_dashboard_workspace_workflows_page_workflowspage",
-      "src_components_appliance_workflows_client",
-      "src_components_appliance_workflows_client_blankaction",
-      "src_components_appliance_workflows_client_blankapproval",
-      "src_components_appliance_workflows_client_builderstate",
-      "src_components_appliance_workflows_client_builderstep",
-      "src_components_appliance_workflows_client_builderstepfromexisting",
-      "src_components_appliance_workflows_client_enabledoperations",
-      "src_components_appliance_workflows_client_latestversion",
-      "src_components_appliance_workflows_client_localid",
-      "src_components_appliance_workflows_client_objectvalue",
-      "src_components_appliance_workflows_client_payloadsteps",
-      "src_components_appliance_workflows_client_titleforaction",
-      "src_components_appliance_workflows_client_workflowsclient",
-      "src_components_appliance_workflows_client_workflowsclient_actionoperations",
-      "src_components_appliance_workflows_client_workflowsclient_movestep",
-      "src_components_appliance_workflows_client_workflowsclient_opencreate",
-      "src_components_appliance_workflows_client_workflowsclient_openversion",
-      "src_components_appliance_workflows_client_workflowsclient_saveworkflow",
-      "src_components_appliance_workflows_client_workflowsclient_toggleworkflow",
-      "src_components_appliance_workflows_client_workflowsclient_updatestep",
-      "src_components_appliance_workflows_client_workflowsclient_validatebuilder",
-      "src_lib_appliance_types_crudoperation",
-      "src_lib_appliance_types_workflowdefinition",
-      "src_lib_appliance_types_workflowstep",
-      "src_lib_appliance_types_workflowversion"
+    "15": [
+      "drizzle_workflowschema",
+      "drizzle_workflowschema_actiondefinitions",
+      "drizzle_workflowschema_approvalpolicies",
+      "drizzle_workflowschema_workflowdefinitions",
+      "drizzle_workflowschema_workflowinstances",
+      "drizzle_workflowschema_workflowstepdependencies",
+      "drizzle_workflowschema_workflowstepinstances",
+      "drizzle_workflowschema_workflowsteps",
+      "drizzle_workflowschema_workflowversions",
+      "src_app_api_account_organizations_route",
+      "src_app_api_account_organizations_route_get",
+      "src_app_api_account_portfolio_route",
+      "src_app_api_account_portfolio_route_accountorganization",
+      "src_app_api_account_portfolio_route_companyportfolio",
+      "src_app_api_account_portfolio_route_get",
+      "src_app_api_account_portfolio_route_loadcompany",
+      "src_app_api_account_portfolio_route_mapwithlimit",
+      "src_app_api_account_portfolio_route_mapwithlimit_worker",
+      "src_app_api_account_portfolio_route_personpreview",
+      "src_app_api_account_portfolio_route_responsibilitypreview",
+      "src_app_api_account_portfolio_route_workflowpreview",
+      "src_lib_account_platform",
+      "src_lib_account_platform_assertcontrolplane",
+      "src_lib_account_platform_claimcurrentorganizationsforemail",
+      "src_lib_account_platform_ensureaccountsubstrate",
+      "src_lib_account_platform_findorganizationforaccountemail",
+      "src_lib_account_platform_listorganizationsforaccountemail",
+      "src_lib_account_platform_resolveorcreateaccountforemail"
     ],
-    "13": [
+    "16": [
       "src_components_appliance_client_formatdatetime",
       "src_components_appliance_record_map",
       "src_components_appliance_record_map_mappoint",
@@ -583,68 +693,43 @@
       "src_components_appliance_record_output_pointvalue",
       "src_components_appliance_record_output_props",
       "src_components_appliance_record_output_recordmap",
+      "src_components_appliance_record_output_recordoutput",
       "src_components_appliance_record_output_routefield",
       "src_components_appliance_record_output_routevalue",
       "src_components_appliance_record_output_snapshotoutput",
       "src_components_appliance_record_output_tableoutput",
       "src_components_appliance_record_output_timelineoutput"
     ],
-    "14": [
-      "src_app_dashboard_welcome_page",
-      "src_app_dashboard_welcome_page_simplewelcomepage",
-      "src_app_dashboard_welcome_page_welcomeviewprops",
-      "src_app_home_signedouthomepage",
-      "src_app_login_page",
-      "src_app_login_page_loginpage",
-      "src_app_login_page_loginpage_handlelogin",
-      "src_app_signup_page",
-      "src_app_signup_page_signuppage",
-      "src_app_signup_page_slugify",
-      "src_components_section_cards",
-      "src_components_section_cards_sectioncards",
-      "src_components_ui_button",
-      "src_components_ui_button_button",
-      "src_components_ui_card",
-      "src_components_ui_card_card",
-      "src_components_ui_card_cardaction",
-      "src_components_ui_card_cardcontent",
-      "src_components_ui_card_carddescription",
-      "src_components_ui_card_cardfooter",
-      "src_components_ui_card_cardheader",
-      "src_components_ui_card_cardtitle",
-      "src_components_ui_input",
-      "src_components_ui_input_input",
-      "src_components_ui_label",
-      "src_components_ui_label_label"
+    "17": [
+      "src_app_dashboard_workforce_employees_page",
+      "src_app_dashboard_workforce_employees_page_employeespage",
+      "src_app_dashboard_workspace_approvals_page",
+      "src_app_dashboard_workspace_approvals_page_approvalspage",
+      "src_app_dashboard_workspace_assignments_page",
+      "src_app_dashboard_workspace_assignments_page_assignmentspage",
+      "src_components_appliance_approvals_client_approvalsclient",
+      "src_components_appliance_approvals_client_approvalsclient_decide",
+      "src_components_appliance_approvals_client_approvalsclient_employeename",
+      "src_components_appliance_assignments_client_assignmentsclient",
+      "src_components_appliance_assignments_client_assignmentsclient_save",
+      "src_components_appliance_assignments_client_assignmentsclient_toggle",
+      "src_components_appliance_client_apijson",
+      "src_components_appliance_data_sources_client_datasourcesclient",
+      "src_components_appliance_data_sources_client_datasourcesclient_connect",
+      "src_components_appliance_data_sources_client_datasourcesclient_remove",
+      "src_components_appliance_employees_client_capitalizefirst",
+      "src_components_appliance_employees_client_employeesclient",
+      "src_components_appliance_employees_client_employeesclient_createemployee",
+      "src_components_appliance_employees_client_employeesclient_resetpassword",
+      "src_components_appliance_employees_client_employeesclient_saveroles",
+      "src_components_appliance_employees_client_employeesclient_setstatus",
+      "src_components_appliance_employees_client_employeesclient_updateprofile",
+      "src_components_appliance_roles_vnext_client_rolesvnextclient",
+      "src_components_appliance_roles_vnext_client_rolesvnextclient_create",
+      "src_components_appliance_roles_vnext_client_rolesvnextclient_remove",
+      "src_components_appliance_roles_vnext_client_rolesvnextclient_rename"
     ],
-    "15": [
-      "src_app_api_appliance_path_route_proxy",
-      "src_app_api_platform_responsibility_templates_route",
-      "src_app_api_platform_responsibility_templates_route_normalizekey",
-      "src_app_api_platform_responsibility_templates_route_post",
-      "src_app_api_platform_responsibility_templates_route_uniqueresponsibilitykey",
-      "src_app_api_workspace_manifest_route",
-      "src_app_api_workspace_manifest_route_get",
-      "src_app_api_workspace_manifest_route_objectvalue",
-      "src_app_dashboard_dashboardshell_dashboardshell",
-      "src_app_dashboard_layout",
-      "src_app_dashboard_layout_accessblocked",
-      "src_app_dashboard_layout_authenticatedlayout",
-      "src_app_dashboard_layout_dashboardlayout",
-      "src_app_dashboard_layout_metadata",
-      "src_lib_appliance_backend",
-      "src_lib_appliance_backend_appliancebackendfetch",
-      "src_lib_appliance_backend_forwardbackendjson",
-      "src_lib_appliance_backend_requireappliancesession",
-      "src_lib_drizzle",
-      "src_lib_drizzle_appdatabase",
-      "src_lib_drizzle_globalfordb",
-      "src_lib_drizzle_withtenantschema",
-      "src_lib_platform_vnext_db",
-      "src_lib_platform_vnext_db_tenant_platform_version",
-      "src_lib_responsibility_power_templates_findresponsibilitytemplate"
-    ],
-    "16": [
+    "18": [
       "src_components_ui_alert_dialog",
       "src_components_ui_alert_dialog_alertdialog",
       "src_components_ui_alert_dialog_alertdialogaction",
@@ -657,6 +742,8 @@
       "src_components_ui_alert_dialog_alertdialogportal",
       "src_components_ui_alert_dialog_alertdialogtitle",
       "src_components_ui_alert_dialog_alertdialogtrigger",
+      "src_components_ui_button",
+      "src_components_ui_button_button",
       "src_components_ui_button_buttonvariants",
       "src_components_ui_calendar",
       "src_components_ui_calendar_calendar",
@@ -671,84 +758,59 @@
       "src_components_ui_pagination_paginationnext",
       "src_components_ui_pagination_paginationprevious"
     ],
-    "17": [
-      "drizzle_schema_roles",
-      "drizzle_schema_userroles",
-      "drizzle_schema_users",
-      "src_app_api_account_switch_route",
-      "src_app_api_account_switch_route_post",
-      "src_app_api_auth_login_route",
-      "src_app_api_auth_login_route_post",
-      "src_app_api_auth_login_route_rationale_84",
-      "src_app_api_dashboardpagesapi_users_and_team_team_overview_datafetch_route",
-      "src_app_api_dashboardpagesapi_users_and_team_team_overview_datafetch_route_get",
-      "src_app_api_dashboardpagesapi_users_and_team_users_helpers",
-      "src_app_api_dashboardpagesapi_users_and_team_users_helpers_generaterandompassword",
-      "src_app_api_dashboardpagesapi_users_and_team_users_user_roles_route",
-      "src_app_api_dashboardpagesapi_users_and_team_users_user_roles_route_get",
-      "src_app_api_dashboardpagesapi_users_and_team_users_userid_route",
-      "src_app_api_dashboardpagesapi_users_and_team_users_userid_route_get",
-      "src_app_api_dashboardpagesapi_users_and_team_users_userid_route_put",
-      "src_app_api_dashboardpagesapi_users_and_team_users_userid_route_rationale_95",
-      "src_app_api_dashboardpagesapi_users_and_team_users_userid_route_routecontext",
-      "src_app_api_dashboardpagesapi_users_and_team_users_userid_route_updateuserschema",
-      "src_app_api_delete_user_route",
-      "src_app_api_delete_user_route_post",
-      "src_lib_account_platform_findorganizationforaccountemail",
-      "src_lib_auth_encrypt"
-    ],
-    "18": [
-      "src_app_actions_cache",
-      "src_app_actions_cache_refreshcompanycache",
-      "src_app_api_account_organizations_route",
-      "src_app_api_account_organizations_route_get",
-      "src_app_home_signedouthomepage_signedouthomepage",
-      "src_app_page",
-      "src_app_page_authboundary",
-      "src_app_page_landingpage",
-      "src_components_refreshdatabutton",
-      "src_components_refreshdatabutton_refreshdatabutton",
-      "src_components_refreshdatabutton_refreshdatabuttonprops",
-      "src_lib_auth",
-      "src_lib_auth_decrypt",
-      "src_lib_auth_key",
-      "src_lib_auth_session",
-      "src_lib_auth_verifysession",
-      "src_lib_mobile_workspace_backend",
-      "src_lib_mobile_workspace_backend_forwardbackendjson",
-      "src_lib_mobile_workspace_backend_mobileworkspacebackendfetch",
-      "src_lib_mobile_workspace_backend_requiremobileworkspaceadmin",
-      "src_proxy",
-      "src_proxy_allowedorigins",
-      "src_proxy_config",
-      "src_proxy_proxy"
-    ],
     "19": [
-      "drizzle_publicschema",
-      "drizzle_publicschema_organizationentitlements",
-      "drizzle_publicschema_organizations",
-      "drizzle_publicschema_rationale_48",
-      "src_app_api_appliance_path_route",
-      "src_app_api_appliance_path_route_delete",
-      "src_app_api_appliance_path_route_entitlementguard",
-      "src_app_api_appliance_path_route_get",
-      "src_app_api_appliance_path_route_isresponsibilitywrite",
-      "src_app_api_appliance_path_route_isworkflowwrite",
-      "src_app_api_appliance_path_route_patch",
-      "src_app_api_appliance_path_route_post",
-      "src_app_api_appliance_path_route_put",
-      "src_app_api_appliance_path_route_routecontext",
-      "src_app_api_me_route",
-      "src_app_api_me_route_get",
-      "src_lib_entitlements",
-      "src_lib_entitlements_entitlement_keys",
-      "src_lib_entitlements_entitlementflags",
-      "src_lib_entitlements_entitlementkey",
-      "src_lib_entitlements_gettenantentitlements",
-      "src_lib_entitlements_hastenantentitlement",
-      "src_lib_entitlements_iscurrentlyeffective"
+      "drizzle_platformvnextschema_compiledresponsibilitymanifests",
+      "drizzle_platformvnextschema_platformauditevents",
+      "drizzle_platformvnextschema_responsibilityextensions",
+      "src_app_api_platform_responsibility_extensions_id_publish_route",
+      "src_app_api_platform_responsibility_extensions_id_publish_route_context",
+      "src_app_api_platform_responsibility_extensions_id_publish_route_kernelfrommetadata",
+      "src_app_api_platform_responsibility_extensions_id_publish_route_post",
+      "src_app_api_platform_responsibility_extensions_id_publish_route_rationale_107",
+      "src_app_api_platform_responsibility_extensions_id_route",
+      "src_app_api_platform_responsibility_extensions_id_route_context",
+      "src_app_api_platform_responsibility_extensions_id_route_get",
+      "src_app_api_platform_responsibility_extensions_id_route_put",
+      "src_app_api_platform_responsibility_extensions_id_validate_route",
+      "src_app_api_platform_responsibility_extensions_id_validate_route_context",
+      "src_app_api_platform_responsibility_extensions_id_validate_route_post",
+      "src_lib_responsibility_compiler",
+      "src_lib_responsibility_compiler_asarray",
+      "src_lib_responsibility_compiler_asobject",
+      "src_lib_responsibility_compiler_blankresponsibilityextension",
+      "src_lib_responsibility_compiler_compileresponsibilitymanifest",
+      "src_lib_responsibility_compiler_hashresponsibilitymanifest",
+      "src_lib_responsibility_compiler_normalizeresponsibilityextension",
+      "src_lib_responsibility_compiler_numberarray",
+      "src_lib_responsibility_power_catalog_createblankresponsibilityextension",
+      "src_lib_responsibility_validation_haspublishblockingissues"
     ],
     "20": [
+      "src_app_dashboard_page",
+      "src_app_dashboard_page_dashboardpage",
+      "src_components_appliance_client_cx",
+      "src_components_appliance_control_center_client_controlcenterclient",
+      "src_components_appliance_responsibilities_client_canvas",
+      "src_components_appliance_responsibilities_client_paletteblock",
+      "src_components_appliance_responsibility_app_builder",
+      "src_components_appliance_responsibility_app_builder_actioneventrule",
+      "src_components_appliance_responsibility_app_builder_captureicon",
+      "src_components_appliance_responsibility_app_builder_initialstate",
+      "src_components_appliance_responsibility_app_builder_paletteitem",
+      "src_components_appliance_responsibility_app_builder_phonedropzone",
+      "src_components_appliance_responsibility_app_builder_playphone",
+      "src_components_appliance_responsibility_app_builder_playphone_execute",
+      "src_components_appliance_responsibility_app_builder_playphone_rendercapture",
+      "src_components_appliance_responsibility_app_builder_possibilitysubtitle",
+      "src_components_appliance_responsibility_app_builder_possibilitytitle",
+      "src_components_appliance_responsibility_app_builder_referencefilterseditor",
+      "src_components_appliance_responsibility_app_builder_referencefilterseditor_setfilters",
+      "src_components_appliance_responsibility_app_builder_sortablecanvasitem",
+      "src_lib_platform_vnext_types_platformdatasource",
+      "src_lib_responsibility_kernel_catalog_starter_templates",
+      "src_lib_responsibility_kernel_types_kernelcapture"
+    ],
+    "21": [
       "src_components_appliance_responsibility_power_client_basefields",
       "src_components_appliance_responsibility_power_client_humanize",
       "src_components_appliance_responsibility_power_client_issuetone",
@@ -773,39 +835,16 @@
       "src_components_appliance_responsibility_power_client_responsibilitypowerclient_validatedraft",
       "src_components_appliance_responsibility_power_client_roleallowed"
     ],
-    "21": [
-      "src_components_chart_area_reusable",
-      "src_components_chart_area_reusable_chartareainteractive",
-      "src_components_chart_area_reusable_chartareainteractiveprops",
-      "src_components_chart_area_reusable_chartdataitem",
-      "src_components_chart_area_reusable_chartpiereusable",
-      "src_components_chart_area_reusable_chartpiereusableprops",
-      "src_components_chart_area_reusable_pie_colors",
-      "src_components_chart_area_reusable_renderactiveshape",
-      "src_components_ui_chart",
-      "src_components_ui_chart_chartconfig",
-      "src_components_ui_chart_chartcontainer",
-      "src_components_ui_chart_chartcontext",
-      "src_components_ui_chart_chartcontextprops",
-      "src_components_ui_chart_chartlegendcontent",
-      "src_components_ui_chart_chartstyle",
-      "src_components_ui_chart_charttooltipcontent",
-      "src_components_ui_chart_getpayloadconfigfrompayload",
-      "src_components_ui_chart_themes",
-      "src_components_ui_chart_usechart",
-      "src_components_ui_sidebar_sidebarprovider",
-      "src_hooks_use_mobile",
-      "src_hooks_use_mobile_useismobile"
-    ],
     "22": [
       "src_lib_platform_vnext_types",
+      "src_lib_platform_vnext_types_compiledresponsibilitymanifest",
       "src_lib_platform_vnext_types_conditionoperand",
+      "src_lib_platform_vnext_types_evidencebundle",
       "src_lib_platform_vnext_types_fieldbehaviorpolicy",
       "src_lib_platform_vnext_types_platformdatasourcetype",
       "src_lib_platform_vnext_types_platformentityfield",
       "src_lib_platform_vnext_types_platformentityrecord",
       "src_lib_platform_vnext_types_platformentitytype",
-      "src_lib_platform_vnext_types_referencefilter",
       "src_lib_platform_vnext_types_referencefiltervalue",
       "src_lib_platform_vnext_types_repeatablesection",
       "src_lib_platform_vnext_types_responsibilityflow",
@@ -818,34 +857,10 @@
       "src_lib_platform_vnext_types_responsibilityrulephase",
       "src_lib_platform_vnext_types_responsibilityruntimepolicy",
       "src_lib_platform_vnext_types_responsibilityschedule",
-      "src_lib_platform_vnext_types_sessiontrackingconfig",
-      "src_lib_platform_vnext_types_smartblock"
+      "src_lib_platform_vnext_types_sessiontrackingconfig"
     ],
     "23": [
-      "src_app_dashboard_workforce_employees_page",
-      "src_app_dashboard_workforce_employees_page_employeespage",
-      "src_app_dashboard_workspace_approvals_page",
-      "src_app_dashboard_workspace_approvals_page_approvalspage",
-      "src_components_appliance_approvals_client_approvalsclient",
-      "src_components_appliance_approvals_client_approvalsclient_decide",
-      "src_components_appliance_approvals_client_approvalsclient_employeename",
-      "src_components_appliance_client_apijson",
-      "src_components_appliance_data_sources_client_datasourcesclient",
-      "src_components_appliance_data_sources_client_datasourcesclient_connect",
-      "src_components_appliance_data_sources_client_datasourcesclient_remove",
-      "src_components_appliance_employees_client_employeesclient",
-      "src_components_appliance_employees_client_employeesclient_createemployee",
-      "src_components_appliance_employees_client_employeesclient_resetpassword",
-      "src_components_appliance_employees_client_employeesclient_saveroles",
-      "src_components_appliance_employees_client_employeesclient_setstatus",
-      "src_components_appliance_employees_client_employeesclient_updateprofile",
-      "src_components_appliance_roles_vnext_client_rolesvnextclient",
-      "src_components_appliance_roles_vnext_client_rolesvnextclient_create",
-      "src_components_appliance_roles_vnext_client_rolesvnextclient_remove",
-      "src_components_appliance_roles_vnext_client_rolesvnextclient_rename"
-    ],
-    "24": [
-      "src_lib_appliance_types_platformruntime",
+      "src_components_site_header",
       "src_lib_appliance_types_responsibilitydefinition",
       "src_lib_appliance_types_workflowruntime",
       "src_lib_workspace_manifest",
@@ -862,74 +877,55 @@
       "src_lib_workspace_types_workspaceattention",
       "src_lib_workspace_types_workspaceflow",
       "src_lib_workspace_types_workspaceflowstep",
+      "src_lib_workspace_types_workspacemanifest",
       "src_lib_workspace_types_workspacemetric",
       "src_lib_workspace_types_workspacenavgroup",
       "src_lib_workspace_types_workspacenavitem"
     ],
+    "24": [
+      "src_app_dashboard_workspace_workflows_page",
+      "src_app_dashboard_workspace_workflows_page_workflowspage",
+      "src_components_appliance_workflows_client_blankaction",
+      "src_components_appliance_workflows_client_blankapproval",
+      "src_components_appliance_workflows_client_builderstepfromexisting",
+      "src_components_appliance_workflows_client_enabledoperations",
+      "src_components_appliance_workflows_client_latestversion",
+      "src_components_appliance_workflows_client_localid",
+      "src_components_appliance_workflows_client_objectvalue",
+      "src_components_appliance_workflows_client_payloadsteps",
+      "src_components_appliance_workflows_client_titleforaction",
+      "src_components_appliance_workflows_client_workflowsclient",
+      "src_components_appliance_workflows_client_workflowsclient_actionoperations",
+      "src_components_appliance_workflows_client_workflowsclient_movestep",
+      "src_components_appliance_workflows_client_workflowsclient_opencreate",
+      "src_components_appliance_workflows_client_workflowsclient_openversion",
+      "src_components_appliance_workflows_client_workflowsclient_saveworkflow",
+      "src_components_appliance_workflows_client_workflowsclient_toggleworkflow",
+      "src_components_appliance_workflows_client_workflowsclient_updatestep",
+      "src_components_appliance_workflows_client_workflowsclient_validatebuilder"
+    ],
     "25": [
-      "src_components_appliance_responsibility_event_editor",
-      "src_components_appliance_responsibility_event_editor_conditioneditor",
-      "src_components_appliance_responsibility_event_editor_effecteditor",
-      "src_components_appliance_responsibility_event_editor_event_kinds",
-      "src_components_appliance_responsibility_event_editor_humanize",
-      "src_components_appliance_responsibility_event_editor_makeref",
-      "src_components_appliance_responsibility_event_editor_randomkey",
-      "src_components_appliance_responsibility_event_editor_refdisplay",
-      "src_components_appliance_responsibility_event_editor_refkind",
-      "src_components_appliance_responsibility_event_editor_responsibilityeventeditor",
-      "src_components_appliance_responsibility_event_editor_responsibilityeventeditor_addrule",
-      "src_components_appliance_responsibility_event_editor_responsibilityeventeditor_patchrule",
-      "src_components_appliance_responsibility_event_editor_responsibilityeventeditor_removerule",
-      "src_lib_responsibility_kernel_catalog_effect_catalog",
-      "src_lib_responsibility_kernel_types_kernelcondition",
-      "src_lib_responsibility_kernel_types_kerneleffectkind",
-      "src_lib_responsibility_kernel_types_kerneleventkind",
-      "src_lib_responsibility_kernel_types_kernelrule",
-      "src_lib_responsibility_kernel_types_kernelvalueref"
+      "src_components_appliance_responsibility_app_builder_actioninspector",
+      "src_components_appliance_responsibility_app_builder_actioninspector_patchaction",
+      "src_components_appliance_responsibility_app_builder_actioninspector_patchconfig",
+      "src_components_appliance_responsibility_app_builder_captureinspector",
+      "src_components_appliance_responsibility_app_builder_captureinspector_patch",
+      "src_components_appliance_responsibility_app_builder_clone",
+      "src_components_appliance_responsibility_app_builder_configstring",
+      "src_components_appliance_responsibility_app_builder_ensureactionbehavior",
+      "src_components_appliance_responsibility_app_builder_humanize",
+      "src_components_appliance_responsibility_app_builder_normalizekey",
+      "src_components_appliance_responsibility_app_builder_randomkey",
+      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder",
+      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder_addaction",
+      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder_addcapture",
+      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder_ondragend",
+      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder_ondragstart",
+      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder_removeselected",
+      "src_components_appliance_responsibility_app_builder_responsibilityappbuilder_setlayout",
+      "src_components_appliance_responsibility_app_builder_updatepossibility"
     ],
     "26": [
-      "src_components_appliance_responsibility_world_editor",
-      "src_lib_responsibility_kernel_catalog_context_catalog",
-      "src_lib_responsibility_kernel_types",
-      "src_lib_responsibility_kernel_types_kernelaction",
-      "src_lib_responsibility_kernel_types_kernelactionkind",
-      "src_lib_responsibility_kernel_types_kernelactor",
-      "src_lib_responsibility_kernel_types_kernelactorresolver",
-      "src_lib_responsibility_kernel_types_kernelcapture",
-      "src_lib_responsibility_kernel_types_kernelcapturekind",
-      "src_lib_responsibility_kernel_types_kernelcontext",
-      "src_lib_responsibility_kernel_types_kernelcontextsource",
-      "src_lib_responsibility_kernel_types_kernelevent",
-      "src_lib_responsibility_kernel_types_kernelid",
-      "src_lib_responsibility_kernel_types_kernelobject",
-      "src_lib_responsibility_kernel_types_kernelobjectkind",
-      "src_lib_responsibility_kernel_types_kerneloperator",
-      "src_lib_responsibility_kernel_types_kerneloutputkind",
-      "src_lib_responsibility_kernel_types_kernelstate",
-      "src_lib_responsibility_kernel_types_kerneluidefinition"
-    ],
-    "27": [
-      "src_lib_platform_vnext_types_platformdatasource",
-      "src_lib_platform_vnext_types_responsibilityoutputrenderer",
-      "src_lib_platform_vnext_types_responsibilityvalidationissue",
-      "src_lib_platform_vnext_types_smartblockkind",
-      "src_lib_responsibility_power_catalog",
-      "src_lib_responsibility_power_catalog_built_in_data_sources",
-      "src_lib_responsibility_power_catalog_built_in_source_keys",
-      "src_lib_responsibility_power_catalog_output_renderers",
-      "src_lib_responsibility_power_catalog_responsibility_modes",
-      "src_lib_responsibility_power_catalog_smart_block_catalog",
-      "src_lib_responsibility_power_catalog_supported_output_renderers",
-      "src_lib_responsibility_power_catalog_supported_smart_blocks",
-      "src_lib_responsibility_validation",
-      "src_lib_responsibility_validation_asarray",
-      "src_lib_responsibility_validation_asobject",
-      "src_lib_responsibility_validation_baseactionkeys",
-      "src_lib_responsibility_validation_basefieldkeys",
-      "src_lib_responsibility_validation_push",
-      "src_lib_responsibility_validation_validateresponsibilitydefinition"
-    ],
-    "28": [
       "components",
       "components_aliases",
       "components_aliases_components",
@@ -949,7 +945,7 @@
       "components_tailwind_prefix",
       "components_tsx"
     ],
-    "29": [
+    "27": [
       "src_components_appliance_responsibility_power_client",
       "src_components_appliance_responsibility_power_client_extensionresponse",
       "src_components_appliance_responsibility_power_client_runtimeresponse",
@@ -959,34 +955,36 @@
       "src_components_appliance_responsibility_power_client_versionresponse",
       "src_components_appliance_responsibility_vnext_client",
       "src_lib_platform_vnext_types_computedfield",
-      "src_lib_platform_vnext_types_evidencebundle",
       "src_lib_platform_vnext_types_fieldmemorypolicy",
       "src_lib_platform_vnext_types_genericcondition",
       "src_lib_platform_vnext_types_querybinding",
       "src_lib_platform_vnext_types_referencebinding",
+      "src_lib_platform_vnext_types_referencefilter",
       "src_lib_platform_vnext_types_responsibilityaccess",
       "src_lib_platform_vnext_types_responsibilityflowstep",
-      "src_lib_platform_vnext_types_responsibilityruledefinition"
+      "src_lib_platform_vnext_types_responsibilityruledefinition",
+      "src_lib_platform_vnext_types_smartblock"
     ],
-    "30": [
-      "src_app_api_account_portfolio_route",
-      "src_app_api_account_portfolio_route_accountorganization",
-      "src_app_api_account_portfolio_route_companyportfolio",
-      "src_app_api_account_portfolio_route_get",
-      "src_app_api_account_portfolio_route_loadcompany",
-      "src_app_api_account_portfolio_route_mapwithlimit",
-      "src_app_api_account_portfolio_route_mapwithlimit_worker",
-      "src_app_api_account_portfolio_route_personpreview",
-      "src_app_api_account_portfolio_route_responsibilitypreview",
-      "src_app_api_account_portfolio_route_workflowpreview",
-      "src_lib_account_platform",
-      "src_lib_account_platform_assertcontrolplane",
-      "src_lib_account_platform_claimcurrentorganizationsforemail",
-      "src_lib_account_platform_ensureaccountsubstrate",
-      "src_lib_account_platform_listorganizationsforaccountemail",
-      "src_lib_account_platform_resolveorcreateaccountforemail"
+    "28": [
+      "src_components_appliance_responsibility_output_editor",
+      "src_components_appliance_responsibility_output_editor_randomkey",
+      "src_components_appliance_responsibility_output_editor_responsibilityoutputeditor",
+      "src_components_appliance_responsibility_output_editor_responsibilityoutputeditor_addoutput",
+      "src_components_appliance_responsibility_output_editor_responsibilityoutputeditor_patch",
+      "src_lib_responsibility_kernel_catalog",
+      "src_lib_responsibility_kernel_catalog_action_catalog",
+      "src_lib_responsibility_kernel_catalog_addactionrule",
+      "src_lib_responsibility_kernel_catalog_attendancekerneltemplate",
+      "src_lib_responsibility_kernel_catalog_blankresponsibilitykernel",
+      "src_lib_responsibility_kernel_catalog_capture_catalog",
+      "src_lib_responsibility_kernel_catalog_key",
+      "src_lib_responsibility_kernel_catalog_leavekerneltemplate",
+      "src_lib_responsibility_kernel_catalog_output_catalog",
+      "src_lib_responsibility_kernel_catalog_simpleformtemplate",
+      "src_lib_responsibility_kernel_types_kerneloutput",
+      "src_lib_responsibility_kernel_types_kerneloutputkind"
     ],
-    "31": [
+    "29": [
       "src_components_reusable_dealer_locations",
       "src_components_reusable_dealer_locations_locations",
       "src_components_reusable_dealer_locations_usedealerlocations",
@@ -1004,16 +1002,16 @@
       "src_lib_reusable_constants_units",
       "src_lib_reusable_constants_zone"
     ],
-    "32": [
-      "clsx",
+    "30": [
       "cmdk",
       "jszip",
       "next",
+      "next_bundle_analyzer",
       "package_dependencies",
-      "package_dependencies_clsx",
       "package_dependencies_cmdk",
       "package_dependencies_jszip",
       "package_dependencies_next",
+      "package_dependencies_next_bundle_analyzer",
       "package_dependencies_radix_ui_react_avatar",
       "package_dependencies_radix_ui_react_switch",
       "package_dependencies_react_dom",
@@ -1021,40 +1019,23 @@
       "radix_ui_react_switch",
       "react_dom"
     ],
-    "33": [
-      "drizzle_index",
-      "drizzle_workflowschema",
-      "drizzle_workflowschema_actiondefinitions",
-      "drizzle_workflowschema_approvalpolicies",
-      "drizzle_workflowschema_approvalpolicyactors",
-      "drizzle_workflowschema_workflowdefinitions",
-      "drizzle_workflowschema_workflowinstances",
-      "drizzle_workflowschema_workflowstepdependencies",
-      "drizzle_workflowschema_workflowstepinstances",
-      "drizzle_workflowschema_workflowsteps",
-      "drizzle_workflowschema_workflowversions",
-      "src_app_api_platform_roles_id_route",
-      "src_app_api_platform_roles_id_route_context",
-      "src_app_api_platform_roles_id_route_delete",
-      "src_app_api_platform_roles_id_route_patch"
+    "31": [
+      "src_app_api_appliance_path_route_proxy",
+      "src_app_api_platform_responsibility_templates_route",
+      "src_app_api_platform_responsibility_templates_route_normalizekey",
+      "src_app_api_platform_responsibility_templates_route_post",
+      "src_app_api_platform_responsibility_templates_route_uniqueresponsibilitykey",
+      "src_app_api_workspace_manifest_route",
+      "src_app_api_workspace_manifest_route_get",
+      "src_app_api_workspace_manifest_route_objectvalue",
+      "src_lib_appliance_backend_appliancebackendfetch",
+      "src_lib_appliance_backend_forwardbackendjson",
+      "src_lib_appliance_backend_requireappliancesession",
+      "src_lib_appliance_types_platformruntime",
+      "src_lib_entitlements_hastenantentitlement",
+      "src_lib_responsibility_power_templates_findresponsibilitytemplate"
     ],
-    "34": [
-      "src_app_api_dashboardpagesapi_users_and_team_team_overview_editmapping_route",
-      "src_app_api_dashboardpagesapi_users_and_team_team_overview_editmapping_route_editmappingschema",
-      "src_app_api_dashboardpagesapi_users_and_team_team_overview_editmapping_route_post",
-      "src_app_api_dashboardpagesapi_users_and_team_team_overview_editrole_route",
-      "src_app_api_dashboardpagesapi_users_and_team_team_overview_editrole_route_editroleschema",
-      "src_app_api_dashboardpagesapi_users_and_team_team_overview_editrole_route_post",
-      "src_lib_rolehierarchy",
-      "src_lib_rolehierarchy_canassignrole",
-      "src_lib_rolehierarchy_getroleweight",
-      "src_lib_rolehierarchy_getvisibleroles",
-      "src_lib_rolehierarchy_issuperuser",
-      "src_lib_rolehierarchy_org_role_weights",
-      "src_lib_rolehierarchy_sortroleshighesttolowest",
-      "src_lib_rolehierarchy_super_user_roles"
-    ],
-    "35": [
+    "32": [
       "drizzle_applianceschema",
       "drizzle_applianceschema_adminownershiprules",
       "drizzle_applianceschema_applianceauditlog",
@@ -1069,7 +1050,7 @@
       "drizzle_applianceschema_workitems",
       "drizzle_applianceschema_workspacesettings"
     ],
-    "36": [
+    "33": [
       "src_lib_download_utils",
       "src_lib_download_utils_appendrows",
       "src_lib_download_utils_autosizecolumns",
@@ -1084,7 +1065,21 @@
       "src_lib_download_utils_styleheaderandfilter",
       "src_lib_download_utils_tocsv"
     ],
-    "37": [
+    "34": [
+      "src_app_dashboard_dashboardshell",
+      "src_app_dashboard_dashboardshell_dashboardshell",
+      "src_app_dashboard_dashboardshell_dashboardshellprops",
+      "src_app_dashboard_dashboardshell_user",
+      "src_app_dashboard_layout",
+      "src_app_dashboard_layout_accessblocked",
+      "src_app_dashboard_layout_authenticatedlayout",
+      "src_app_dashboard_layout_dashboardlayout",
+      "src_app_dashboard_layout_metadata",
+      "src_components_app_sidebar_appsidebar",
+      "src_components_app_sidebar_appsidebar_load",
+      "src_components_ui_sidebar_sidebarinset"
+    ],
+    "35": [
       "src_app_dashboard_workspace_responsibilities_page",
       "src_app_dashboard_workspace_responsibilities_page_responsibilitiespage",
       "src_components_appliance_entities_client_entitiesclient",
@@ -1098,34 +1093,86 @@
       "src_components_appliance_responsibility_platform_studio_tabkey",
       "src_components_appliance_responsibility_platform_studio_tabs"
     ],
-    "38": [
-      "src_components_appliance_responsibility_kernel_client_askernel",
-      "src_components_appliance_responsibility_kernel_client_responsibilitykernelclient",
-      "src_components_appliance_responsibility_kernel_client_responsibilitykernelclient_createresponsibility",
-      "src_components_appliance_responsibility_kernel_client_responsibilitykernelclient_publish",
-      "src_components_appliance_responsibility_kernel_client_responsibilitykernelclient_savedraft",
-      "src_components_appliance_responsibility_kernel_client_withkernel",
-      "src_lib_responsibility_kernel_types_kerneleffect",
-      "src_lib_responsibility_kernel_types_responsibilitykernel",
-      "src_lib_responsibility_kernel_validation",
-      "src_lib_responsibility_kernel_validation_effectissue",
-      "src_lib_responsibility_kernel_validation_kernelvalidationissue",
-      "src_lib_responsibility_kernel_validation_validateresponsibilitykernel"
+    "36": [
+      "src_lib_platform_vnext_types_responsibilitybuildermode",
+      "src_lib_platform_vnext_types_responsibilityextensionconfig",
+      "src_lib_platform_vnext_types_responsibilityoutputrenderer",
+      "src_lib_platform_vnext_types_smartblockkind",
+      "src_lib_responsibility_power_catalog",
+      "src_lib_responsibility_power_catalog_built_in_data_sources",
+      "src_lib_responsibility_power_catalog_output_renderers",
+      "src_lib_responsibility_power_catalog_responsibility_modes",
+      "src_lib_responsibility_power_catalog_smart_block_catalog",
+      "src_lib_responsibility_power_templates",
+      "src_lib_responsibility_power_templates_responsibility_templates",
+      "src_lib_responsibility_power_templates_responsibilitytemplatedefinition"
     ],
-    "39": [
+    "37": [
       "drizzle_kit",
+      "eslint_eslintrc",
       "package_devdependencies",
       "package_devdependencies_drizzle_kit",
-      "package_devdependencies_tailwindcss",
+      "package_devdependencies_eslint_eslintrc",
       "package_devdependencies_tailwindcss_postcss",
       "package_devdependencies_types_pg",
       "package_devdependencies_typescript",
-      "tailwindcss",
       "tailwindcss_postcss",
       "types_pg",
       "typescript"
     ],
+    "38": [
+      "drizzle_publicschema",
+      "drizzle_publicschema_organizationentitlements",
+      "drizzle_publicschema_organizations",
+      "drizzle_publicschema_rationale_48",
+      "src_app_api_me_route",
+      "src_app_api_me_route_get",
+      "src_lib_entitlements",
+      "src_lib_entitlements_entitlementflags",
+      "src_lib_entitlements_entitlementkey",
+      "src_lib_entitlements_gettenantentitlements",
+      "src_lib_entitlements_iscurrentlyeffective"
+    ],
+    "39": [
+      "src_app_api_appliance_path_route",
+      "src_app_api_appliance_path_route_delete",
+      "src_app_api_appliance_path_route_entitlementguard",
+      "src_app_api_appliance_path_route_get",
+      "src_app_api_appliance_path_route_isresponsibilitywrite",
+      "src_app_api_appliance_path_route_isworkflowwrite",
+      "src_app_api_appliance_path_route_patch",
+      "src_app_api_appliance_path_route_post",
+      "src_app_api_appliance_path_route_put",
+      "src_app_api_appliance_path_route_routecontext",
+      "src_lib_entitlements_entitlement_keys"
+    ],
     "40": [
+      "src_components_ui_drawer",
+      "src_components_ui_drawer_drawer",
+      "src_components_ui_drawer_drawerclose",
+      "src_components_ui_drawer_drawercontent",
+      "src_components_ui_drawer_drawerdescription",
+      "src_components_ui_drawer_drawerfooter",
+      "src_components_ui_drawer_drawerheader",
+      "src_components_ui_drawer_draweroverlay",
+      "src_components_ui_drawer_drawerportal",
+      "src_components_ui_drawer_drawertitle",
+      "src_components_ui_drawer_drawertrigger"
+    ],
+    "41": [
+      "src_lib_platform_vnext_types_responsibilityvalidationissue",
+      "src_lib_responsibility_power_catalog_built_in_source_keys",
+      "src_lib_responsibility_power_catalog_supported_output_renderers",
+      "src_lib_responsibility_power_catalog_supported_smart_blocks",
+      "src_lib_responsibility_validation",
+      "src_lib_responsibility_validation_asarray",
+      "src_lib_responsibility_validation_asobject",
+      "src_lib_responsibility_validation_baseactionkeys",
+      "src_lib_responsibility_validation_basefieldkeys",
+      "src_lib_responsibility_validation_push",
+      "src_lib_responsibility_validation_validateresponsibilitydefinition"
+    ],
+    "42": [
       "src_app_api_auth_signup_route",
       "src_app_api_auth_signup_route_post",
       "src_lib_tenant_provisioner",
@@ -1137,65 +1184,17 @@
       "src_lib_tenant_provisioner_runsqlfile",
       "src_lib_tenant_provisioner_tenant_platform_sql"
     ],
-    "41": [
-      "src_app_dashboard_workforce_organization_page",
-      "src_app_dashboard_workforce_organization_page_organizationpage",
-      "src_components_appliance_organization_client",
-      "src_components_appliance_organization_client_companycard",
-      "src_components_appliance_organization_client_empty_totals",
-      "src_components_appliance_organization_client_organizationclient",
-      "src_components_appliance_organization_client_organizationclient_switchcompany",
-      "src_components_appliance_organization_client_portfoliocompany",
-      "src_components_appliance_organization_client_portfolioresponse",
-      "src_components_appliance_primitives_stat"
-    ],
-    "42": [
-      "src_components_appliance_responsibility_world_editor_actorresolverneedstarget",
-      "src_components_appliance_responsibility_world_editor_currentuserresolver",
-      "src_components_appliance_responsibility_world_editor_randomkey",
-      "src_components_appliance_responsibility_world_editor_resolvertargetlabel",
-      "src_components_appliance_responsibility_world_editor_responsibilityworldeditor",
-      "src_components_appliance_responsibility_world_editor_responsibilityworldeditor_patchactor",
-      "src_components_appliance_responsibility_world_editor_responsibilityworldeditor_patchcontext",
-      "src_components_appliance_responsibility_world_editor_responsibilityworldeditor_patchobject",
-      "src_components_appliance_responsibility_world_editor_responsibilityworldeditor_patchstate",
-      "src_components_appliance_responsibility_world_editor_responsibilityworldeditor_updateworld"
-    ],
     "43": [
-      "src_lib_responsibility_kernel_catalog",
-      "src_lib_responsibility_kernel_catalog_action_catalog",
-      "src_lib_responsibility_kernel_catalog_addactionrule",
-      "src_lib_responsibility_kernel_catalog_attendancekerneltemplate",
-      "src_lib_responsibility_kernel_catalog_blankresponsibilitykernel",
-      "src_lib_responsibility_kernel_catalog_capture_catalog",
-      "src_lib_responsibility_kernel_catalog_key",
-      "src_lib_responsibility_kernel_catalog_leavekerneltemplate",
-      "src_lib_responsibility_kernel_catalog_simpleformtemplate",
-      "src_lib_responsibility_kernel_catalog_starter_templates"
-    ],
-    "44": [
-      "src_lib_responsibility_kernel_compiler",
-      "src_lib_responsibility_kernel_compiler_actiontobaseaction",
-      "src_lib_responsibility_kernel_compiler_capturetofield",
-      "src_lib_responsibility_kernel_compiler_capturetype",
-      "src_lib_responsibility_kernel_compiler_compilekerneltobasedefinition",
-      "src_lib_responsibility_kernel_compiler_hydratekernelfrombasedefinition",
-      "src_lib_responsibility_kernel_compiler_normalizekey",
-      "src_lib_responsibility_kernel_compiler_requiredstate",
-      "src_lib_responsibility_kernel_compiler_resultingstate",
-      "src_lib_responsibility_kernel_compiler_ruleforaction"
-    ],
-    "45": [
       "src_app_dashboard_usersandteam_page",
       "src_app_dashboard_usersandteam_page_usersandteampage",
       "src_app_dashboard_usersandteam_tabsloader",
       "src_app_dashboard_usersandteam_tabsloader_legacytabsprops",
       "src_app_dashboard_usersandteam_tabsloader_usersandteamtabs",
       "src_components_appliance_dashboard_access_client_dashboardaccessclient",
-      "src_components_appliance_dashboard_access_client_dashboardaccessclient_createadmin",
+      "src_components_appliance_dashboard_access_client_dashboardaccessclient_copycredentials",
       "src_components_appliance_dashboard_access_client_dashboardaccessclient_toggleaccess"
     ],
-    "46": [
+    "44": [
       "package",
       "package_name",
       "package_overrides",
@@ -1204,7 +1203,7 @@
       "package_private",
       "package_version"
     ],
-    "47": [
+    "45": [
       "src_components_ui_toggle",
       "src_components_ui_toggle_group",
       "src_components_ui_toggle_group_togglegroup",
@@ -1213,7 +1212,7 @@
       "src_components_ui_toggle_toggle",
       "src_components_ui_toggle_togglevariants"
     ],
-    "48": [
+    "46": [
       "package_scripts",
       "package_scripts_build",
       "package_scripts_check",
@@ -1221,438 +1220,444 @@
       "package_scripts_lint",
       "package_scripts_start"
     ],
-    "49": [
-      "src_components_appliance_responsibility_kernel_client_humanize",
-      "src_components_appliance_responsibility_kernel_client_normalizekey",
-      "src_components_appliance_responsibility_kernel_client_possibilitieseditor",
-      "src_components_appliance_responsibility_kernel_client_possibilitieseditor_addaction",
-      "src_components_appliance_responsibility_kernel_client_possibilitieseditor_addcapture",
-      "src_components_appliance_responsibility_kernel_client_randomkey"
+    "47": [
+      "src_components_site_header_siteheader",
+      "src_components_site_header_siteheader_go",
+      "src_components_site_header_siteheader_load",
+      "src_components_site_header_siteheader_onkeydown",
+      "src_components_site_header_siteheader_onpointerdown",
+      "src_components_site_header_titleforpath"
     ],
-    "50": [
+    "48": [
       "eslint_config",
       "eslint_config_compat",
       "eslint_config_dirname",
       "eslint_config_eslintconfig",
       "eslint_config_filename"
     ],
-    "51": [
+    "49": [
       "src_app_layout",
       "src_app_layout_geistmono",
       "src_app_layout_geistsans",
       "src_app_layout_metadata",
       "src_app_layout_rootlayout"
     ],
-    "52": [
+    "50": [
       "src_components_account_switcher",
       "src_components_account_switcher_accountswitcher",
       "src_components_account_switcher_accountswitcher_load",
       "src_components_account_switcher_accountswitcher_switchto",
       "src_components_account_switcher_organization"
     ],
-    "53": [
-      "src_lib_platform_vnext_types_responsibilitybuildermode",
-      "src_lib_platform_vnext_types_responsibilityextensionconfig",
-      "src_lib_responsibility_power_templates",
-      "src_lib_responsibility_power_templates_responsibility_templates",
-      "src_lib_responsibility_power_templates_responsibilitytemplatedefinition"
+    "51": [
+      "src_components_appliance_responsibility_event_editor_randomkey",
+      "src_components_appliance_responsibility_event_editor_responsibilityeventeditor",
+      "src_components_appliance_responsibility_event_editor_responsibilityeventeditor_addrule",
+      "src_components_appliance_responsibility_event_editor_responsibilityeventeditor_patchrule",
+      "src_components_appliance_responsibility_event_editor_responsibilityeventeditor_removerule"
     ],
-    "54": [
+    "52": [
       "cleanup_legacy_cms",
       "cleanup_legacy_cms_main",
       "cleanup_legacy_cms_remove_path",
       "path"
     ],
-    "55": [
+    "53": [
+      "src_app_dashboard_workforce_organization_page",
+      "src_app_dashboard_workforce_organization_page_organizationpage",
+      "src_components_appliance_organization_client_organizationclient",
+      "src_components_appliance_organization_client_organizationclient_switchcompany"
+    ],
+    "54": [
       "src_components_generic_json_table",
       "src_components_generic_json_table_genericjsontable",
       "src_components_generic_json_table_genericjsontableprops"
     ],
-    "56": [
-      "baseline_browser_mapping",
-      "package_devdependencies_baseline_browser_mapping"
-    ],
-    "57": [
+    "55": [
       "bcryptjs",
       "package_dependencies_bcryptjs"
     ],
-    "58": [
+    "56": [
       "class_variance_authority",
       "package_dependencies_class_variance_authority"
     ],
-    "59": [
+    "57": [
+      "clsx",
+      "package_dependencies_clsx"
+    ],
+    "58": [
       "corbe30_fortune_excel",
       "package_dependencies_corbe30_fortune_excel"
     ],
-    "60": [
-      "cors",
-      "package_dependencies_cors"
-    ],
-    "61": [
+    "59": [
       "csv_stringify",
       "package_dependencies_csv_stringify"
     ],
-    "62": [
+    "60": [
       "date_fns",
       "package_dependencies_date_fns"
     ],
-    "63": [
+    "61": [
       "dnd_kit_core",
       "package_dependencies_dnd_kit_core"
     ],
-    "64": [
+    "62": [
       "dnd_kit_modifiers",
       "package_dependencies_dnd_kit_modifiers"
     ],
-    "65": [
+    "63": [
       "dnd_kit_sortable",
       "package_dependencies_dnd_kit_sortable"
     ],
-    "66": [
+    "64": [
       "dnd_kit_utilities",
       "package_dependencies_dnd_kit_utilities"
     ],
-    "67": [
+    "65": [
       "dotenv",
       "package_dependencies_dotenv"
     ],
-    "68": [
+    "66": [
       "drizzle_orm",
       "package_dependencies_drizzle_orm"
     ],
-    "69": [
+    "67": [
       "drizzle_zod",
       "package_dependencies_drizzle_zod"
     ],
-    "70": [
+    "68": [
       "eslint",
       "package_devdependencies_eslint"
     ],
-    "71": [
+    "69": [
       "eslint_config_next",
       "package_devdependencies_eslint_config_next"
     ],
-    "72": [
-      "eslint_eslintrc",
-      "package_devdependencies_eslint_eslintrc"
+    "70": [
+      "baseline_browser_mapping",
+      "package_devdependencies_baseline_browser_mapping"
     ],
-    "73": [
+    "71": [
       "exceljs",
       "package_dependencies_exceljs"
     ],
-    "74": [
+    "72": [
       "fortune_sheet_react",
       "package_dependencies_fortune_sheet_react"
     ],
-    "75": [
+    "73": [
       "jose",
       "package_dependencies_jose"
     ],
-    "76": [
+    "74": [
       "json2csv",
       "package_dependencies_json2csv"
     ],
-    "77": [
+    "75": [
       "jsonwebtoken",
       "package_dependencies_jsonwebtoken"
     ],
-    "78": [
+    "76": [
       "leaflet",
       "package_dependencies_leaflet"
     ],
-    "79": [
+    "77": [
       "lucide_react",
       "package_devdependencies_lucide_react"
     ],
-    "80": [
+    "78": [
       "neondatabase_serverless",
       "package_dependencies_neondatabase_serverless"
     ],
-    "81": [
+    "79": [
       "next_auth",
       "package_dependencies_next_auth"
     ],
-    "82": [
-      "next_bundle_analyzer",
-      "package_dependencies_next_bundle_analyzer"
+    "80": [
+      "cors",
+      "package_dependencies_cors"
     ],
-    "83": [
+    "81": [
       "next_config",
       "next_config_nextconfig"
     ],
-    "84": [
+    "82": [
       "next_themes",
       "package_dependencies_next_themes"
     ],
-    "85": [
+    "83": [
       "nodemailer",
       "package_dependencies_nodemailer"
     ],
-    "86": [
+    "84": [
       "package_dependencies_pg",
       "pg"
     ],
-    "87": [
+    "85": [
       "package_dependencies_radix_ui_react_alert_dialog",
       "radix_ui_react_alert_dialog"
     ],
-    "88": [
+    "86": [
       "package_dependencies_radix_ui_react_checkbox",
       "radix_ui_react_checkbox"
     ],
-    "89": [
+    "87": [
       "package_dependencies_radix_ui_react_dialog",
       "radix_ui_react_dialog"
     ],
-    "90": [
+    "88": [
       "package_dependencies_radix_ui_react_dropdown_menu",
       "radix_ui_react_dropdown_menu"
     ],
-    "91": [
+    "89": [
       "package_dependencies_radix_ui_react_label",
       "radix_ui_react_label"
     ],
-    "92": [
+    "90": [
       "package_dependencies_radix_ui_react_popover",
       "radix_ui_react_popover"
     ],
-    "93": [
+    "91": [
       "package_dependencies_radix_ui_react_progress",
       "radix_ui_react_progress"
     ],
-    "94": [
+    "92": [
       "package_dependencies_radix_ui_react_radio_group",
       "radix_ui_react_radio_group"
     ],
-    "95": [
+    "93": [
       "package_dependencies_radix_ui_react_scroll_area",
       "radix_ui_react_scroll_area"
     ],
-    "96": [
+    "94": [
       "package_dependencies_radix_ui_react_select",
       "radix_ui_react_select"
     ],
-    "97": [
+    "95": [
       "package_dependencies_radix_ui_react_separator",
       "radix_ui_react_separator"
     ],
-    "98": [
+    "96": [
       "package_dependencies_radix_ui_react_slot",
       "radix_ui_react_slot"
     ],
-    "99": [
+    "97": [
       "package_dependencies_radix_ui_react_tabs",
       "radix_ui_react_tabs"
     ],
-    "100": [
+    "98": [
       "package_dependencies_radix_ui_react_toggle",
       "radix_ui_react_toggle"
     ],
-    "101": [
+    "99": [
       "package_dependencies_radix_ui_react_toggle_group",
       "radix_ui_react_toggle_group"
     ],
-    "102": [
+    "100": [
       "package_dependencies_radix_ui_react_tooltip",
       "radix_ui_react_tooltip"
     ],
-    "103": [
+    "101": [
       "package_dependencies_react",
       "react"
     ],
-    "104": [
+    "102": [
       "package_dependencies_react_day_picker",
       "react_day_picker"
     ],
-    "105": [
+    "103": [
       "package_dependencies_react_email_components",
       "react_email_components"
     ],
-    "106": [
+    "104": [
       "package_dependencies_react_leaflet",
       "react_leaflet"
     ],
-    "107": [
+    "105": [
       "package_dependencies_resend",
       "resend"
     ],
-    "108": [
+    "106": [
       "package_dependencies_socket_io",
       "socket_io"
     ],
-    "109": [
+    "107": [
       "package_dependencies_socket_io_client",
       "socket_io_client"
     ],
-    "110": [
+    "108": [
       "package_dependencies_sonner",
       "sonner"
     ],
-    "111": [
+    "109": [
       "package_dependencies_tabler_icons_react",
       "tabler_icons_react"
     ],
-    "112": [
+    "110": [
       "package_dependencies_tailwind_merge",
       "tailwind_merge"
     ],
-    "113": [
+    "111": [
       "package_dependencies_tanstack_react_table",
       "tanstack_react_table"
     ],
-    "114": [
+    "112": [
       "package_dependencies_uuid",
       "uuid"
     ],
-    "115": [
+    "113": [
       "package_dependencies_vaul",
       "vaul"
     ],
-    "116": [
+    "114": [
       "package_dependencies_ws",
       "ws"
     ],
-    "117": [
+    "115": [
       "package_dependencies_zod",
       "zod"
     ],
-    "118": [
+    "116": [
       "package_devdependencies_recharts",
       "recharts"
     ],
-    "119": [
+    "117": [
+      "package_devdependencies_tailwindcss",
+      "tailwindcss"
+    ],
+    "118": [
       "package_devdependencies_ts_node",
       "ts_node"
     ],
-    "120": [
+    "119": [
       "package_devdependencies_tw_animate_css",
       "tw_animate_css"
     ],
-    "121": [
+    "120": [
       "package_devdependencies_types_json2csv",
       "types_json2csv"
     ],
-    "122": [
+    "121": [
       "package_devdependencies_types_jsonwebtoken",
       "types_jsonwebtoken"
     ],
-    "123": [
+    "122": [
       "package_devdependencies_types_leaflet",
       "types_leaflet"
     ],
-    "124": [
+    "123": [
       "package_devdependencies_types_node",
       "types_node"
     ],
-    "125": [
+    "124": [
       "package_devdependencies_types_nodemailer",
       "types_nodemailer"
     ],
-    "126": [
+    "125": [
       "package_devdependencies_types_react",
       "types_react"
     ],
-    "127": [
+    "126": [
       "package_devdependencies_types_react_dom",
       "types_react_dom"
     ],
-    "128": [
+    "127": [
       "package_devdependencies_types_ws",
       "types_ws"
     ],
-    "129": [
+    "128": [
       "postcss_config",
       "postcss_config_config"
     ],
-    "130": [
+    "129": [
       "readme",
       "readme_salesman_cms_for_generalised_fieldforce_salesapp"
     ],
-    "131": [
+    "130": [
       "src_app_account_page",
       "src_app_account_page_accountpage"
     ],
-    "132": [
+    "131": [
       "src_app_api_auth_logout_route",
       "src_app_api_auth_logout_route_post"
     ],
-    "133": [
+    "132": [
       "src_components_ui_sonner",
       "src_components_ui_sonner_toaster"
     ],
-    "134": [
+    "133": [
       "src_hooks_use_debounce_search",
       "src_hooks_use_debounce_search_usedebounce"
     ],
-    "135": [
+    "134": [
       "src_types_fortune_sheet_d",
       "src_types_fortune_sheet_d_fortune_sheet"
     ],
-    "136": [
+    "135": [
       "start",
       "start_sh__entry"
     ],
-    "137": [
+    "136": [
       "drizzle_config"
     ]
   },
   "cohesion": {
-    "0": 0.04864311315924219,
-    "1": 0.06533575317604355,
-    "2": 0.08484848484848485,
-    "3": 0.05353535353535353,
-    "4": 0.13333333333333333,
+    "0": 0.08,
+    "1": 0.06037414965986394,
+    "2": 0.07890070921985816,
+    "3": 0.08325624421831637,
+    "4": 0.05353535353535353,
     "5": 0.08456659619450317,
-    "6": 0.07396870554765292,
-    "7": 0.07254623044096728,
-    "8": 0.1126984126984127,
-    "9": 0.11764705882352941,
-    "10": 0.0967741935483871,
-    "11": 0.06896551724137931,
-    "12": 0.12535612535612536,
-    "13": 0.19373219373219372,
-    "14": 0.19384615384615383,
-    "15": 0.17333333333333334,
-    "16": 0.09666666666666666,
-    "17": 0.13768115942028986,
-    "18": 0.13043478260869565,
-    "19": 0.13043478260869565,
-    "20": 0.11857707509881422,
-    "21": 0.1341991341991342,
+    "6": 0.07308970099667775,
+    "7": 0.09487179487179487,
+    "8": 0.15362731152204837,
+    "9": 0.07396870554765292,
+    "10": 0.08571428571428572,
+    "11": 0.10158730158730159,
+    "12": 0.11596638655462185,
+    "13": 0.12688172043010754,
+    "14": 0.06896551724137931,
+    "15": 0.10317460317460317,
+    "16": 0.18253968253968253,
+    "17": 0.10256410256410256,
+    "18": 0.10541310541310542,
+    "19": 0.16333333333333333,
+    "20": 0.1225296442687747,
+    "21": 0.11857707509881422,
     "22": 0.09090909090909091,
-    "23": 0.14285714285714285,
-    "24": 0.14736842105263157,
-    "25": 0.14035087719298245,
-    "26": 0.14619883040935672,
-    "27": 0.1695906432748538,
-    "28": 0.1111111111111111,
-    "29": 0.11764705882352941,
-    "30": 0.19166666666666668,
-    "31": 0.14166666666666666,
-    "32": 0.13333333333333333,
-    "33": 0.14285714285714285,
-    "34": 0.26373626373626374,
-    "35": 0.15384615384615385,
-    "36": 0.32051282051282054,
-    "37": 0.19696969696969696,
-    "38": 0.22727272727272727,
-    "39": 0.18181818181818182,
-    "40": 0.28888888888888886,
-    "41": 0.2222222222222222,
+    "23": 0.1523809523809524,
+    "24": 0.14210526315789473,
+    "25": 0.19883040935672514,
+    "26": 0.1111111111111111,
+    "27": 0.1111111111111111,
+    "28": 0.19117647058823528,
+    "29": 0.14166666666666666,
+    "30": 0.13333333333333333,
+    "31": 0.3076923076923077,
+    "32": 0.15384615384615385,
+    "33": 0.32051282051282054,
+    "34": 0.18181818181818182,
+    "35": 0.19696969696969696,
+    "36": 0.18181818181818182,
+    "37": 0.18181818181818182,
+    "38": 0.2727272727272727,
+    "39": 0.21818181818181817,
+    "40": 0.18181818181818182,
+    "41": 0.3090909090909091,
     "42": 0.28888888888888886,
-    "43": 0.35555555555555557,
-    "44": 0.4444444444444444,
-    "45": 0.25,
-    "46": 0.2857142857142857,
-    "47": 0.42857142857142855,
-    "48": 0.3333333333333333,
-    "49": 0.5333333333333333,
+    "43": 0.25,
+    "44": 0.2857142857142857,
+    "45": 0.42857142857142855,
+    "46": 0.3333333333333333,
+    "47": 0.3333333333333333,
+    "48": 0.4,
+    "49": 0.4,
     "50": 0.4,
-    "51": 0.4,
-    "52": 0.4,
-    "53": 0.4,
-    "54": 0.8333333333333334,
-    "55": 0.6666666666666666,
+    "51": 0.5,
+    "52": 0.8333333333333334,
+    "53": 0.5,
+    "54": 0.6666666666666666,
+    "55": 1.0,
     "56": 1.0,
     "57": 1.0,
     "58": 1.0,
@@ -1733,19 +1738,18 @@
     "133": 1.0,
     "134": 1.0,
     "135": 1.0,
-    "136": 1.0,
-    "137": 1.0
+    "136": 1.0
   },
   "gods": [
     {
       "id": "src_lib_utils_cn",
       "label": "cn()",
-      "degree": 172
+      "degree": 174
     },
     {
       "id": "src_components_appliance_client_apijson",
       "label": "apiJson()",
-      "degree": 45
+      "degree": 44
     },
     {
       "id": "src_lib_auth_haspermission",
@@ -1845,8 +1849,41 @@
       "why": "bridges separate communities; peripheral node `SidebarGroupContent()` unexpectedly reaches hub `cn()`"
     }
   ],
-  "tokens": {
-    "input": 0,
-    "output": 0
-  }
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `cn()` connect `cn` to `sidebar.tsx`, `chart-area-reusable.tsx`, `dashboardShell.tsx`, `drawer.tsx`, `data-table-reusable.tsx`, `multi-select.tsx`, `toggle-group.tsx`, `button.tsx`?",
+      "why": "High betweenness centrality (0.137) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `apiJson()` connect `apiJson` to `responsibility-platform-studio.tsx`, `ResponsibilitiesClient`, `primitives.tsx`, `responsibilities-client.tsx`, `responsibility-kernel-client.tsx`, `ResponsibilityPowerClient`, `WorkflowsClient`, `responsibility-power-client.tsx`?",
+      "why": "High betweenness centrality (0.075) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `hasPermission()` connect `hasPermission` to `publish/route.ts`, `responsibility-templates/route.ts`, `auth.ts`, `ensureTenantPlatformVNext`?",
+      "why": "High betweenness centrality (0.034) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `Context`, `DataSourcePatch`, `RouteContext` to the rest of the system?",
+      "why": "350 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `hasPermission` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.08 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `sidebar.tsx` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.06037414965986394 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `chart-area-reusable.tsx` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.07890070921985816 - nodes in this community are weakly interconnected."
+    }
+  ]
 }
