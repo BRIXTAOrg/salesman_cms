@@ -27,6 +27,8 @@ import {
   apiJson,
   formatWhen,
 } from "./client";
+import { SearchSelect } from "@/components/search-select";
+import { MultiSelect } from "@/components/multi-select";
 import {
   EmptyState,
   Field,
@@ -38,6 +40,19 @@ import {
   PrimaryButton,
   SecondaryButton,
 } from "./primitives";
+
+function capitalizeFirst(value: string) {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function SectionHeading({ children }: { children: string }) {
+  return (
+    <div className="pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground first:pt-0">
+      {children}
+    </div>
+  );
+}
 
 export default function EmployeesClient() {
   const [employees, setEmployees] =
@@ -57,10 +72,18 @@ export default function EmployeesClient() {
 
   const [showCreate, setShowCreate] =
     useState(false);
+  const [createDepartments, setCreateDepartments] =
+    useState<string[]>([]);
+  const [createDesignation, setCreateDesignation] =
+    useState("");
   const [selectedId, setSelectedId] =
     useState<number | null>(null);
   const [detail, setDetail] =
     useState<EmployeeDetail | null>(null);
+  const [editDepartments, setEditDepartments] =
+    useState<string[]>([]);
+  const [editDesignation, setEditDesignation] =
+    useState("");
   const [roleIds, setRoleIds] =
     useState<number[]>([]);
 
@@ -102,6 +125,15 @@ export default function EmployeesClient() {
       );
       setDetail(body);
       setRoleIds(body.directRoleIds ?? []);
+      setEditDepartments(
+        body.employee.department
+          ? body.employee.department
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : [],
+      );
+      setEditDesignation(body.employee.designation ?? "");
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -122,6 +154,28 @@ export default function EmployeesClient() {
         .filter((value): value is string => Boolean(value)),
     )].sort(),
     [employees],
+  );
+
+  const jobRoleOptions = useMemo(
+    () => [...new Set(
+      roles
+        .map((role) => role.jobRole)
+        .filter((value): value is string => Boolean(value)),
+    )]
+      .sort()
+      .map((value) => ({ label: value, value })),
+    [roles],
+  );
+
+  const orgRoleOptions = useMemo(
+    () => [...new Set(
+      roles
+        .map((role) => role.orgRole)
+        .filter((value): value is string => Boolean(value)),
+    )]
+      .sort()
+      .map((value) => ({ label: value, value })),
+    [roles],
   );
 
   const filtered = useMemo(() => {
@@ -156,18 +210,25 @@ export default function EmployeesClient() {
 
     const data = new FormData(event.currentTarget);
     const managerRaw = String(data.get("reportsToId") ?? "");
+    const areaValue = String(data.get("area") ?? "").trim();
+    const zoneValue = String(data.get("zone") ?? "").trim();
 
     const payload = {
       employeeCode: String(data.get("employeeCode") ?? "").trim(),
       password: String(data.get("password") ?? ""),
       name: String(data.get("name") ?? "").trim(),
-      department: String(data.get("department") ?? "").trim() || null,
-      designation: String(data.get("designation") ?? "").trim() || null,
+      department: createDepartments.length
+        ? createDepartments.join(", ")
+        : null,
+      designation: createDesignation.trim() || null,
       phoneNumber: String(data.get("phoneNumber") ?? "").trim() || null,
       email: String(data.get("email") ?? "").trim() || null,
-      role: String(data.get("role") ?? "").trim() || null,
-      area: String(data.get("area") ?? "").trim() || null,
-      zone: String(data.get("zone") ?? "").trim() || null,
+      // Role is not a separate UI field — it mirrors the selected
+      // Designation and is only ever read from the database, never edited
+      // directly.
+      role: createDesignation.trim() || null,
+      area: areaValue || "area",
+      zone: zoneValue || "zone",
       reportsToId: managerRaw ? Number(managerRaw) : null,
       responsibilityIds: [],
       roleIds: [],
@@ -179,6 +240,8 @@ export default function EmployeesClient() {
         body: JSON.stringify(payload),
       });
       setShowCreate(false);
+      setCreateDepartments([]);
+      setCreateDesignation("");
       setMessage(`${payload.name} was added.`);
       await load();
     } catch (error) {
@@ -201,6 +264,8 @@ export default function EmployeesClient() {
     setSaving(true);
     const data = new FormData(event.currentTarget);
     const managerRaw = String(data.get("reportsToId") ?? "");
+    const areaValue = String(data.get("area") ?? "").trim();
+    const zoneValue = String(data.get("zone") ?? "").trim();
 
     try {
       await apiJson(
@@ -209,13 +274,15 @@ export default function EmployeesClient() {
           method: "PATCH",
           body: JSON.stringify({
             name: String(data.get("name") ?? "").trim(),
-            department: String(data.get("department") ?? "").trim() || null,
-            designation: String(data.get("designation") ?? "").trim() || null,
+            department: editDepartments.length
+              ? editDepartments.join(", ")
+              : null,
+            designation: editDesignation.trim() || null,
             phoneNumber: String(data.get("phoneNumber") ?? "").trim() || null,
             email: String(data.get("email") ?? "").trim() || null,
-            role: String(data.get("role") ?? "").trim() || null,
-            area: String(data.get("area") ?? "").trim() || null,
-            zone: String(data.get("zone") ?? "").trim() || null,
+            role: editDesignation.trim() || null,
+            area: areaValue || "area",
+            zone: zoneValue || "zone",
             reportsToId: managerRaw ? Number(managerRaw) : null,
           }),
         },
@@ -331,7 +398,14 @@ export default function EmployeesClient() {
               <RefreshCw className="h-4 w-4" />
               Refresh
             </SecondaryButton>
-            <PrimaryButton type="button" onClick={() => setShowCreate(true)}>
+            <PrimaryButton
+              type="button"
+              onClick={() => {
+                setCreateDepartments([]);
+                setCreateDesignation("");
+                setShowCreate(true);
+              }}
+            >
               <Plus className="h-4 w-4" />
               Add employee
             </PrimaryButton>
@@ -446,26 +520,75 @@ export default function EmployeesClient() {
       >
         <form onSubmit={createEmployee} className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Employee ID">
-              <input name="employeeCode" required className={inputClass} />
-            </Field>
-            <Field label="Initial mobile password">
-              <input name="password" type="password" required minLength={6} className={inputClass} />
-            </Field>
+            <div className="md:col-span-2">
+              <SectionHeading>Identity</SectionHeading>
+            </div>
             <Field label="Full name">
               <input name="name" required className={inputClass} />
             </Field>
             <Field label="Phone">
               <input name="phoneNumber" className={inputClass} />
             </Field>
-            <Field label="Department">
-              <input name="department" className={inputClass} />
+            <Field label="Email">
+              <input name="email" type="email" className={inputClass} />
+            </Field>
+
+            <div className="md:col-span-2">
+              <SectionHeading>Mobile login</SectionHeading>
+            </div>
+            <Field label="Employee ID" hint="Used as the login ID for the field app.">
+              <input name="employeeCode" required className={inputClass} />
+            </Field>
+            <Field label="Initial mobile password">
+              <input name="password" type="password" required minLength={6} className={inputClass} />
+            </Field>
+
+            <div className="md:col-span-2">
+              <SectionHeading>Role</SectionHeading>
+            </div>
+            <Field label="Department" hint="Select one or more.">
+              <MultiSelect
+                options={jobRoleOptions}
+                selectedValues={createDepartments}
+                onValueChange={setCreateDepartments}
+                placeholder="Search departments..."
+              />
             </Field>
             <Field label="Designation">
-              <input name="designation" className={inputClass} />
+              <SearchSelect
+                options={orgRoleOptions}
+                value={createDesignation}
+                onChange={(next) => setCreateDesignation(next as string)}
+                placeholder="Search designations..."
+              />
             </Field>
-            <Field label="Role label" hint="Business label only; approval authority uses Role IDs below.">
-              <input name="role" className={inputClass} />
+
+            <div className="md:col-span-2">
+              <SectionHeading>Location & reporting</SectionHeading>
+            </div>
+            <Field label="Area">
+              <input
+                name="area"
+                placeholder="Area"
+                className={inputClass}
+                onInput={(event) => {
+                  event.currentTarget.value = capitalizeFirst(
+                    event.currentTarget.value,
+                  );
+                }}
+              />
+            </Field>
+            <Field label="Zone">
+              <input
+                name="zone"
+                placeholder="Zone"
+                className={inputClass}
+                onInput={(event) => {
+                  event.currentTarget.value = capitalizeFirst(
+                    event.currentTarget.value,
+                  );
+                }}
+              />
             </Field>
             <Field label="Reports to">
               <select name="reportsToId" className={inputClass} defaultValue="">
@@ -476,15 +599,6 @@ export default function EmployeesClient() {
                   </option>
                 ))}
               </select>
-            </Field>
-            <Field label="Email">
-              <input name="email" type="email" className={inputClass} />
-            </Field>
-            <Field label="Area">
-              <input name="area" className={inputClass} />
-            </Field>
-            <Field label="Zone">
-              <input name="zone" className={inputClass} />
             </Field>
           </div>
           <div className="flex justify-end gap-2">
@@ -517,20 +631,67 @@ export default function EmployeesClient() {
           <div className="space-y-6">
             <form onSubmit={updateProfile} className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <SectionHeading>Identity</SectionHeading>
+                </div>
                 <Field label="Name">
                   <input name="name" defaultValue={detail.employee.name ?? ""} className={inputClass} />
                 </Field>
                 <Field label="Phone">
                   <input name="phoneNumber" defaultValue={detail.employee.phoneNumber ?? ""} className={inputClass} />
                 </Field>
-                <Field label="Department">
-                  <input name="department" defaultValue={detail.employee.department ?? ""} className={inputClass} />
+                <Field label="Email">
+                  <input name="email" type="email" defaultValue={detail.employee.email ?? ""} className={inputClass} />
+                </Field>
+
+                <div className="md:col-span-2">
+                  <SectionHeading>Role</SectionHeading>
+                </div>
+                <Field label="Department" hint="Select one or more.">
+                  <MultiSelect
+                    options={jobRoleOptions}
+                    selectedValues={editDepartments}
+                    onValueChange={setEditDepartments}
+                    placeholder="Search departments..."
+                  />
                 </Field>
                 <Field label="Designation">
-                  <input name="designation" defaultValue={detail.employee.designation ?? ""} className={inputClass} />
+                  <SearchSelect
+                    options={orgRoleOptions}
+                    value={editDesignation}
+                    onChange={(next) => setEditDesignation(next as string)}
+                    placeholder="Search designations..."
+                  />
                 </Field>
-                <Field label="Role label">
-                  <input name="role" defaultValue={detail.employee.role ?? ""} className={inputClass} />
+
+                <div className="md:col-span-2">
+                  <SectionHeading>Location & reporting</SectionHeading>
+                </div>
+                <Field label="Area">
+                  <input
+                    name="area"
+                    defaultValue={detail.employee.area ?? ""}
+                    placeholder="Area"
+                    className={inputClass}
+                    onInput={(event) => {
+                      event.currentTarget.value = capitalizeFirst(
+                        event.currentTarget.value,
+                      );
+                    }}
+                  />
+                </Field>
+                <Field label="Zone">
+                  <input
+                    name="zone"
+                    defaultValue={detail.employee.zone ?? ""}
+                    placeholder="Zone"
+                    className={inputClass}
+                    onInput={(event) => {
+                      event.currentTarget.value = capitalizeFirst(
+                        event.currentTarget.value,
+                      );
+                    }}
+                  />
                 </Field>
                 <Field label="Reports to">
                   <select
@@ -547,15 +708,6 @@ export default function EmployeesClient() {
                         </option>
                       ))}
                   </select>
-                </Field>
-                <Field label="Email">
-                  <input name="email" type="email" defaultValue={detail.employee.email ?? ""} className={inputClass} />
-                </Field>
-                <Field label="Area">
-                  <input name="area" defaultValue={detail.employee.area ?? ""} className={inputClass} />
-                </Field>
-                <Field label="Zone">
-                  <input name="zone" defaultValue={detail.employee.zone ?? ""} className={inputClass} />
                 </Field>
               </div>
               <div className="flex justify-end">

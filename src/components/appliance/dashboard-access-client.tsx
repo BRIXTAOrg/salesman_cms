@@ -1,35 +1,30 @@
 "use client";
 
 import {
-  FormEvent,
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
+  Check,
+  Copy,
   Loader2,
-  Plus,
   RefreshCw,
   ShieldCheck,
-  ShieldOff,
 } from "lucide-react";
 
-import type {
-  Role,
-} from "@/lib/appliance-types";
+import { DataTableReusable } from "@/components/data-table-reusable";
+import { Switch } from "@/components/ui/switch";
 import {
   apiJson,
 } from "./client";
 import {
-  EmptyState,
-  Field,
-  inputClass,
   Modal,
   PageIntro,
   Panel,
   Pill,
-  PrimaryButton,
   SecondaryButton,
 } from "./primitives";
 
@@ -47,41 +42,38 @@ type DashboardUser = {
   jobRole?: string[];
 };
 
+type Credentials = {
+  dashboardEmail?: string;
+  dashboardPassword?: string;
+};
+
 export default function DashboardAccessClient() {
   const [users, setUsers] =
     useState<DashboardUser[]>([]);
-  const [roles, setRoles] =
-    useState<Role[]>([]);
   const [loading, setLoading] =
     useState(true);
-  const [saving, setSaving] =
-    useState(false);
-  const [showCreate, setShowCreate] =
-    useState(false);
+  const [pendingUserId, setPendingUserId] =
+    useState<number | null>(null);
   const [message, setMessage] =
     useState<string | null>(null);
+
   const [credentials, setCredentials] =
-    useState<{
-      dashboardEmail?: string;
-      dashboardPassword?: string;
-    } | null>(null);
+    useState<Credentials | null>(null);
+  const [copied, setCopied] =
+    useState(false);
+  const [closeHint, setCloseHint] =
+    useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setMessage(null);
 
     try {
-      const [userBody, roleBody] = await Promise.all([
-        apiJson<{ users: DashboardUser[] }>(
-          "/api/dashboardPagesAPI/users-and-team/users",
-        ),
-        apiJson<{ roles: Role[] }>(
-          "/api/appliance/roles",
-        ),
-      ]);
+      const userBody = await apiJson<{ users: DashboardUser[] }>(
+        "/api/dashboardPagesAPI/users-and-team/users",
+      );
 
       setUsers(userBody.users ?? []);
-      setRoles(roleBody.roles ?? []);
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -97,84 +89,16 @@ export default function DashboardAccessClient() {
     void load();
   }, [load]);
 
-  const dashboardUsers = useMemo(
-    () => users.filter((user) => user.isDashboardUser),
-    [users],
-  );
-
-  const availablePeople = useMemo(
-    () => users.filter((user) => !user.isDashboardUser),
-    [users],
-  );
-
-  async function createAdmin(
-    event: FormEvent<HTMLFormElement>,
-  ) {
-    event.preventDefault();
-    setSaving(true);
-    setCredentials(null);
-
-    const data = new FormData(event.currentTarget);
-    const roleId = Number(data.get("roleId"));
-    const selectedRole = roles.find((role) => role.id === roleId);
-
-    if (!selectedRole) {
-      setSaving(false);
-      setMessage("Choose an authority Role.");
-      return;
-    }
-
-    try {
-      const body = await apiJson<{
-        credentials?: {
-          dashboardEmail?: string;
-          dashboardPassword?: string;
-        };
-      }>(
-        "/api/dashboardPagesAPI/users-and-team/users",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            email: String(data.get("email") ?? "").trim(),
-            username: String(data.get("username") ?? "").trim(),
-            phoneNumber: String(data.get("phoneNumber") ?? "").trim() || null,
-            orgRole: selectedRole.orgRole ?? null,
-            jobRole: selectedRole.jobRole ? [selectedRole.jobRole] : [],
-            zone: String(data.get("zone") ?? "").trim() || null,
-            area: String(data.get("area") ?? "").trim() || null,
-            isDashboardUser: true,
-            isSalesAppUser: false,
-          }),
-        },
-      );
-
-      setCredentials(body.credentials ?? null);
-      setShowCreate(false);
-      await load();
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to add dashboard user.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function toggleAccess(
     user: DashboardUser,
     enabled: boolean,
   ) {
-    setSaving(true);
-    setCredentials(null);
+    setPendingUserId(user.id);
+    setMessage(null);
 
     try {
       const body = await apiJson<{
-        credentials?: {
-          dashboardEmail?: string;
-          dashboardPassword?: string;
-        };
+        credentials?: Credentials;
       }>(
         `/api/dashboardPagesAPI/users-and-team/users/${user.id}`,
         {
@@ -185,7 +109,20 @@ export default function DashboardAccessClient() {
         },
       );
 
-      setCredentials(body.credentials ?? null);
+      // Credentials only come back the first time a user is upgraded to
+      // dashboard access (the backend won't regenerate/overwrite an
+      // existing login). Only show the preview when there's something new
+      // to show.
+      if (
+        enabled &&
+        body.credentials?.dashboardEmail &&
+        body.credentials?.dashboardPassword
+      ) {
+        setCopied(false);
+        setCloseHint(false);
+        setCredentials(body.credentials);
+      }
+
       await load();
     } catch (error) {
       setMessage(
@@ -194,31 +131,116 @@ export default function DashboardAccessClient() {
           : "Unable to change dashboard access.",
       );
     } finally {
-      setSaving(false);
+      setPendingUserId(null);
     }
   }
+
+  async function copyCredentials() {
+    if (!credentials) return;
+
+    const text = `Login ID: ${credentials.dashboardEmail}\nPassword: ${credentials.dashboardPassword}`;
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Clipboard API can be unavailable (insecure context, permissions).
+      // The credentials remain visible on screen either way.
+    }
+
+    setCopied(true);
+    // Give a beat to see the "Copied" confirmation before the modal
+    // dismisses itself.
+    window.setTimeout(() => {
+      setCredentials(null);
+    }, 600);
+  }
+
+  const columns = useMemo<ColumnDef<DashboardUser>[]>(
+    () => [
+      {
+        accessorKey: "username",
+        header: "Name",
+        cell: ({ row }) => (
+          <div className="font-medium">
+            {row.original.username ?? row.original.email}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "email",
+        header: "Email",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {row.original.email}
+          </span>
+        ),
+      },
+      {
+        id: "role",
+        header: "Role",
+        cell: ({ row }) => {
+          const label = [
+            row.original.orgRole,
+            ...(row.original.jobRole ?? []),
+          ]
+            .filter(Boolean)
+            .join(" · ");
+
+          return (
+            <span className="text-muted-foreground">
+              {label || "Role not configured"}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <Pill tone={row.original.status === "active" ? "good" : "neutral"}>
+            {row.original.status ?? "unknown"}
+          </Pill>
+        ),
+      },
+      {
+        id: "action",
+        header: "Action",
+        cell: ({ row }) => {
+          const user = row.original;
+          const isPending = pendingUserId === user.id;
+
+          return (
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={Boolean(user.isDashboardUser)}
+                disabled={isPending}
+                onCheckedChange={(checked) =>
+                  void toggleAccess(user, checked)
+                }
+              />
+              {isPending && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              )}
+            </div>
+          );
+        },
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pendingUserId],
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 p-4 md:p-6">
       <PageIntro
         eyebrow="Administration"
         title="Dashboard Access"
-        description="Dashboard authority is separate from Responsibilities. Roles are loaded from the tenant Role registry instead of a sales-specific list."
+        description="Dashboard authority is separate from Responsibilities. Toggle access on for anyone who needs to log into this dashboard."
         action={
-          <div className="flex gap-2">
-            <SecondaryButton type="button" onClick={() => void load()}>
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </SecondaryButton>
-            <PrimaryButton
-              type="button"
-              onClick={() => setShowCreate(true)}
-              disabled={roles.length === 0}
-            >
-              <Plus className="h-4 w-4" />
-              Add dashboard user
-            </PrimaryButton>
-          </div>
+          <SecondaryButton type="button" onClick={() => void load()}>
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </SecondaryButton>
         }
       />
 
@@ -228,115 +250,76 @@ export default function DashboardAccessClient() {
         </Panel>
       )}
 
-      {credentials && (
-        <Panel className="border-amber-500/30 bg-amber-500/5">
-          <div className="font-semibold">Temporary credentials</div>
-          <div className="mt-2 text-sm">
-            Email: <strong>{credentials.dashboardEmail ?? "—"}</strong>
-          </div>
-          {credentials.dashboardPassword && (
-            <div className="mt-1 text-sm">
-              Password: <strong>{credentials.dashboardPassword}</strong>
-            </div>
-          )}
-          <div className="mt-2 text-xs text-muted-foreground">
-            Store and share credentials through an appropriate secure channel.
-          </div>
-        </Panel>
-      )}
-
       {loading ? (
         <div className="h-64 animate-pulse rounded-lg border bg-muted/30" />
-      ) : dashboardUsers.length === 0 ? (
-        <EmptyState
-          title="No additional dashboard users"
-          description="The original administrator can operate the control plane alone."
-        />
       ) : (
-        <div className="space-y-3">
-          {dashboardUsers.map((user) => (
-            <Panel key={user.id}>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
-                  <ShieldCheck className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium">{user.username ?? user.email}</div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    {user.email} · {[user.orgRole, ...(user.jobRole ?? [])].filter(Boolean).join(" · ") || "Role not configured"}
-                  </div>
-                </div>
-                <Pill tone={user.status === "active" ? "good" : "neutral"}>
-                  {user.status ?? "unknown"}
-                </Pill>
-                <SecondaryButton
-                  type="button"
-                  disabled={saving}
-                  onClick={() => void toggleAccess(user, false)}
-                >
-                  <ShieldOff className="h-4 w-4" />
-                  Remove access
-                </SecondaryButton>
-              </div>
-            </Panel>
-          ))}
-        </div>
-      )}
-
-      {availablePeople.length > 0 && (
-        <Panel>
-          <div className="font-semibold">Existing people without dashboard access</div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {availablePeople.slice(0, 20).map((user) => (
-              <Pill key={user.id}>{user.username ?? user.email}</Pill>
-            ))}
-          </div>
-        </Panel>
+        <DataTableReusable
+          columns={columns}
+          data={users}
+        />
       )}
 
       <Modal
-        open={showCreate}
-        title="Add dashboard user"
-        description="Choose a live tenant Role. Responsibilities remain a separate assignment concern."
-        onClose={() => setShowCreate(false)}
-        wide
+        open={Boolean(credentials)}
+        title="Dashboard credentials created"
+        description="These are shown once. Copy them now and share through a secure channel."
+        onClose={() => setCloseHint(true)}
+        wide={false}
       >
-        <form onSubmit={createAdmin} className="space-y-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Name">
-              <input name="username" required className={inputClass} />
-            </Field>
-            <Field label="Email">
-              <input name="email" type="email" required className={inputClass} />
-            </Field>
-            <Field label="Authority Role">
-              <select name="roleId" required className={inputClass} defaultValue="">
-                <option value="">Choose Role...</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>{role.label}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Phone">
-              <input name="phoneNumber" className={inputClass} />
-            </Field>
-            <Field label="Area">
-              <input name="area" className={inputClass} />
-            </Field>
-            <Field label="Zone">
-              <input name="zone" className={inputClass} />
-            </Field>
+        {credentials && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 rounded-md border border-emerald-600/20 bg-emerald-600/5 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+              <ShieldCheck className="h-4 w-4 shrink-0" />
+              Dashboard access enabled.
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                  Login ID
+                </div>
+                <div className="mt-1 font-mono text-[14px]">
+                  {credentials.dashboardEmail}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                  Password
+                </div>
+                <div className="mt-1 font-mono text-[14px]">
+                  {credentials.dashboardPassword}
+                </div>
+              </div>
+            </div>
+
+            {closeHint && !copied && (
+              <div className="text-[13px] text-amber-600 dark:text-amber-400">
+                Copy the credentials to close this window — they will not be
+                shown again.
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => void copyCredentials()}
+                className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-[14px] font-medium text-primary-foreground transition-[transform,background-color] duration-150 ease-out hover:-translate-y-px active:translate-y-0"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Copy credentials
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <SecondaryButton type="button" onClick={() => setShowCreate(false)}>
-              Cancel
-            </SecondaryButton>
-            <PrimaryButton type="submit" disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              Create access
-            </PrimaryButton>
-          </div>
-        </form>
+        )}
       </Modal>
     </div>
   );

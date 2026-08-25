@@ -172,59 +172,105 @@ export function AppSidebar(
       </SidebarHeader>
 
       <SidebarContent className="px-2 py-3">
-        {groups.map((group) => (
-          <SidebarGroup
-            key={group.key}
-            className="py-2"
-          >
-            <div className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              {group.label}
-            </div>
+        {groups.map((group) => {
+          // Split items into an unsectioned bucket (rendered flat) and any
+          // sectioned buckets (rendered under their own sub-heading), in a
+          // stable, deliberate order rather than first-seen order.
+          const sectionOrder = [
+            "App Setup",
+            "Dynamic Fields",
+          ];
 
-            <SidebarMenu>
-              {group.items.map(
-                (item) => {
-                  const active =
-                    item.href ===
-                    "/dashboard"
-                      ? pathname ===
-                        "/dashboard"
-                      : pathname.startsWith(
-                          item.href,
-                        );
+          const unsectioned = group.items.filter(
+            (item) => !item.section,
+          );
 
-                  const Icon =
-                    icons[item.icon] ??
-                    Blocks;
+          const sectionNames = [
+            ...sectionOrder.filter((name) =>
+              group.items.some(
+                (item) => item.section === name,
+              ),
+            ),
+            ...Array.from(
+              new Set(
+                group.items
+                  .map((item) => item.section)
+                  .filter(
+                    (name): name is string =>
+                      Boolean(name) &&
+                      !sectionOrder.includes(name!),
+                  ),
+              ),
+            ),
+          ];
 
-                  return (
-                    <SidebarMenuItem
-                      key={item.key}
-                    >
-                      <SidebarMenuButton
-                        asChild
-                        className={
-                          active
-                            ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                            : ""
-                        }
-                      >
-                        <Link
-                          href={item.href}
-                        >
-                          <Icon className="h-4 w-4" />
-                          <span>
-                            {item.label}
-                          </span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                },
+          const renderItem = (
+            item: (typeof group.items)[number],
+          ) => {
+            const active =
+              item.href === "/dashboard"
+                ? pathname === "/dashboard"
+                : pathname.startsWith(item.href);
+
+            const Icon =
+              icons[item.icon] ?? Blocks;
+
+            return (
+              <SidebarMenuItem key={item.key}>
+                <SidebarMenuButton
+                  asChild
+                  className={
+                    active
+                      ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                      : ""
+                  }
+                >
+                  <Link href={item.href}>
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          };
+
+          return (
+            <SidebarGroup
+              key={group.key}
+              className="py-2"
+            >
+              <div className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                {group.label}
+              </div>
+
+              {unsectioned.length > 0 && (
+                <SidebarMenu>
+                  {unsectioned.map(renderItem)}
+                </SidebarMenu>
               )}
-            </SidebarMenu>
-          </SidebarGroup>
-        ))}
+
+              {sectionNames.map((sectionName) => (
+                <div
+                  key={sectionName}
+                  className="mt-2 first:mt-0"
+                >
+                  <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
+                    {sectionName}
+                  </div>
+
+                  <SidebarMenu>
+                    {group.items
+                      .filter(
+                        (item) =>
+                          item.section === sectionName,
+                      )
+                      .map(renderItem)}
+                  </SidebarMenu>
+                </div>
+              ))}
+            </SidebarGroup>
+          );
+        })}
 
         <SidebarGroup className="mt-auto py-2">
           <SidebarMenu>
@@ -236,12 +282,13 @@ export function AppSidebar(
               >
                 <SidebarMenuButton
                   asChild
+                  className="text-red-500 hover:bg-red-500/10 hover:text-red-500 focus-visible:text-red-500"
                 >
                   <button
                     type="submit"
                     className="w-full"
                   >
-                    <LogOut className="h-4 w-4" />
+                    <LogOut className="h-4 w-4 text-red-500" />
                     <span>
                       Logout
                     </span>

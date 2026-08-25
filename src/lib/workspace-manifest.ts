@@ -64,11 +64,8 @@ function navGroups(
   }>,
 ): WorkspaceNavGroup[] {
   const preferred = [
-    "Control",
-    "People",
-    "Work",
-    "Workspace",
-    "Administration",
+    "Management",
+    "Field App Control",
   ];
 
   return [...map.entries()]
@@ -193,7 +190,8 @@ export function buildWorkspaceManifest({
     items: Map<string, WorkspaceNavItem>;
   }>();
 
-  addNav(nav, "Control", {
+  // ---- Management -----------------------------------------------------
+  addNav(nav, "Management", {
     key: "control_center",
     label: "Control Center",
     href: "/dashboard",
@@ -201,51 +199,49 @@ export function buildWorkspaceManifest({
   });
 
   if (canManage) {
-    addNav(nav, "People", {
+    addNav(nav, "Management", {
       key: "employees",
       label: "Employees",
       href: "/dashboard/workforce/employees",
       icon: "users",
     });
 
-    addNav(nav, "People", {
-      key: "organization",
-      label: "Organization",
-      href: "/dashboard/workforce/organization",
-      icon: "network",
+    addNav(nav, "Management", {
+      key: "dashboard_access",
+      label: "Dashboard Access",
+      href: "/dashboard/usersAndTeam",
+      icon: "user-cog",
     });
   }
 
-  for (const responsibility of activeResponsibilities) {
-    addNav(nav, "Work", {
-      key: `responsibility:${responsibility.key}`,
-      label: responsibility.title,
-      href: `/dashboard/work/${encodeURIComponent(responsibility.key)}`,
-      icon: responsibility.icon || "blocks",
-      description: responsibility.description,
-    });
-  }
-
+  // ---- Field App Control -------------------------------------------
+  // Two sub-sections within the same group: "App Setup" (the builder
+  // surfaces an admin uses to define how the field app behaves) and
+  // "Dynamic Fields" (the actual Responsibilities/fields created via the
+  // builder, i.e. what shows up as work in the app).
   if (canManage) {
-    addNav(nav, "Workspace", {
+    addNav(nav, "Field App Control", {
       key: "responsibilities",
       label: "Responsibilities",
       href: "/dashboard/workspace/responsibilities",
       icon: "blocks",
+      section: "App Setup",
     });
 
-    addNav(nav, "Workspace", {
+    addNav(nav, "Field App Control", {
       key: "workflows",
       label: "Workflows",
       href: "/dashboard/workspace/workflows",
       icon: "git-branch",
+      section: "App Setup",
     });
 
-    addNav(nav, "Workspace", {
+    addNav(nav, "Field App Control", {
       key: "assignments",
       label: "Assignments",
       href: "/dashboard/workspace/assignments",
       icon: "clipboard-list",
+      section: "App Setup",
     });
   }
 
@@ -254,20 +250,23 @@ export function buildWorkspaceManifest({
   );
 
   if (workflowHasApproval) {
-    addNav(nav, "Workspace", {
+    addNav(nav, "Field App Control", {
       key: "approvals",
       label: "Approvals",
       href: "/dashboard/workspace/approvals",
       icon: "badge-check",
+      section: "App Setup",
     });
   }
 
-  if (canManage) {
-    addNav(nav, "Administration", {
-      key: "dashboard_access",
-      label: "Dashboard Access",
-      href: "/dashboard/usersAndTeam",
-      icon: "user-cog",
+  for (const responsibility of activeResponsibilities) {
+    addNav(nav, "Field App Control", {
+      key: `responsibility:${responsibility.key}`,
+      label: responsibility.title,
+      href: `/dashboard/work/${encodeURIComponent(responsibility.key)}`,
+      icon: responsibility.icon || "blocks",
+      description: responsibility.description,
+      section: "Dynamic Fields",
     });
   }
 
@@ -375,13 +374,18 @@ export function buildWorkspaceManifest({
     }
   }
 
-  const workItems = navigation
-    .find((group) => group.key === "work")
-    ?.items ?? [];
+  const fieldAppControlItems =
+    navigation.find(
+      (group) => group.key === "field_app_control",
+    )?.items ?? [];
 
-  const workspaceItems = navigation
-    .find((group) => group.key === "workspace")
-    ?.items.filter((item) => item.key === "approvals") ?? [];
+  const workItems = fieldAppControlItems.filter(
+    (item) => item.section === "Dynamic Fields",
+  );
+
+  const workspaceItems = fieldAppControlItems.filter(
+    (item) => item.key === "approvals",
+  );
 
   return {
     generatedAt: new Date().toISOString(),

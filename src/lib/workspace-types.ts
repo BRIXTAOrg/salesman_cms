@@ -8,6 +8,12 @@ export type WorkspaceNavItem = {
   href: string;
   icon: string;
   description?: string | null;
+  /**
+   * Optional sub-heading within a nav group (e.g. "App Setup" vs
+   * "Dynamic Fields" inside the "Field App Control" group). Items without a
+   * section render as a flat list under the group label.
+   */
+  section?: string | null;
 };
 
 export type WorkspaceNavGroup = {
