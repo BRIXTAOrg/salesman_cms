@@ -1,1 +1,1 @@
-# salesman_cms for Generalised FieldForce SalesApp
+# salesman_cms for Generalised FieldForce SalesAp
