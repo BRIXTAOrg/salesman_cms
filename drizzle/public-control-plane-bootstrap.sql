@@ -116,7 +116,7 @@ CREATE OR REPLACE FUNCTION brixta_control.register_organization(
   p_admin_name text,
   p_admin_email text
 )
-RETURNS TABLE(organization_id integer, account_id integer)
+RETURNS TABLE(out_organization_id integer, out_account_id integer)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, public, brixta_control

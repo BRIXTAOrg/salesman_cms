@@ -188,7 +188,9 @@ export async function provisionCompany(input: ProvisionCompanyInput) {
       organization_id: number;
       account_id: number;
     }>(
-      `SELECT *
+      `SELECT
+         out_organization_id AS organization_id,
+         out_account_id AS account_id
          FROM brixta_control.register_organization(
            $1,$2,$3,$4,$5,$6,$7
          )`,
