@@ -1,4 +1,3 @@
-import { enforceRuntimeContract } from "./runtime-contract";
 import type { ResolvedRoleContext } from "@/lib/roles/role-context-types";
 import type {
   ResolvedResponsibilityRuntime,
@@ -24,7 +23,7 @@ export type BuildRuntimeManifestInput = {
   featureSlots?: RuntimeFeatureSlot[];
 };
 
-function __brixta_buildRuntimeManifest_unvalidated(
+export function buildRuntimeManifest(
   input: BuildRuntimeManifestInput,
 ): RuntimeManifest {
   const capabilities: RuntimeCapabilityState[] = Object.entries(
@@ -54,12 +53,4 @@ function __brixta_buildRuntimeManifest_unvalidated(
       clearLocalRuntimeCache: true,
     },
   };
-}
-
-// BRIXTA_AUTOPILOT_WRAPPER:buildRuntimeManifest
-export function buildRuntimeManifest(
-  ...args: Parameters<typeof __brixta_buildRuntimeManifest_unvalidated>
-): ReturnType<typeof __brixta_buildRuntimeManifest_unvalidated> {
-  const manifest = __brixta_buildRuntimeManifest_unvalidated(...args);
-  return enforceRuntimeContract(manifest) as ReturnType<typeof __brixta_buildRuntimeManifest_unvalidated>;
 }

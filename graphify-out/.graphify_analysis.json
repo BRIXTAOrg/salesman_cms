@@ -1916,8 +1916,8 @@
       "src_lib_responsibility_kernel_compiler_requiredstate",
       "src_lib_responsibility_kernel_compiler_resultingstate",
       "src_lib_responsibility_kernel_compiler_ruleforaction",
+      "src_lib_responsibility_kernel_types_kernelaction",
       "src_lib_responsibility_kernel_types_kerneleffect",
-      "src_lib_responsibility_kernel_types_kerneloutput",
       "src_lib_responsibility_kernel_types_kernelpossibility",
       "src_lib_responsibility_kernel_validation",
       "src_lib_responsibility_kernel_validation_effectissue",
@@ -2418,7 +2418,7 @@
       "brixta_backups_semantic_builder_v1_20260826_024801_src_lib_responsibility_kernel_compiler_requiredstate",
       "brixta_backups_semantic_builder_v1_20260826_024801_src_lib_responsibility_kernel_compiler_resultingstate",
       "brixta_backups_semantic_builder_v1_20260826_024801_src_lib_responsibility_kernel_compiler_ruleforaction",
-      "src_lib_responsibility_kernel_types_kernelcapture"
+      "src_lib_responsibility_kernel_types_kerneloutput"
     ],
     "164": [
       "src_app_api_platform_roles_id_context_route",
@@ -2470,7 +2470,7 @@
       "brixta_backups_authoritative_phone_layout_20260825_233239_responsibility_kernel_compiler_requiredstate",
       "brixta_backups_authoritative_phone_layout_20260825_233239_responsibility_kernel_compiler_resultingstate",
       "brixta_backups_authoritative_phone_layout_20260825_233239_responsibility_kernel_compiler_ruleforaction",
-      "src_lib_responsibility_kernel_types_kernelaction"
+      "src_lib_responsibility_kernel_types_kernelcapture"
     ],
     "168": [
       "brixta_backups_semantic_builder_v1_20260826_024801_src_components_appliance_responsibility_app_builder_actioneventids",
@@ -2924,17 +2924,17 @@
     {
       "type": "bridge_node",
       "question": "Why does `cn()` connect `cn` to `sidebar.tsx`, `signup/page.tsx`, `primitives.tsx`, `data-table-reusable.tsx`, `utils.ts`, `toggle-group.tsx`, `chart-area-reusable.tsx`, `button.tsx`?",
-      "why": "High betweenness centrality (0.105) - this node is a cross-community bridge."
+      "why": "High betweenness centrality (0.125) - this node is a cross-community bridge."
     },
     {
       "type": "bridge_node",
       "question": "Why does `ResponsibilityKernel` connect `ensureTenantPlatformVNext` to `src/components/appliance/responsibility-kernel-client.tsx`, `initial-state-runtime-20260826-022320/src/lib/responsibility-kernel-compiler.ts`, `semantic-builder-v1-20260826-024801/src/lib/responsibility-kernel-compiler.ts`, `employee-own-history-v2-20260826-042335/src/components/appliance/responsibility-app-builder.tsx`, `src/lib/responsibility-kernel-types.ts`, `authoritative-phone-layout-20260825-233239/responsibility-kernel-compiler.ts`, `primitives.tsx`, `src/lib/responsibility-kernel-compiler.ts`, `semantic-runtime-v2-20260826-033804/src/lib/responsibility-kernel-compiler.ts`, `responsibility-semantic-compiler.ts`, `employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts`, `semantic-builder-v1-20260826-024801/src/components/appliance/responsibility-app-builder.tsx`, `semantic-runtime-v2-20260826-033804/src/components/appliance/responsibility-app-builder.tsx`, `src/components/appliance/responsibility-event-editor.tsx`, `src/components/appliance/responsibility-app-builder.tsx`, `inline-human-review-20260826-040158/src/components/appliance/responsibility-app-builder.tsx`?",
-      "why": "High betweenness centrality (0.046) - this node is a cross-community bridge."
+      "why": "High betweenness centrality (0.049) - this node is a cross-community bridge."
     },
     {
       "type": "bridge_node",
-      "question": "Why does `Role` connect `primitives.tsx` to `src/components/appliance/responsibility-kernel-client.tsx`, `employee-own-history-v2-20260826-042335/src/components/appliance/responsibility-app-builder.tsx`, `src/components/appliance/responsibilities-client.tsx`, `src/lib/responsibility-kernel-types.ts`, `src/lib/responsibility-kernel-compiler.ts`, `appliance-types.ts`, `remove-attendance-starter-20260826-034904/src/components/appliance/responsibilities-client.tsx`, `all-responsibilities-delete-20260826-003442/src/components/appliance/responsibilities-client.tsx`, `src/components/appliance/responsibility-app-builder.tsx`, `responsibility-power-client.tsx`?",
-      "why": "High betweenness centrality (0.042) - this node is a cross-community bridge."
+      "question": "Why does `SearchSelect()` connect `primitives.tsx` to `src/components/appliance/responsibility-kernel-client.tsx`, `src/lib/responsibility-kernel-compiler.ts`, `utils.ts`, `cn`?",
+      "why": "High betweenness centrality (0.043) - this node is a cross-community bridge."
     },
     {
       "type": "isolated_nodes",

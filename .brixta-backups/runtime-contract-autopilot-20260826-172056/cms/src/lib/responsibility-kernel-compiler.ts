@@ -1,4 +1,3 @@
-import { enforceRuntimeContract } from "./runtime/runtime-contract";
 import type {
   ResponsibilityAppAction,
   ResponsibilityDefinition,
@@ -200,7 +199,7 @@ function actionToBaseAction(
  * builder changes immediately visible to the currently-installed Flutter app.
  * Kernel v3 remains embedded in extension metadata for the richer runtime.
  */
-function __brixta_compileKernelToBaseDefinition_unvalidated(
+export function compileKernelToBaseDefinition(
   kernel: ResponsibilityKernel,
 ): ResponsibilityDefinition {
   kernel = compileResponsibilitySemantics(kernel);
@@ -548,12 +547,4 @@ export function hydrateKernelFromBaseDefinition(
   });
 
   return kernel;
-}
-
-// BRIXTA_AUTOPILOT_WRAPPER:compileKernelToBaseDefinition
-export function compileKernelToBaseDefinition(
-  ...args: Parameters<typeof __brixta_compileKernelToBaseDefinition_unvalidated>
-): ReturnType<typeof __brixta_compileKernelToBaseDefinition_unvalidated> {
-  const definition = __brixta_compileKernelToBaseDefinition_unvalidated(...args);
-  return enforceRuntimeContract(definition) as ReturnType<typeof __brixta_compileKernelToBaseDefinition_unvalidated>;
 }

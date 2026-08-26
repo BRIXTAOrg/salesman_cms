@@ -537,6 +537,19 @@
       "source_location": "L52"
     },
     {
+      "id": "src_lib_responsibility_kernel_types_kernelaction",
+      "label": "KernelAction",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 137,
+      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "file_type": "code",
+      "norm_label": "kernelaction",
+      "source_file": "src/lib/responsibility-kernel-types.ts",
+      "source_location": "L197"
+    },
+    {
       "id": "src_lib_responsibility_kernel_types_kerneleffect",
       "label": "KernelEffect",
       "_callable": true,
@@ -548,19 +561,6 @@
       "norm_label": "kerneleffect",
       "source_file": "src/lib/responsibility-kernel-types.ts",
       "source_location": "L295"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_types_kerneloutput",
-      "label": "KernelOutput",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
-      "file_type": "code",
-      "norm_label": "kerneloutput",
-      "source_file": "src/lib/responsibility-kernel-types.ts",
-      "source_location": "L225"
     },
     {
       "id": "src_lib_responsibility_kernel_types_kernelpossibility",
@@ -1057,17 +1057,17 @@
       "source_location": "L55"
     },
     {
-      "id": "src_lib_responsibility_kernel_types_kernelcapture",
-      "label": "KernelCapture",
+      "id": "src_lib_responsibility_kernel_types_kerneloutput",
+      "label": "KernelOutput",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
       "community": 163,
       "community_name": "semantic-builder-v1-20260826-024801/src/lib/responsibility-kernel-compiler.ts",
       "file_type": "code",
-      "norm_label": "kernelcapture",
+      "norm_label": "kerneloutput",
       "source_file": "src/lib/responsibility-kernel-types.ts",
-      "source_location": "L158"
+      "source_location": "L225"
     },
     {
       "id": "src_app_api_platform_roles_id_context_route_context",
@@ -1122,17 +1122,17 @@
       "source_location": "L10"
     },
     {
-      "id": "src_lib_responsibility_kernel_types_kernelaction",
-      "label": "KernelAction",
+      "id": "src_lib_responsibility_kernel_types_kernelcapture",
+      "label": "KernelCapture",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
       "community": 167,
       "community_name": "authoritative-phone-layout-20260825-233239/responsibility-kernel-compiler.ts",
       "file_type": "code",
-      "norm_label": "kernelaction",
+      "norm_label": "kernelcapture",
       "source_file": "src/lib/responsibility-kernel-types.ts",
-      "source_location": "L197"
+      "source_location": "L158"
     },
     {
       "id": "src_lib_appliance_types_genericrecord",

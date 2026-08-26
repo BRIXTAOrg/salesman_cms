@@ -619,11 +619,11 @@ Nodes (3): actionEventIds(), removeSelection(), rulesForAction()
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `cn()` connect `cn` to `sidebar.tsx`, `signup/page.tsx`, `primitives.tsx`, `data-table-reusable.tsx`, `utils.ts`, `toggle-group.tsx`, `chart-area-reusable.tsx`, `button.tsx`?**
-  _High betweenness centrality (0.105) - this node is a cross-community bridge._
+  _High betweenness centrality (0.125) - this node is a cross-community bridge._
 - **Why does `ResponsibilityKernel` connect `ensureTenantPlatformVNext` to `src/components/appliance/responsibility-kernel-client.tsx`, `initial-state-runtime-20260826-022320/src/lib/responsibility-kernel-compiler.ts`, `semantic-builder-v1-20260826-024801/src/lib/responsibility-kernel-compiler.ts`, `employee-own-history-v2-20260826-042335/src/components/appliance/responsibility-app-builder.tsx`, `src/lib/responsibility-kernel-types.ts`, `authoritative-phone-layout-20260825-233239/responsibility-kernel-compiler.ts`, `primitives.tsx`, `src/lib/responsibility-kernel-compiler.ts`, `semantic-runtime-v2-20260826-033804/src/lib/responsibility-kernel-compiler.ts`, `responsibility-semantic-compiler.ts`, `employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts`, `semantic-builder-v1-20260826-024801/src/components/appliance/responsibility-app-builder.tsx`, `semantic-runtime-v2-20260826-033804/src/components/appliance/responsibility-app-builder.tsx`, `src/components/appliance/responsibility-event-editor.tsx`, `src/components/appliance/responsibility-app-builder.tsx`, `inline-human-review-20260826-040158/src/components/appliance/responsibility-app-builder.tsx`?**
-  _High betweenness centrality (0.046) - this node is a cross-community bridge._
-- **Why does `Role` connect `primitives.tsx` to `src/components/appliance/responsibility-kernel-client.tsx`, `employee-own-history-v2-20260826-042335/src/components/appliance/responsibility-app-builder.tsx`, `src/components/appliance/responsibilities-client.tsx`, `src/lib/responsibility-kernel-types.ts`, `src/lib/responsibility-kernel-compiler.ts`, `appliance-types.ts`, `remove-attendance-starter-20260826-034904/src/components/appliance/responsibilities-client.tsx`, `all-responsibilities-delete-20260826-003442/src/components/appliance/responsibilities-client.tsx`, `src/components/appliance/responsibility-app-builder.tsx`, `responsibility-power-client.tsx`?**
-  _High betweenness centrality (0.042) - this node is a cross-community bridge._
+  _High betweenness centrality (0.049) - this node is a cross-community bridge._
+- **Why does `SearchSelect()` connect `primitives.tsx` to `src/components/appliance/responsibility-kernel-client.tsx`, `src/lib/responsibility-kernel-compiler.ts`, `utils.ts`, `cn`?**
+  _High betweenness centrality (0.043) - this node is a cross-community bridge._
 - **What connects `RouteContext`, `Context`, `DashboardShellProps` to the rest of the system?**
   _482 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `hasPermission` be split into smaller, more focused modules?**
