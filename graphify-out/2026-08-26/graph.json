@@ -498,6 +498,19 @@
       "source_location": "L342"
     },
     {
+      "id": "src_lib_responsibility_kernel_types_kernelaction",
+      "label": "KernelAction",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 12,
+      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "file_type": "code",
+      "norm_label": "kernelaction",
+      "source_file": "src/lib/responsibility-kernel-types.ts",
+      "source_location": "L197"
+    },
+    {
       "id": "src_lib_entitlements_entitlementflags",
       "label": "EntitlementFlags",
       "_callable": true,
@@ -530,63 +543,11 @@
       "_callable_class": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
       "norm_label": "extensionresponse",
       "source_file": ".brixta-backups/inline-human-review-20260826-040158/src/components/appliance/responsibility-kernel-client.tsx",
       "source_location": "L52"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_types_kerneleffect",
-      "label": "KernelEffect",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
-      "file_type": "code",
-      "norm_label": "kerneleffect",
-      "source_file": "src/lib/responsibility-kernel-types.ts",
-      "source_location": "L295"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_types_kerneloutput",
-      "label": "KernelOutput",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
-      "file_type": "code",
-      "norm_label": "kerneloutput",
-      "source_file": "src/lib/responsibility-kernel-types.ts",
-      "source_location": "L225"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_types_kernelpossibility",
-      "label": "KernelPossibility",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
-      "file_type": "code",
-      "norm_label": "kernelpossibility",
-      "source_file": "src/lib/responsibility-kernel-types.ts",
-      "source_location": "L235"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_validation_kernelvalidationissue",
-      "label": "KernelValidationIssue",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
-      "file_type": "code",
-      "norm_label": "kernelvalidationissue",
-      "source_file": "src/lib/responsibility-kernel-validation.ts",
-      "source_location": "L7"
     },
     {
       "id": "src_components_refreshdatabutton_refreshdatabuttonprops",
@@ -1057,6 +1018,19 @@
       "source_location": "L55"
     },
     {
+      "id": "src_lib_responsibility_kernel_types_kerneloutput",
+      "label": "KernelOutput",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 162,
+      "community_name": "initial-state-runtime-20260826-022320/src/lib/responsibility-kernel-compiler.ts",
+      "file_type": "code",
+      "norm_label": "kerneloutput",
+      "source_file": "src/lib/responsibility-kernel-types.ts",
+      "source_location": "L225"
+    },
+    {
       "id": "src_lib_responsibility_kernel_types_kernelcapture",
       "label": "KernelCapture",
       "_callable": true,
@@ -1120,19 +1094,6 @@
       "norm_label": "rankedintent",
       "source_file": "src/lib/responsibility-intent-graph.ts",
       "source_location": "L10"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_types_kernelaction",
-      "label": "KernelAction",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 167,
-      "community_name": "authoritative-phone-layout-20260825-233239/responsibility-kernel-compiler.ts",
-      "file_type": "code",
-      "norm_label": "kernelaction",
-      "source_file": "src/lib/responsibility-kernel-types.ts",
-      "source_location": "L197"
     },
     {
       "id": "src_lib_appliance_types_genericrecord",
@@ -2799,6 +2760,19 @@
       "source_location": "L37"
     },
     {
+      "id": "src_lib_responsibility_kernel_types_kerneleffectkind",
+      "label": "KernelEffectKind",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 51,
+      "community_name": "src/components/appliance/responsibility-event-editor.tsx",
+      "file_type": "code",
+      "norm_label": "kerneleffectkind",
+      "source_file": "src/lib/responsibility-kernel-types.ts",
+      "source_location": "L279"
+    },
+    {
       "id": "src_lib_responsibility_kernel_types_kerneleventkind",
       "label": "KernelEventKind",
       "_callable": true,
@@ -2942,17 +2916,17 @@
       "source_location": "L90"
     },
     {
-      "id": "src_lib_responsibility_kernel_types_kerneleffectkind",
-      "label": "KernelEffectKind",
+      "id": "src_lib_responsibility_kernel_types_kerneleffect",
+      "label": "KernelEffect",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
       "community": 6,
       "community_name": "src/lib/responsibility-kernel-types.ts",
       "file_type": "code",
-      "norm_label": "kerneleffectkind",
+      "norm_label": "kerneleffect",
       "source_file": "src/lib/responsibility-kernel-types.ts",
-      "source_location": "L279"
+      "source_location": "L295"
     },
     {
       "id": "src_lib_responsibility_kernel_types_kernelevent",
@@ -3033,6 +3007,19 @@
       "source_location": "L208"
     },
     {
+      "id": "src_lib_responsibility_kernel_types_kernelpossibility",
+      "label": "KernelPossibility",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "src/lib/responsibility-kernel-types.ts",
+      "file_type": "code",
+      "norm_label": "kernelpossibility",
+      "source_file": "src/lib/responsibility-kernel-types.ts",
+      "source_location": "L235"
+    },
+    {
       "id": "src_lib_responsibility_kernel_types_kernelstate",
       "label": "KernelState",
       "_callable": true,
@@ -3057,6 +3044,19 @@
       "norm_label": "kerneluidefinition",
       "source_file": "src/lib/responsibility-kernel-types.ts",
       "source_location": "L314"
+    },
+    {
+      "id": "src_lib_responsibility_kernel_validation_kernelvalidationissue",
+      "label": "KernelValidationIssue",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "src/lib/responsibility-kernel-types.ts",
+      "file_type": "code",
+      "norm_label": "kernelvalidationissue",
+      "source_file": "src/lib/responsibility-kernel-validation.ts",
+      "source_location": "L7"
     },
     {
       "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_components_appliance_responsibility_app_builder_discovergroup",
@@ -5461,111 +5461,99 @@
       "source_location": "L194"
     },
     {
-      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_actiontobaseaction",
+      "id": "src_lib_responsibility_kernel_compiler_actiontobaseaction",
       "label": "actionToBaseAction()",
       "_callable": true,
       "_origin": "ast",
       "community": 12,
-      "community_name": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "src/lib/responsibility-kernel-compiler.ts",
       "file_type": "code",
       "norm_label": "actiontobaseaction()",
-      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_file": "src/lib/responsibility-kernel-compiler.ts",
       "source_location": "L124"
     },
     {
-      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_capturetofield",
+      "id": "src_lib_responsibility_kernel_compiler_capturetofield",
       "label": "captureToField()",
       "_callable": true,
       "_origin": "ast",
       "community": 12,
-      "community_name": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "src/lib/responsibility-kernel-compiler.ts",
       "file_type": "code",
       "norm_label": "capturetofield()",
-      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_file": "src/lib/responsibility-kernel-compiler.ts",
       "source_location": "L55"
     },
     {
-      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_capturetype",
+      "id": "src_lib_responsibility_kernel_compiler_capturetype",
       "label": "captureType()",
       "_callable": true,
       "_origin": "ast",
       "community": 12,
-      "community_name": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "src/lib/responsibility-kernel-compiler.ts",
       "file_type": "code",
       "norm_label": "capturetype()",
-      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_file": "src/lib/responsibility-kernel-compiler.ts",
       "source_location": "L24"
     },
     {
-      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_compilekerneltobasedefinition",
-      "label": "compileKernelToBaseDefinition()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 12,
-      "community_name": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
-      "file_type": "code",
-      "norm_label": "compilekerneltobasedefinition()",
-      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
-      "source_location": "L202"
-    },
-    {
-      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_hydratekernelfrombasedefinition",
+      "id": "src_lib_responsibility_kernel_compiler_hydratekernelfrombasedefinition",
       "label": "hydrateKernelFromBaseDefinition()",
       "_callable": true,
       "_origin": "ast",
       "community": 12,
-      "community_name": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "src/lib/responsibility-kernel-compiler.ts",
       "file_type": "code",
       "norm_label": "hydratekernelfrombasedefinition()",
-      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
-      "source_location": "L344"
+      "source_file": "src/lib/responsibility-kernel-compiler.ts",
+      "source_location": "L346"
     },
     {
-      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_normalizekey",
+      "id": "src_lib_responsibility_kernel_compiler_normalizekey",
       "label": "normalizeKey()",
       "_callable": true,
       "_origin": "ast",
       "community": 12,
-      "community_name": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "src/lib/responsibility-kernel-compiler.ts",
       "file_type": "code",
       "norm_label": "normalizekey()",
-      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_file": "src/lib/responsibility-kernel-compiler.ts",
       "source_location": "L16"
     },
     {
-      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_requiredstate",
+      "id": "src_lib_responsibility_kernel_compiler_requiredstate",
       "label": "requiredState()",
       "_callable": true,
       "_origin": "ast",
       "community": 12,
-      "community_name": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "src/lib/responsibility-kernel-compiler.ts",
       "file_type": "code",
       "norm_label": "requiredstate()",
-      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_file": "src/lib/responsibility-kernel-compiler.ts",
       "source_location": "L108"
     },
     {
-      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_resultingstate",
+      "id": "src_lib_responsibility_kernel_compiler_resultingstate",
       "label": "resultingState()",
       "_callable": true,
       "_origin": "ast",
       "community": 12,
-      "community_name": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "src/lib/responsibility-kernel-compiler.ts",
       "file_type": "code",
       "norm_label": "resultingstate()",
-      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_file": "src/lib/responsibility-kernel-compiler.ts",
       "source_location": "L92"
     },
     {
-      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_ruleforaction",
+      "id": "src_lib_responsibility_kernel_compiler_ruleforaction",
       "label": "ruleForAction()",
       "_callable": true,
       "_origin": "ast",
       "community": 12,
-      "community_name": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "src/lib/responsibility-kernel-compiler.ts",
       "file_type": "code",
       "norm_label": "ruleforaction()",
-      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_file": "src/lib/responsibility-kernel-compiler.ts",
       "source_location": "L78"
     },
     {
@@ -5682,7 +5670,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
       "norm_label": "askernel()",
       "source_file": ".brixta-backups/inline-human-review-20260826-040158/src/components/appliance/responsibility-kernel-client.tsx",
@@ -5694,7 +5682,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
       "norm_label": "normalizekey()",
       "source_file": ".brixta-backups/inline-human-review-20260826-040158/src/components/appliance/responsibility-kernel-client.tsx",
@@ -5706,7 +5694,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
       "norm_label": "responsibilitykernelclient()",
       "source_file": ".brixta-backups/inline-human-review-20260826-040158/src/components/appliance/responsibility-kernel-client.tsx",
@@ -5718,7 +5706,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
       "norm_label": "createresponsibility()",
       "source_file": ".brixta-backups/inline-human-review-20260826-040158/src/components/appliance/responsibility-kernel-client.tsx",
@@ -5730,7 +5718,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
       "norm_label": "publish()",
       "source_file": ".brixta-backups/inline-human-review-20260826-040158/src/components/appliance/responsibility-kernel-client.tsx",
@@ -5742,7 +5730,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
       "norm_label": "savedraft()",
       "source_file": ".brixta-backups/inline-human-review-20260826-040158/src/components/appliance/responsibility-kernel-client.tsx",
@@ -5754,7 +5742,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
       "norm_label": "toggletargetrole()",
       "source_file": ".brixta-backups/inline-human-review-20260826-040158/src/components/appliance/responsibility-kernel-client.tsx",
@@ -5766,7 +5754,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
       "norm_label": "targetroleidsfrom()",
       "source_file": ".brixta-backups/inline-human-review-20260826-040158/src/components/appliance/responsibility-kernel-client.tsx",
@@ -5778,119 +5766,83 @@
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
       "norm_label": "withbuilderstate()",
       "source_file": ".brixta-backups/inline-human-review-20260826-040158/src/components/appliance/responsibility-kernel-client.tsx",
       "source_location": "L110"
     },
     {
-      "id": "src_lib_responsibility_kernel_compiler_actiontobaseaction",
-      "label": "actionToBaseAction()",
+      "id": "src_lib_responsibility_kernel_catalog_addactionrule",
+      "label": "addActionRule()",
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
-      "norm_label": "actiontobaseaction()",
-      "source_file": "src/lib/responsibility-kernel-compiler.ts",
-      "source_location": "L124"
+      "norm_label": "addactionrule()",
+      "source_file": "src/lib/responsibility-kernel-catalog.ts",
+      "source_location": "L154"
     },
     {
-      "id": "src_lib_responsibility_kernel_compiler_capturetofield",
-      "label": "captureToField()",
+      "id": "src_lib_responsibility_kernel_catalog_attendancekerneltemplate",
+      "label": "attendanceKernelTemplate()",
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
-      "norm_label": "capturetofield()",
-      "source_file": "src/lib/responsibility-kernel-compiler.ts",
-      "source_location": "L55"
+      "norm_label": "attendancekerneltemplate()",
+      "source_file": "src/lib/responsibility-kernel-catalog.ts",
+      "source_location": "L311"
     },
     {
-      "id": "src_lib_responsibility_kernel_compiler_capturetype",
-      "label": "captureType()",
+      "id": "src_lib_responsibility_kernel_catalog_blankresponsibilitykernel",
+      "label": "blankResponsibilityKernel()",
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
-      "norm_label": "capturetype()",
-      "source_file": "src/lib/responsibility-kernel-compiler.ts",
-      "source_location": "L24"
+      "norm_label": "blankresponsibilitykernel()",
+      "source_file": "src/lib/responsibility-kernel-catalog.ts",
+      "source_location": "L122"
     },
     {
-      "id": "src_lib_responsibility_kernel_compiler_hydratekernelfrombasedefinition",
-      "label": "hydrateKernelFromBaseDefinition()",
+      "id": "src_lib_responsibility_kernel_catalog_key",
+      "label": "key()",
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
-      "norm_label": "hydratekernelfrombasedefinition()",
-      "source_file": "src/lib/responsibility-kernel-compiler.ts",
-      "source_location": "L346"
+      "norm_label": "key()",
+      "source_file": "src/lib/responsibility-kernel-catalog.ts",
+      "source_location": "L10"
     },
     {
-      "id": "src_lib_responsibility_kernel_compiler_normalizekey",
-      "label": "normalizeKey()",
+      "id": "src_lib_responsibility_kernel_catalog_leavekerneltemplate",
+      "label": "leaveKernelTemplate()",
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
-      "norm_label": "normalizekey()",
-      "source_file": "src/lib/responsibility-kernel-compiler.ts",
-      "source_location": "L16"
+      "norm_label": "leavekerneltemplate()",
+      "source_file": "src/lib/responsibility-kernel-catalog.ts",
+      "source_location": "L194"
     },
     {
-      "id": "src_lib_responsibility_kernel_compiler_requiredstate",
-      "label": "requiredState()",
+      "id": "src_lib_responsibility_kernel_catalog_simpleformtemplate",
+      "label": "simpleFormTemplate()",
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
-      "norm_label": "requiredstate()",
-      "source_file": "src/lib/responsibility-kernel-compiler.ts",
-      "source_location": "L108"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_compiler_resultingstate",
-      "label": "resultingState()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
-      "file_type": "code",
-      "norm_label": "resultingstate()",
-      "source_file": "src/lib/responsibility-kernel-compiler.ts",
-      "source_location": "L92"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_compiler_ruleforaction",
-      "label": "ruleForAction()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
-      "file_type": "code",
-      "norm_label": "ruleforaction()",
-      "source_file": "src/lib/responsibility-kernel-compiler.ts",
-      "source_location": "L78"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_validation_effectissue",
-      "label": "effectIssue()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
-      "file_type": "code",
-      "norm_label": "effectissue()",
-      "source_file": "src/lib/responsibility-kernel-validation.ts",
-      "source_location": "L14"
+      "norm_label": "simpleformtemplate()",
+      "source_file": "src/lib/responsibility-kernel-catalog.ts",
+      "source_location": "L411"
     },
     {
       "id": "src_lib_responsibility_kernel_validation_validateresponsibilitykernel",
@@ -5898,7 +5850,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
       "norm_label": "validateresponsibilitykernel()",
       "source_file": "src/lib/responsibility-kernel-validation.ts",
@@ -16405,6 +16357,114 @@
       "source_location": "L40"
     },
     {
+      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_actiontobaseaction",
+      "label": "actionToBaseAction()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 38,
+      "community_name": "responsibility-semantic-compiler.ts",
+      "file_type": "code",
+      "norm_label": "actiontobaseaction()",
+      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_location": "L124"
+    },
+    {
+      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_capturetofield",
+      "label": "captureToField()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 38,
+      "community_name": "responsibility-semantic-compiler.ts",
+      "file_type": "code",
+      "norm_label": "capturetofield()",
+      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_location": "L55"
+    },
+    {
+      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_capturetype",
+      "label": "captureType()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 38,
+      "community_name": "responsibility-semantic-compiler.ts",
+      "file_type": "code",
+      "norm_label": "capturetype()",
+      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_location": "L24"
+    },
+    {
+      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_compilekerneltobasedefinition",
+      "label": "compileKernelToBaseDefinition()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 38,
+      "community_name": "responsibility-semantic-compiler.ts",
+      "file_type": "code",
+      "norm_label": "compilekerneltobasedefinition()",
+      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_location": "L202"
+    },
+    {
+      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_hydratekernelfrombasedefinition",
+      "label": "hydrateKernelFromBaseDefinition()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 38,
+      "community_name": "responsibility-semantic-compiler.ts",
+      "file_type": "code",
+      "norm_label": "hydratekernelfrombasedefinition()",
+      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_location": "L344"
+    },
+    {
+      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_normalizekey",
+      "label": "normalizeKey()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 38,
+      "community_name": "responsibility-semantic-compiler.ts",
+      "file_type": "code",
+      "norm_label": "normalizekey()",
+      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_location": "L16"
+    },
+    {
+      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_requiredstate",
+      "label": "requiredState()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 38,
+      "community_name": "responsibility-semantic-compiler.ts",
+      "file_type": "code",
+      "norm_label": "requiredstate()",
+      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_location": "L108"
+    },
+    {
+      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_resultingstate",
+      "label": "resultingState()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 38,
+      "community_name": "responsibility-semantic-compiler.ts",
+      "file_type": "code",
+      "norm_label": "resultingstate()",
+      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_location": "L92"
+    },
+    {
+      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler_ruleforaction",
+      "label": "ruleForAction()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 38,
+      "community_name": "responsibility-semantic-compiler.ts",
+      "file_type": "code",
+      "norm_label": "ruleforaction()",
+      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_location": "L78"
+    },
+    {
       "id": "src_lib_responsibility_semantic_compiler_clone",
       "label": "clone()",
       "_callable": true,
@@ -17989,76 +18049,16 @@
       "source_location": "L8"
     },
     {
-      "id": "src_lib_responsibility_kernel_catalog_addactionrule",
-      "label": "addActionRule()",
+      "id": "src_lib_responsibility_kernel_validation_effectissue",
+      "label": "effectIssue()",
       "_callable": true,
       "_origin": "ast",
       "community": 6,
       "community_name": "src/lib/responsibility-kernel-types.ts",
       "file_type": "code",
-      "norm_label": "addactionrule()",
-      "source_file": "src/lib/responsibility-kernel-catalog.ts",
-      "source_location": "L154"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_catalog_attendancekerneltemplate",
-      "label": "attendanceKernelTemplate()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "src/lib/responsibility-kernel-types.ts",
-      "file_type": "code",
-      "norm_label": "attendancekerneltemplate()",
-      "source_file": "src/lib/responsibility-kernel-catalog.ts",
-      "source_location": "L311"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_catalog_blankresponsibilitykernel",
-      "label": "blankResponsibilityKernel()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "src/lib/responsibility-kernel-types.ts",
-      "file_type": "code",
-      "norm_label": "blankresponsibilitykernel()",
-      "source_file": "src/lib/responsibility-kernel-catalog.ts",
-      "source_location": "L122"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_catalog_key",
-      "label": "key()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "src/lib/responsibility-kernel-types.ts",
-      "file_type": "code",
-      "norm_label": "key()",
-      "source_file": "src/lib/responsibility-kernel-catalog.ts",
-      "source_location": "L10"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_catalog_leavekerneltemplate",
-      "label": "leaveKernelTemplate()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "src/lib/responsibility-kernel-types.ts",
-      "file_type": "code",
-      "norm_label": "leavekerneltemplate()",
-      "source_file": "src/lib/responsibility-kernel-catalog.ts",
-      "source_location": "L194"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_catalog_simpleformtemplate",
-      "label": "simpleFormTemplate()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "src/lib/responsibility-kernel-types.ts",
-      "file_type": "code",
-      "norm_label": "simpleformtemplate()",
-      "source_file": "src/lib/responsibility-kernel-catalog.ts",
-      "source_location": "L411"
+      "norm_label": "effectissue()",
+      "source_file": "src/lib/responsibility-kernel-validation.ts",
+      "source_location": "L14"
     },
     {
       "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_components_appliance_responsibility_app_builder_appinspector",
@@ -20206,14 +20206,14 @@
       "source_location": "L97"
     },
     {
-      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler",
-      "label": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "id": "src_lib_responsibility_kernel_compiler",
+      "label": "src/lib/responsibility-kernel-compiler.ts",
       "_origin": "ast",
       "community": 12,
-      "community_name": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "src/lib/responsibility-kernel-compiler.ts",
       "file_type": "code",
-      "norm_label": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
-      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "norm_label": "src/lib/responsibility-kernel-compiler.ts",
+      "source_file": "src/lib/responsibility-kernel-compiler.ts",
       "source_location": "L1"
     },
     {
@@ -20649,44 +20649,66 @@
       "label": "inline-human-review-20260826-040158/src/components/appliance/responsibility-kernel-client.tsx",
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
       "norm_label": "inline-human-review-20260826-040158/src/components/appliance/responsibility-kernel-client.tsx",
       "source_file": ".brixta-backups/inline-human-review-20260826-040158/src/components/appliance/responsibility-kernel-client.tsx",
       "source_location": "L1"
     },
     {
+      "id": "src_lib_responsibility_kernel_catalog",
+      "label": "responsibility-kernel-catalog.ts",
+      "_origin": "ast",
+      "community": 137,
+      "community_name": "responsibility-kernel-catalog.ts",
+      "file_type": "code",
+      "norm_label": "responsibility-kernel-catalog.ts",
+      "source_file": "src/lib/responsibility-kernel-catalog.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "src_lib_responsibility_kernel_catalog_action_catalog",
+      "label": "ACTION_CATALOG",
+      "_origin": "ast",
+      "community": 137,
+      "community_name": "responsibility-kernel-catalog.ts",
+      "file_type": "code",
+      "norm_label": "action_catalog",
+      "source_file": "src/lib/responsibility-kernel-catalog.ts",
+      "source_location": "L62"
+    },
+    {
+      "id": "src_lib_responsibility_kernel_catalog_capture_catalog",
+      "label": "CAPTURE_CATALOG",
+      "_origin": "ast",
+      "community": 137,
+      "community_name": "responsibility-kernel-catalog.ts",
+      "file_type": "code",
+      "norm_label": "capture_catalog",
+      "source_file": "src/lib/responsibility-kernel-catalog.ts",
+      "source_location": "L14"
+    },
+    {
+      "id": "src_lib_responsibility_kernel_catalog_output_catalog",
+      "label": "OUTPUT_CATALOG",
+      "_origin": "ast",
+      "community": 137,
+      "community_name": "responsibility-kernel-catalog.ts",
+      "file_type": "code",
+      "norm_label": "output_catalog",
+      "source_file": "src/lib/responsibility-kernel-catalog.ts",
+      "source_location": "L87"
+    },
+    {
       "id": "src_lib_responsibility_kernel_catalog_starter_templates",
       "label": "STARTER_TEMPLATES",
       "_origin": "ast",
       "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
+      "community_name": "responsibility-kernel-catalog.ts",
       "file_type": "code",
       "norm_label": "starter_templates",
       "source_file": "src/lib/responsibility-kernel-catalog.ts",
       "source_location": "L459"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_compiler",
-      "label": "src/lib/responsibility-kernel-compiler.ts",
-      "_origin": "ast",
-      "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
-      "file_type": "code",
-      "norm_label": "src/lib/responsibility-kernel-compiler.ts",
-      "source_file": "src/lib/responsibility-kernel-compiler.ts",
-      "source_location": "L1"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_validation",
-      "label": "responsibility-kernel-validation.ts",
-      "_origin": "ast",
-      "community": 137,
-      "community_name": "src/lib/responsibility-kernel-compiler.ts",
-      "file_type": "code",
-      "norm_label": "responsibility-kernel-validation.ts",
-      "source_file": "src/lib/responsibility-kernel-validation.ts",
-      "source_location": "L1"
     },
     {
       "id": "src_app_dashboard_workspace_assignments_page",
@@ -23032,15 +23054,15 @@
       "source_location": "L12"
     },
     {
-      "id": "package_dependencies_class_variance_authority",
-      "label": "class-variance-authority",
+      "id": "package_dependencies_bcryptjs",
+      "label": "bcryptjs",
       "_origin": "ast",
       "community": 30,
       "community_name": "dependencies",
       "file_type": "code",
-      "norm_label": "class-variance-authority",
+      "norm_label": "bcryptjs",
       "source_file": "package.json",
-      "source_location": "L43"
+      "source_location": "L42"
     },
     {
       "id": "package_dependencies_cmdk",
@@ -23109,15 +23131,15 @@
       "source_location": "L65"
     },
     {
-      "id": "class_variance_authority",
-      "label": "class-variance-authority",
+      "id": "bcryptjs",
+      "label": "bcryptjs",
       "_origin": "ast",
       "community": 30,
       "community_name": "dependencies",
       "file_type": "concept",
-      "norm_label": "class-variance-authority",
+      "norm_label": "bcryptjs",
       "source_file": "package.json",
-      "source_location": "L43"
+      "source_location": "L42"
     },
     {
       "id": "cmdk",
@@ -23549,17 +23571,6 @@
       "source_location": "L77"
     },
     {
-      "id": "package_devdependencies_baseline_browser_mapping",
-      "label": "baseline-browser-mapping",
-      "_origin": "ast",
-      "community": 37,
-      "community_name": "devDependencies",
-      "file_type": "code",
-      "norm_label": "baseline-browser-mapping",
-      "source_file": "package.json",
-      "source_location": "L89"
-    },
-    {
       "id": "package_devdependencies_drizzle_kit",
       "label": "drizzle-kit",
       "_origin": "ast",
@@ -23580,6 +23591,17 @@
       "norm_label": "@tailwindcss/postcss",
       "source_file": "package.json",
       "source_location": "L79"
+    },
+    {
+      "id": "package_devdependencies_ts_node",
+      "label": "ts-node",
+      "_origin": "ast",
+      "community": 37,
+      "community_name": "devDependencies",
+      "file_type": "code",
+      "norm_label": "ts-node",
+      "source_file": "package.json",
+      "source_location": "L96"
     },
     {
       "id": "package_devdependencies_types_pg",
@@ -23604,17 +23626,6 @@
       "source_location": "L98"
     },
     {
-      "id": "baseline_browser_mapping",
-      "label": "baseline-browser-mapping",
-      "_origin": "ast",
-      "community": 37,
-      "community_name": "devDependencies",
-      "file_type": "concept",
-      "norm_label": "baseline-browser-mapping",
-      "source_file": "package.json",
-      "source_location": "L89"
-    },
-    {
       "id": "drizzle_kit",
       "label": "drizzle-kit",
       "_origin": "ast",
@@ -23637,6 +23648,17 @@
       "source_location": "L79"
     },
     {
+      "id": "ts_node",
+      "label": "ts-node",
+      "_origin": "ast",
+      "community": 37,
+      "community_name": "devDependencies",
+      "file_type": "concept",
+      "norm_label": "ts-node",
+      "source_file": "package.json",
+      "source_location": "L96"
+    },
+    {
       "id": "types_pg",
       "label": "@types/pg",
       "_origin": "ast",
@@ -23657,6 +23679,17 @@
       "norm_label": "typescript",
       "source_file": "package.json",
       "source_location": "L98"
+    },
+    {
+      "id": "brixta_backups_employee_own_history_v2_20260826_042335_src_lib_responsibility_kernel_compiler",
+      "label": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "_origin": "ast",
+      "community": 38,
+      "community_name": "responsibility-semantic-compiler.ts",
+      "file_type": "code",
+      "norm_label": "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_file": ".brixta-backups/employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts",
+      "source_location": "L1"
     },
     {
       "id": "src_lib_responsibility_semantic_compiler",
@@ -24781,48 +24814,48 @@
       "source_location": "L1"
     },
     {
-      "id": "package_dependencies_bcryptjs",
-      "label": "bcryptjs",
+      "id": "package_devdependencies_baseline_browser_mapping",
+      "label": "baseline-browser-mapping",
       "_origin": "ast",
       "community": 55,
-      "community_name": "bcryptjs",
+      "community_name": "baseline-browser-mapping",
       "file_type": "code",
-      "norm_label": "bcryptjs",
+      "norm_label": "baseline-browser-mapping",
       "source_file": "package.json",
-      "source_location": "L42"
+      "source_location": "L89"
     },
     {
-      "id": "bcryptjs",
-      "label": "bcryptjs",
+      "id": "baseline_browser_mapping",
+      "label": "baseline-browser-mapping",
       "_origin": "ast",
       "community": 55,
-      "community_name": "bcryptjs",
+      "community_name": "baseline-browser-mapping",
       "file_type": "concept",
-      "norm_label": "bcryptjs",
+      "norm_label": "baseline-browser-mapping",
       "source_file": "package.json",
-      "source_location": "L42"
+      "source_location": "L89"
     },
     {
-      "id": "package_devdependencies_ts_node",
-      "label": "ts-node",
+      "id": "package_dependencies_class_variance_authority",
+      "label": "class-variance-authority",
       "_origin": "ast",
       "community": 56,
-      "community_name": "ts-node",
+      "community_name": "class-variance-authority",
       "file_type": "code",
-      "norm_label": "ts-node",
+      "norm_label": "class-variance-authority",
       "source_file": "package.json",
-      "source_location": "L96"
+      "source_location": "L43"
     },
     {
-      "id": "ts_node",
-      "label": "ts-node",
+      "id": "class_variance_authority",
+      "label": "class-variance-authority",
       "_origin": "ast",
       "community": 56,
-      "community_name": "ts-node",
+      "community_name": "class-variance-authority",
       "file_type": "concept",
-      "norm_label": "ts-node",
+      "norm_label": "class-variance-authority",
       "source_file": "package.json",
-      "source_location": "L96"
+      "source_location": "L43"
     },
     {
       "id": "package_dependencies_clsx",
@@ -24902,39 +24935,6 @@
       "source_location": "L1"
     },
     {
-      "id": "src_lib_responsibility_kernel_catalog",
-      "label": "responsibility-kernel-catalog.ts",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "src/lib/responsibility-kernel-types.ts",
-      "file_type": "code",
-      "norm_label": "responsibility-kernel-catalog.ts",
-      "source_file": "src/lib/responsibility-kernel-catalog.ts",
-      "source_location": "L1"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_catalog_action_catalog",
-      "label": "ACTION_CATALOG",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "src/lib/responsibility-kernel-types.ts",
-      "file_type": "code",
-      "norm_label": "action_catalog",
-      "source_file": "src/lib/responsibility-kernel-catalog.ts",
-      "source_location": "L62"
-    },
-    {
-      "id": "src_lib_responsibility_kernel_catalog_capture_catalog",
-      "label": "CAPTURE_CATALOG",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "src/lib/responsibility-kernel-types.ts",
-      "file_type": "code",
-      "norm_label": "capture_catalog",
-      "source_file": "src/lib/responsibility-kernel-catalog.ts",
-      "source_location": "L14"
-    },
-    {
       "id": "src_lib_responsibility_kernel_catalog_context_catalog",
       "label": "CONTEXT_CATALOG",
       "_origin": "ast",
@@ -24946,17 +24946,6 @@
       "source_location": "L46"
     },
     {
-      "id": "src_lib_responsibility_kernel_catalog_output_catalog",
-      "label": "OUTPUT_CATALOG",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "src/lib/responsibility-kernel-types.ts",
-      "file_type": "code",
-      "norm_label": "output_catalog",
-      "source_file": "src/lib/responsibility-kernel-catalog.ts",
-      "source_location": "L87"
-    },
-    {
       "id": "src_lib_responsibility_kernel_types",
       "label": "src/lib/responsibility-kernel-types.ts",
       "_origin": "ast",
@@ -24965,6 +24954,17 @@
       "file_type": "code",
       "norm_label": "src/lib/responsibility-kernel-types.ts",
       "source_file": "src/lib/responsibility-kernel-types.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "src_lib_responsibility_kernel_validation",
+      "label": "responsibility-kernel-validation.ts",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "src/lib/responsibility-kernel-types.ts",
+      "file_type": "code",
+      "norm_label": "responsibility-kernel-validation.ts",
+      "source_file": "src/lib/responsibility-kernel-validation.ts",
       "source_location": "L1"
     },
     {

@@ -1,7 +1,8 @@
 # Graph Report - salesman_cms  (2026-08-26)
 
 ## Corpus Check
-- cluster-only mode — file stats not available
+- 229 files · ~231,005 words
+- Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
 - 2247 nodes · 5282 edges · 187 communities (101 shown, 86 thin omitted)
@@ -26,7 +27,7 @@
 - data-table-reusable.tsx
 - appliance-types.ts
 - utils.ts
-- employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts
+- src/lib/responsibility-kernel-compiler.ts
 - entitlements.ts
 - compilerOptions
 - portfolio/route.ts
@@ -69,8 +70,8 @@
 - main
 - organization/page.tsx
 - generic-json-table.tsx
-- bcryptjs
-- ts-node
+- baseline-browser-mapping
+- class-variance-authority
 - clsx
 - @corbe30/fortune-excel
 - csv-stringify
@@ -146,7 +147,7 @@
 - README.md
 - fortune-sheet.d.ts
 - start.sh
-- src/lib/responsibility-kernel-compiler.ts
+- responsibility-kernel-catalog.ts
 - AssignmentsClient
 - auth.ts
 - @eslint/eslintrc
@@ -205,21 +206,21 @@
 5. `withTenantDb()` - 28 edges
 6. `ResponsibilityKernel` - 26 edges
 7. `cx()` - 25 edges
-8. `ResponsibilityPowerClient()` - 24 edges
-9. `clone()` - 24 edges
+8. `clone()` - 24 edges
+9. `ResponsibilityPowerClient()` - 24 edges
 10. `clone()` - 24 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `ResponsibilityAppBuilder()` --calls--> `rankIntentCandidates()`  [EXTRACTED]
+  .brixta-backups/employee-own-history-v2-20260826-042335/src/components/appliance/responsibility-app-builder.tsx → src/lib/responsibility-intent-graph.ts
+- `ResponsibilityAppBuilder()` --calls--> `suggestRecipeComposition()`  [EXTRACTED]
+  .brixta-backups/employee-own-history-v2-20260826-042335/src/components/appliance/responsibility-app-builder.tsx → src/lib/responsibility-intent-graph.ts
+- `ResponsibilityAppBuilder()` --calls--> `compileResponsibilitySemantics()`  [EXTRACTED]
+  .brixta-backups/employee-own-history-v2-20260826-042335/src/components/appliance/responsibility-app-builder.tsx → src/lib/responsibility-semantic-compiler.ts
 - `POST` --calls--> `hasPermission()`  [EXTRACTED]
   .brixta-backups/event-no-action-20260825-213237/src/app/api/platform/responsibility-extensions/[id]/publish/route.ts → src/lib/auth.ts
 - `PUT` --calls--> `hasPermission()`  [EXTRACTED]
   .brixta-backups/event-no-action-20260825-213237/src/app/api/platform/responsibility-extensions/[id]/route.ts → src/lib/auth.ts
-- `POST` --calls--> `hasPermission()`  [EXTRACTED]
-  .brixta-backups/role-publish-bridge-20260825-235836/route.ts → src/lib/auth.ts
-- `POST` --calls--> `hasPermission()`  [EXTRACTED]
-  .brixta-backups/semantic-runtime-v2-20260826-033804/src/app/api/platform/responsibility-extensions/[id]/publish/route.ts → src/lib/auth.ts
-- `ResponsibilityPowerClient()` --calls--> `createBlankResponsibilityExtension()`  [EXTRACTED]
-  .brixta-backups/final-responsibility-cleanup-20260826-002238/src/components/appliance/responsibility-power-client.tsx → src/lib/responsibility-power-catalog.ts
 
 ## Import Cycles
 - None detected.
@@ -252,7 +253,7 @@ Nodes (43): actionFromDefinition(), ActionProperties(), patch(), setFieldEnabled
 
 ### Community 6 - "src/lib/responsibility-kernel-types.ts"
 Cohesion: 0.12
-Nodes (26): ACTION_CATALOG, addActionRule(), attendanceKernelTemplate(), blankResponsibilityKernel(), CAPTURE_CATALOG, CONTEXT_CATALOG, key(), leaveKernelTemplate() (+18 more)
+Nodes (20): CONTEXT_CATALOG, KernelActionKind, KernelActor, KernelActorResolver, KernelCaptureKind, KernelConditionGroup, KernelContext, KernelContextSource (+12 more)
 
 ### Community 7 - "platformVNextSchema.ts"
 Cohesion: 0.06
@@ -274,9 +275,9 @@ Nodes (35): blankAction(), blankApproval(), BuilderState, BuilderStep, builderSt
 Cohesion: 0.11
 Nodes (25): MultiSelectProps, Option, Option, SearchSelectProps, Badge(), badgeVariants, Command(), CommandDialog() (+17 more)
 
-### Community 12 - "employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts"
-Cohesion: 0.44
-Nodes (9): actionToBaseAction(), captureToField(), captureType(), compileKernelToBaseDefinition(), hydrateKernelFromBaseDefinition(), normalizeKey(), requiredState(), resultingState() (+1 more)
+### Community 12 - "src/lib/responsibility-kernel-compiler.ts"
+Cohesion: 0.38
+Nodes (9): actionToBaseAction(), captureToField(), captureType(), hydrateKernelFromBaseDefinition(), normalizeKey(), requiredState(), resultingState(), ruleForAction() (+1 more)
 
 ### Community 13 - "entitlements.ts"
 Cohesion: 0.18
@@ -348,7 +349,7 @@ Nodes (11): Locations, Locations, BASE_URL, brands, dealerTypes, JOB_ROLES, JWT_
 
 ### Community 30 - "dependencies"
 Cohesion: 0.13
-Nodes (15): class-variance-authority, cmdk, jszip, next, dependencies, class-variance-authority, cmdk, jszip (+7 more)
+Nodes (15): bcryptjs, cmdk, jszip, next, dependencies, bcryptjs, cmdk, jszip (+7 more)
 
 ### Community 31 - "inline-human-review-20260826-040158/src/components/appliance/responsibility-app-builder.tsx"
 Cohesion: 0.08
@@ -376,11 +377,11 @@ Nodes (4): ResponsibilityBuilderMode, ResponsibilityExtensionConfig, RESPONSIBIL
 
 ### Community 37 - "devDependencies"
 Cohesion: 0.18
-Nodes (11): baseline-browser-mapping, drizzle-kit, devDependencies, baseline-browser-mapping, drizzle-kit, @tailwindcss/postcss, @types/pg, typescript (+3 more)
+Nodes (11): drizzle-kit, devDependencies, drizzle-kit, @tailwindcss/postcss, ts-node, @types/pg, typescript, @tailwindcss/postcss (+3 more)
 
 ### Community 38 - "responsibility-semantic-compiler.ts"
-Cohesion: 0.22
-Nodes (20): clone(), compileResponsibilitySemantics(), ensureActor(), ensureBaseRuntimeContext(), ensureContext(), ensureObject(), ensureState(), hasLocationCapture() (+12 more)
+Cohesion: 0.15
+Nodes (29): actionToBaseAction(), captureToField(), captureType(), compileKernelToBaseDefinition(), hydrateKernelFromBaseDefinition(), normalizeKey(), requiredState(), resultingState() (+21 more)
 
 ### Community 40 - "ActionInspector"
 Cohesion: 0.16
@@ -420,7 +421,7 @@ Nodes (3): geistMono, geistSans, metadata
 
 ### Community 51 - "src/components/appliance/responsibility-event-editor.tsx"
 Cohesion: 0.10
-Nodes (23): ConditionEditor(), EffectEditor(), EVENT_KINDS, makeRef(), randomKey(), refDisplay(), refKind(), ResponsibilityEventEditor() (+15 more)
+Nodes (24): ConditionEditor(), EffectEditor(), EVENT_KINDS, makeRef(), randomKey(), refDisplay(), refKind(), ResponsibilityEventEditor() (+16 more)
 
 ### Community 52 - "main"
 Cohesion: 0.83
@@ -446,9 +447,9 @@ Nodes (20): compareValues(), CONTEXT_SOURCE_LABELS, DiscoverGroup, DiscoverItem,
 Cohesion: 0.12
 Nodes (18): baseFields(), humanize(), issueTone(), normalizeKey(), objectValue(), randomKey(), ResponsibilityPowerClient(), addComputedField() (+10 more)
 
-### Community 137 - "src/lib/responsibility-kernel-compiler.ts"
-Cohesion: 0.13
-Nodes (24): asKernel(), ExtensionResponse, normalizeKey(), ResponsibilityKernelClient(), createResponsibility(), publish(), saveDraft(), targetRoleIdsFrom() (+16 more)
+### Community 137 - "responsibility-kernel-catalog.ts"
+Cohesion: 0.16
+Nodes (20): asKernel(), ExtensionResponse, normalizeKey(), ResponsibilityKernelClient(), createResponsibility(), publish(), saveDraft(), targetRoleIdsFrom() (+12 more)
 
 ### Community 139 - "auth.ts"
 Cohesion: 0.11
@@ -535,8 +536,8 @@ Cohesion: 0.17
 Nodes (7): RolesVNextClient(), remove(), rename(), setWorkflow(), workflowValue(), targetFrom(), targetValue()
 
 ### Community 162 - "initial-state-runtime-20260826-022320/src/lib/responsibility-kernel-compiler.ts"
-Cohesion: 0.44
-Nodes (9): actionToBaseAction(), captureToField(), captureType(), compileKernelToBaseDefinition(), hydrateKernelFromBaseDefinition(), normalizeKey(), requiredState(), resultingState() (+1 more)
+Cohesion: 0.38
+Nodes (10): actionToBaseAction(), captureToField(), captureType(), compileKernelToBaseDefinition(), hydrateKernelFromBaseDefinition(), normalizeKey(), requiredState(), resultingState() (+2 more)
 
 ### Community 163 - "semantic-builder-v1-20260826-024801/src/lib/responsibility-kernel-compiler.ts"
 Cohesion: 0.38
@@ -555,8 +556,8 @@ Cohesion: 0.55
 Nodes (10): array(), enabled(), normalizeRelationship(), normalizeRoleContextDefinition(), normalizeTarget(), normalizeVisibility(), normalizeWorkflow(), object() (+2 more)
 
 ### Community 167 - "authoritative-phone-layout-20260825-233239/responsibility-kernel-compiler.ts"
-Cohesion: 0.38
-Nodes (10): actionToBaseAction(), captureToField(), captureType(), compileKernelToBaseDefinition(), hydrateKernelFromBaseDefinition(), normalizeKey(), requiredState(), resultingState() (+2 more)
+Cohesion: 0.44
+Nodes (9): actionToBaseAction(), captureToField(), captureType(), compileKernelToBaseDefinition(), hydrateKernelFromBaseDefinition(), normalizeKey(), requiredState(), resultingState() (+1 more)
 
 ### Community 168 - "ActionInspector"
 Cohesion: 0.22
@@ -611,7 +612,7 @@ Cohesion: 0.67
 Nodes (3): actionEventIds(), removeSelection(), rulesForAction()
 
 ## Knowledge Gaps
-- **482 isolated node(s):** `RouteContext`, `Context`, `DashboardShellProps`, `User`, `Props` (+477 more)
+- **482 isolated node(s):** `MeResponse`, `BuilderField`, `BuilderAction`, `CanvasBlock`, `BuilderState` (+477 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **86 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -619,12 +620,12 @@ Nodes (3): actionEventIds(), removeSelection(), rulesForAction()
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `cn()` connect `cn` to `sidebar.tsx`, `signup/page.tsx`, `primitives.tsx`, `data-table-reusable.tsx`, `utils.ts`, `toggle-group.tsx`, `chart-area-reusable.tsx`, `button.tsx`?**
-  _High betweenness centrality (0.105) - this node is a cross-community bridge._
-- **Why does `ResponsibilityKernel` connect `ensureTenantPlatformVNext` to `src/components/appliance/responsibility-kernel-client.tsx`, `initial-state-runtime-20260826-022320/src/lib/responsibility-kernel-compiler.ts`, `semantic-builder-v1-20260826-024801/src/lib/responsibility-kernel-compiler.ts`, `employee-own-history-v2-20260826-042335/src/components/appliance/responsibility-app-builder.tsx`, `src/lib/responsibility-kernel-types.ts`, `authoritative-phone-layout-20260825-233239/responsibility-kernel-compiler.ts`, `primitives.tsx`, `src/lib/responsibility-kernel-compiler.ts`, `semantic-runtime-v2-20260826-033804/src/lib/responsibility-kernel-compiler.ts`, `responsibility-semantic-compiler.ts`, `employee-own-history-v2-20260826-042335/src/lib/responsibility-kernel-compiler.ts`, `semantic-builder-v1-20260826-024801/src/components/appliance/responsibility-app-builder.tsx`, `semantic-runtime-v2-20260826-033804/src/components/appliance/responsibility-app-builder.tsx`, `src/components/appliance/responsibility-event-editor.tsx`, `src/components/appliance/responsibility-app-builder.tsx`, `inline-human-review-20260826-040158/src/components/appliance/responsibility-app-builder.tsx`?**
+  _High betweenness centrality (0.097) - this node is a cross-community bridge._
+- **Why does `ResponsibilityKernel` connect `ensureTenantPlatformVNext` to `src/components/appliance/responsibility-kernel-client.tsx`, `initial-state-runtime-20260826-022320/src/lib/responsibility-kernel-compiler.ts`, `semantic-builder-v1-20260826-024801/src/lib/responsibility-kernel-compiler.ts`, `employee-own-history-v2-20260826-042335/src/components/appliance/responsibility-app-builder.tsx`, `responsibility-semantic-compiler.ts`, `authoritative-phone-layout-20260825-233239/responsibility-kernel-compiler.ts`, `primitives.tsx`, `responsibility-kernel-catalog.ts`, `semantic-runtime-v2-20260826-033804/src/lib/responsibility-kernel-compiler.ts`, `src/lib/responsibility-kernel-types.ts`, `src/lib/responsibility-kernel-compiler.ts`, `semantic-builder-v1-20260826-024801/src/components/appliance/responsibility-app-builder.tsx`, `semantic-runtime-v2-20260826-033804/src/components/appliance/responsibility-app-builder.tsx`, `src/components/appliance/responsibility-event-editor.tsx`, `src/components/appliance/responsibility-app-builder.tsx`, `inline-human-review-20260826-040158/src/components/appliance/responsibility-app-builder.tsx`?**
   _High betweenness centrality (0.046) - this node is a cross-community bridge._
-- **Why does `Role` connect `primitives.tsx` to `src/components/appliance/responsibility-kernel-client.tsx`, `employee-own-history-v2-20260826-042335/src/components/appliance/responsibility-app-builder.tsx`, `src/components/appliance/responsibilities-client.tsx`, `src/lib/responsibility-kernel-types.ts`, `src/lib/responsibility-kernel-compiler.ts`, `appliance-types.ts`, `remove-attendance-starter-20260826-034904/src/components/appliance/responsibilities-client.tsx`, `all-responsibilities-delete-20260826-003442/src/components/appliance/responsibilities-client.tsx`, `src/components/appliance/responsibility-app-builder.tsx`, `responsibility-power-client.tsx`?**
-  _High betweenness centrality (0.042) - this node is a cross-community bridge._
-- **What connects `RouteContext`, `Context`, `DashboardShellProps` to the rest of the system?**
+- **Why does `SearchSelect()` connect `primitives.tsx` to `src/components/appliance/responsibility-kernel-client.tsx`, `responsibility-kernel-catalog.ts`, `utils.ts`, `cn`?**
+  _High betweenness centrality (0.034) - this node is a cross-community bridge._
+- **What connects `MeResponse`, `BuilderField`, `BuilderAction` to the rest of the system?**
   _482 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `hasPermission` be split into smaller, more focused modules?**
   _Cohesion score 0.09393939393939393 - nodes in this community are weakly interconnected._
