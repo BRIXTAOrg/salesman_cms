@@ -473,9 +473,32 @@ export default function PixelLogicStudioClient() {
           body: JSON.stringify({ config: nextExtension }),
         },
       );
-      setExtension(nextExtension);
+
+      // BRIXTA_PIXEL_LOGIC_SAVE_AND_PUBLISH_V1
+      //
+      // Logic is application behavior. Once the graph passes
+      // validation, Save Logic publishes the Responsibility so
+      // runtime does not continue executing a stale graph.
+      const publishResult =
+        await apiJson<{
+          success: boolean;
+          version?: number;
+          message?: string;
+        }>(
+          `/api/platform/responsibility-extensions/${responsibilityId}/publish`,
+          {
+            method: "POST",
+          },
+        );
+
+      setExtension(
+        nextExtension,
+      );
+
       setMessage(
-        "Pixel Logic saved into the Responsibility draft. Publish the Responsibility when you want the graph to reach runtime.",
+        publishResult.version
+          ? `Pixel Logic saved + published as Responsibility version ${publishResult.version}.`
+          : "Pixel Logic saved + published.",
       );
     } catch (error) {
       setMessage(
