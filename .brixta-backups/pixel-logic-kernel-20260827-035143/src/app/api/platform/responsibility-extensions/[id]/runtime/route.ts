@@ -73,19 +73,7 @@ export const GET = withTenantDb<Context>(
           FROM capability_assignment_rules
           WHERE capability_id = ${responsibilityId}
             AND enabled = true
-        ) AS assignment_rules,
-        (
-          SELECT count(*)::int
-          FROM platform_meta
-          WHERE key LIKE 'pixel_logic_assignments_employee_%'
-            AND (
-              CASE
-                WHEN jsonb_typeof(value) = 'array' THEN value
-                ELSE COALESCE(value -> 'responsibilityIds', '[]'::jsonb)
-              END
-            ) @> jsonb_build_array(${responsibilityId})
-        ) AS logic_assigned_users
-        -- BRIXTA_PIXEL_LOGIC_KERNEL_V1
+        ) AS assignment_rules
     `);
 
     const countRow = (counts.rows[0] ?? {}) as Record<string, unknown>;
@@ -196,7 +184,6 @@ export const GET = withTenantDb<Context>(
       assignment: {
         directAssignedUsers: numeric(countRow.direct_assigned_users),
         assignmentRules: numeric(countRow.assignment_rules),
-        logicAssignedUsers: numeric(countRow.logic_assigned_users),
       },
       deviceSummary: {
         registered: devices.length,

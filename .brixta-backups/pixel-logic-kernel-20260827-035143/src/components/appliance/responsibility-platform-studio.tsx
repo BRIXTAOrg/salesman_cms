@@ -1,16 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Boxes, BrainCircuit, Database, GitBranch, ShieldCheck } from "lucide-react";
+import { Boxes, BrainCircuit, Database, ShieldCheck } from "lucide-react";
 
 import DataSourcesClient from "./data-sources-client";
 import EntitiesClient from "./entities-client";
-import PixelLogicStudioClient from "./pixel-logic-studio-client";
 import ResponsibilityKernelClient from "./responsibility-kernel-client";
 import RolesVNextClient from "./roles-vnext-client";
 
-// BRIXTA_PIXEL_LOGIC_KERNEL_V1
-type TabKey = "studio" | "logic" | "entities" | "data" | "roles";
+type TabKey = "studio" | "entities" | "data" | "roles";
 
 const tabs = [
   {
@@ -18,12 +16,6 @@ const tabs = [
     label: "STUDIO",
     description: "Build app + operational behavior",
     icon: BrainCircuit,
-  },
-  {
-    key: "logic" as const,
-    label: "LOGIC",
-    description: "Wire events, values and effects",
-    icon: GitBranch,
   },
   {
     key: "entities" as const,
@@ -51,7 +43,7 @@ export default function ResponsibilityPlatformStudio() {
   return (
     <div className="min-h-full min-w-0 overflow-x-hidden">
       <div className="relative z-10 min-w-0 border-b bg-background px-3 py-3 sm:px-4 md:px-6">
-        <div className="grid w-full min-w-0 grid-cols-2 gap-2 lg:grid-cols-5">
+        <div className="grid w-full min-w-0 grid-cols-2 gap-2 lg:grid-cols-4">
           {tabs.map((item) => {
             const Icon = item.icon;
             const active = item.key === tab;
@@ -85,12 +77,6 @@ export default function ResponsibilityPlatformStudio() {
       {tab === "studio" && (
         <div className="w-full min-w-0 px-3 pb-6 pt-5 sm:px-4 md:px-6">
           <ResponsibilityKernelClient />
-        </div>
-      )}
-
-      {tab === "logic" && (
-        <div className="w-full min-w-0 px-3 pb-6 pt-5 sm:px-4 md:px-6">
-          <PixelLogicStudioClient />
         </div>
       )}
 

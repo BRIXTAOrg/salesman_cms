@@ -42,9 +42,6 @@ export default function AssignmentsClient() {
     useState<EmployeeDetail | null>(null);
   const [directIds, setDirectIds] =
     useState<number[]>([]);
-  // BRIXTA_PIXEL_LOGIC_KERNEL_V1
-  const [logicIds, setLogicIds] =
-    useState<number[]>([]);
   const [query, setQuery] =
     useState("");
   const [loading, setLoading] =
@@ -95,17 +92,9 @@ export default function AssignmentsClient() {
     setMessage(null);
 
     try {
-      const [body, logicBody] = await Promise.all([
-        apiJson<EmployeeDetail>(
-          `/api/appliance/employees/${id}`,
-        ),
-        apiJson<{
-          success: boolean;
-          responsibilityIds: number[];
-        }>(
-          `/api/platform/pixel-logic-assignments/${id}`,
-        ),
-      ]);
+      const body = await apiJson<EmployeeDetail>(
+        `/api/appliance/employees/${id}`,
+      );
 
       setDetail(body);
       setDirectIds(
@@ -113,11 +102,9 @@ export default function AssignmentsClient() {
           body.directCapabilityIds ??
           [],
       );
-      setLogicIds(logicBody.responsibilityIds ?? []);
     } catch (error) {
       setDetail(null);
       setDirectIds([]);
-      setLogicIds([]);
       setMessage(
         error instanceof Error
           ? error.message
@@ -169,14 +156,6 @@ export default function AssignmentsClient() {
     );
   }
 
-  function toggleLogic(id: number) {
-    setLogicIds((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id],
-    );
-  }
-
   async function save() {
     if (!selectedId) return;
     setSaving(true);
@@ -197,22 +176,8 @@ export default function AssignmentsClient() {
         },
       );
 
-      const logicBody = await apiJson<{
-        success: boolean;
-        responsibilityIds: number[];
-      }>(
-        `/api/platform/pixel-logic-assignments/${selectedId}`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            responsibilityIds: logicIds,
-          }),
-        },
-      );
-
       setDirectIds(body.directResponsibilityIds ?? directIds);
-      setLogicIds(logicBody.responsibilityIds ?? logicIds);
-      setMessage("Responsibility + Pixel Logic assignments saved.");
+      setMessage("Direct Responsibility assignments saved.");
       await Promise.all([
         loadEmployee(selectedId),
         loadBase(),
@@ -237,7 +202,7 @@ export default function AssignmentsClient() {
       <PageIntro
         eyebrow="Workspace"
         title="Assignments"
-        description="Assign Responsibilities and explicitly tick which published Pixel Logic programs may execute for each employee. Organization-wide Responsibility rules still resolve in addition to direct assignments."
+        description="Assign Responsibilities directly to employees. Organization-wide rules are configured on each Responsibility and are resolved in addition to these direct assignments."
         action={
           <SecondaryButton type="button" onClick={() => void loadBase()}>
             <RefreshCw className="h-4 w-4" />
@@ -323,7 +288,7 @@ export default function AssignmentsClient() {
                       {selectedEmployee.name ?? selectedEmployee.employeeCode}
                     </div>
                     <div className="mt-1 text-sm text-muted-foreground">
-                      Choose the Responsibilities assigned directly to this employee, then independently tick the Pixel Logic that may run for them.
+                      Choose the Responsibilities assigned directly to this employee.
                     </div>
                   </div>
                   <PrimaryButton
@@ -354,22 +319,25 @@ export default function AssignmentsClient() {
                       const resolved = resolvedIds.has(responsibility.id);
                       const inherited = resolved && !direct;
 
-                      const logic = logicIds.includes(responsibility.id);
-
                       return (
-                        <div
+                        <label
                           key={responsibility.id}
                           className={
-                            direct || logic
-                              ? "rounded-lg border border-primary/40 bg-primary/5 p-4"
-                              : "rounded-lg border p-4 hover:bg-muted/20"
+                            direct
+                              ? "flex cursor-pointer gap-3 rounded-lg border border-primary/40 bg-primary/5 p-4"
+                              : "flex cursor-pointer gap-3 rounded-lg border p-4 hover:bg-muted/20"
                           }
                         >
-                          <div className="min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={direct}
+                            onChange={() => toggle(responsibility.id)}
+                            className="mt-1"
+                          />
+                          <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="font-medium">{responsibility.title}</div>
                               {inherited && <Pill tone="info">from rule</Pill>}
-                              {logic && <Pill tone="info">logic assigned</Pill>}
                             </div>
                             <div className="mt-1 font-mono text-xs text-muted-foreground">
                               {responsibility.key}
@@ -380,39 +348,14 @@ export default function AssignmentsClient() {
                               </div>
                             )}
                           </div>
-
-                          <div className="mt-4 grid gap-2 border-t pt-3 sm:grid-cols-2">
-                            <label className="flex cursor-pointer items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
-                              <input
-                                type="checkbox"
-                                checked={direct}
-                                onChange={() => toggle(responsibility.id)}
-                              />
-                              Responsibility
-                            </label>
-
-                            <label className="flex cursor-pointer items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
-                              <input
-                                type="checkbox"
-                                checked={logic}
-                                onChange={() => toggleLogic(responsibility.id)}
-                              />
-                              Pixel Logic
-                            </label>
-                          </div>
-
-                          <div className="mt-2 text-[11px] text-muted-foreground">
-                            Pixel Logic is a separate execution entitlement. Runtime hosts should
-                            execute the published graph only when this second tick is enabled.
-                          </div>
-                        </div>
+                        </label>
                       );
                     })}
                   </div>
                 )}
 
                 <div className="mt-6 rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
-                  Resolved now: {detail.responsibilities.length}. Direct Responsibility selections: {directIds.length}. Pixel Logic selections: {logicIds.length}. A Responsibility can be available while its logic remains disabled for this employee.
+                  Resolved now: {detail.responsibilities.length}. Direct selections: {directIds.length}. A rule can grant or deny additional Responsibilities without duplicating employee records.
                 </div>
               </>
             )}
