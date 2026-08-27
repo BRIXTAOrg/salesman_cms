@@ -2,9 +2,7 @@
 
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
-import type { ColumnDef } from "@tanstack/react-table";
-
-import { DataTableReusable } from "@/components/data-table-reusable";
+import { GenericJsonTable } from "@/components/generic-json-table";
 import type {
   GenericRecord,
   Responsibility,
@@ -116,129 +114,52 @@ function person(record: GenericRecord) {
   );
 }
 
-function TableOutput({
+/**
+ * Shared renderer for every "just show me the records" output kind
+ * (table, cards, detail, timeline). Rows are built from the
+ * Responsibility's own field definitions, so columns are auto-derived
+ * with real labels instead of raw JSON keys, photo/media values render
+ * as thumbnails, and every row gets an Actions -> View column that opens
+ * a full detail dialog with large image previews.
+ */
+function RecordListTable({
   responsibility,
   records,
 }: Props) {
   const fields = fieldsFor(responsibility);
 
-  const columns = useMemo<ColumnDef<GenericRecord>[]>(
+  const columns = useMemo(
     () => [
-      {
-        id: "employee",
-        header: "Employee",
-        accessorFn: (record) => person(record),
-        cell: ({ row }) => (
-          <span className="font-medium">{person(row.original)}</span>
-        ),
-      },
-      ...fields.map<ColumnDef<GenericRecord>>((field: ResponsibilityField) => ({
-        id: field.key,
-        header: field.label,
-        cell: ({ row }) => (
-          <div className="line-clamp-4 max-w-[320px] warp-break-words">
-            {displayValue(row.original.payload[field.key])}
-          </div>
-        ),
+      { key: "employee", label: "Employee" },
+      ...fields.map((field: ResponsibilityField) => ({
+        key: field.key,
+        label: field.label,
       })),
-      {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => <Pill>{row.original.status}</Pill>,
-      },
-      {
-        id: "updated",
-        header: "Updated",
-        cell: ({ row }) => (
-          <span className="text-muted-foreground">
-            {formatDateTime(row.original.updatedAt ?? row.original.createdAt)}
-          </span>
-        ),
-      },
+      { key: "status", label: "Status" },
+      { key: "updatedAt", label: "Updated" },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [fields],
   );
 
-  return <DataTableReusable columns={columns} data={records} />;
-}
-
-function CardsOutput({
-  responsibility,
-  records,
-}: Props) {
-  const fields = fieldsFor(responsibility);
-
-  return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {records.map((record) => (
-        <Panel key={record.id}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="font-semibold">{person(record)}</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                {formatDateTime(record.updatedAt ?? record.createdAt)}
-              </div>
-            </div>
-            <Pill>{record.status}</Pill>
-          </div>
-          <dl className="mt-5 space-y-3">
-            {fields.map((field) => (
-              <div key={field.key}>
-                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {field.label}
-                </dt>
-                <dd className="mt-1 wrap-break-words text-sm">
-                  {displayValue(record.payload[field.key])}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </Panel>
-      ))}
-    </div>
+  const rows = useMemo(
+    () =>
+      records.map((record) => ({
+        id: record.id,
+        employee: person(record),
+        status: record.status,
+        updatedAt: formatDateTime(record.updatedAt ?? record.createdAt),
+        ...Object.fromEntries(
+          fields.map((field) => [field.key, record.payload[field.key]]),
+        ),
+      })),
+    [records, fields],
   );
-}
-
-function DetailOutput({
-  responsibility,
-  records,
-}: Props) {
-  const fields = fieldsFor(responsibility);
 
   return (
-    <div className="space-y-4">
-      {records.map((record) => (
-        <Panel key={record.id}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="font-semibold">{person(record)}</div>
-              <div className="text-xs text-muted-foreground">
-                Record {record.id}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Pill>{record.status}</Pill>
-              <span className="text-xs text-muted-foreground">
-                {formatDateTime(record.updatedAt ?? record.createdAt)}
-              </span>
-            </div>
-          </div>
-          <dl className="mt-5 grid gap-4 md:grid-cols-2">
-            {fields.map((field) => (
-              <div key={field.key} className="rounded-md border p-3">
-                <dt className="text-xs font-medium text-muted-foreground">
-                  {field.label}
-                </dt>
-                <dd className="mt-1 wrap-break-words text-sm">
-                  {displayValue(record.payload[field.key])}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </Panel>
-      ))}
-    </div>
+    <GenericJsonTable
+      data={rows}
+      columns={columns}
+    />
   );
 }
 
@@ -294,7 +215,7 @@ function SnapshotOutput(props: Props) {
   const latest = props.records[0];
   if (!latest) return null;
   return (
-    <DetailOutput
+    <RecordListTable
       responsibility={props.responsibility}
       records={[latest]}
     />
@@ -449,45 +370,6 @@ function GalleryOutput({
   );
 }
 
-function TimelineOutput({
-  responsibility,
-  records,
-}: Props) {
-  const fields = fieldsFor(responsibility);
-
-  return (
-    <Panel>
-      <div className="space-y-0">
-        {records.map((record, index) => (
-          <div key={record.id} className="relative flex gap-4 pb-6 last:pb-0">
-            {index < records.length - 1 && (
-              <div className="absolute left-[7px] top-4 h-[calc(100%-4px)] w-px bg-border" />
-            )}
-            <div className="relative mt-1 h-4 w-4 shrink-0 rounded-full border-4 border-background bg-foreground" />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="font-medium">{person(record)}</div>
-                <Pill>{record.status}</Pill>
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                {formatDateTime(record.updatedAt ?? record.createdAt)}
-              </div>
-              <div className="mt-2 text-sm text-muted-foreground">
-                {fields.slice(0, 3).map((field) => (
-                  <span key={field.key} className="mr-3">
-                    <strong className="font-medium text-foreground">{field.label}:</strong>{" "}
-                    {displayValue(record.payload[field.key])}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Panel>
-  );
-}
-
 function NodeGraphOutput({
   responsibility,
   records,
@@ -535,10 +417,6 @@ export default function RecordOutput(props: Props) {
   }
 
   switch (props.responsibility.definition.output.renderer) {
-    case "detail":
-      return <DetailOutput {...props} />;
-    case "cards":
-      return <CardsOutput {...props} />;
     case "metric":
       return <MetricOutput {...props} />;
     case "snapshot":
@@ -549,12 +427,13 @@ export default function RecordOutput(props: Props) {
       return <MapRouteOutput {...props} />;
     case "gallery":
       return <GalleryOutput {...props} />;
-    case "timeline":
-      return <TimelineOutput {...props} />;
     case "node_graph":
       return <NodeGraphOutput {...props} />;
+    case "detail":
+    case "cards":
+    case "timeline":
     case "table":
     default:
-      return <TableOutput {...props} />;
+      return <RecordListTable {...props} />;
   }
 }

@@ -225,15 +225,9 @@ export function leaveKernelTemplate(): ResponsibilityKernel {
     {
       id: "replacement_employee",
       label: "Who will handle your work?",
-      kind: "person_reference" as const,
-      config: {
-        source: "employees",
-        searchable: true,
-        filters: [
-          { field: "status", operator: "eq", value: "active" },
-          { field: "id", operator: "neq", valueFrom: "current_employee.id" },
-        ],
-      },
+      kind: "short_text" as const,
+      required: false,
+      config: {},
     },
   ];
 
@@ -242,7 +236,7 @@ export function leaveKernelTemplate(): ResponsibilityKernel {
     k.possibilities.push({
       id: possibilityId,
       type: "capture",
-      capture: { ...capture, required: true, storeAs: capture.id },
+      capture: { required: true, ...capture, storeAs: capture.id },
     });
     k.metadata.ui!.layout.push(possibilityId);
   }

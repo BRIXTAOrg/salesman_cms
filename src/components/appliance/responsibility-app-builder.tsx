@@ -213,6 +213,31 @@ function ensureBaseRule(kernel: ResponsibilityKernel, action: KernelAction) {
     };
     next.rules.push(rule);
   }
+  // The action's own config carries the intended transition
+  // (availableState / resultingState -- the convention every recipe and
+  // the manual builder both use), but nothing ever turned that into an
+  // actual change_state effect, so records never left their initial
+  // state no matter how many times an action ran. Add it once, keyed
+  // off resultingState so re-applying a recipe stays idempotent instead
+  // of stacking duplicate effects.
+  const resultingState = action.config?.resultingState;
+  if (typeof resultingState === "string" && resultingState.trim()) {
+    const hasStateEffect = rule.effects.some(
+      (effect) => effect.kind === "change_state",
+    );
+    if (!hasStateEffect) {
+      rule.effects = [
+        {
+          id: randomKey("effect"),
+          kind: "change_state",
+          targetKey: "process",
+          value: { kind: "literal", value: resultingState },
+          config: {},
+        },
+        ...rule.effects,
+      ];
+    }
+  }
   return { kernel: next, eventId: eventResult.eventId, ruleId: rule.id };
 }
 function addOrReplaceContext(
@@ -837,13 +862,33 @@ function attendanceEssentialsRecipe(
       valueSource: "native_phone",
     },
   });
+  next = ensureCapture(next, {
+    id: "attendance_time",
+    label: "Attendance time",
+    kind: "datetime",
+    required: true,
+    storeAs: "attendance_time",
+    config: {
+      // Auto-derived from the device clock at the moment the action
+      // fires -- same pattern as the GPS capture above. Never shown as
+      // a manual input; the app fills it in and submits it silently.
+      nativeCapability: "device_clock",
+      automatic: true,
+      valueSource: "device_time",
+      // Display-only hints. Storage stays UTC ISO 8601 (correct, DST-
+      // proof); these just tell the rendering layer how to show it back
+      // to a person.
+      displayFormat: "h:mm a",
+      displayTimezone: "Asia/Kolkata",
+    },
+  });
   next = ensureAction(next, {
     id: "punch_in",
     label: "Punch In",
     kind: "start",
     actorId: "current_employee",
     objectId: "current_record",
-    captureIds: ["attendance_photo", "attendance_location"],
+    captureIds: ["attendance_photo", "attendance_location", "attendance_time"],
     config: {
       availableState: "not_punched_in",
       resultingState: "punched_in",
@@ -857,7 +902,7 @@ function attendanceEssentialsRecipe(
     kind: "stop",
     actorId: "current_employee",
     objectId: "current_record",
-    captureIds: ["attendance_location"],
+    captureIds: ["attendance_location", "attendance_time"],
     config: {
       availableState: "punched_in",
       resultingState: "completed",
@@ -874,6 +919,7 @@ function attendanceEssentialsRecipe(
     visibleKeys: [
       "attendance_photo",
       "attendance_location",
+      "attendance_time",
       "punch_in_time",
       "minutes_late",
       "late_deduction",
