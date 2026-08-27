@@ -1,4 +1,5 @@
 // BRIXTA_PIXEL_LOGIC_KERNEL_V1
+// BRIXTA_PIXEL_LOGIC_AI_BRIDGE_V1
 import { getPixelLogicNodeSpec } from "@/lib/pixel-logic-registry";
 import type { PixelLogicProgram } from "@/lib/pixel-logic-types";
 
@@ -82,6 +83,27 @@ export function validatePixelLogicProgram(
         edgeId: edge.id,
         message: `Edge kind "${edge.kind}" does not match its ports.`,
       });
+    }
+
+    if (
+      output &&
+      input &&
+      output.kind === "data" &&
+      input.kind === "data"
+    ) {
+      const outputType = output.valueType ?? "any";
+      const inputType = input.valueType ?? "any";
+      if (
+        outputType !== "any" &&
+        inputType !== "any" &&
+        outputType !== inputType
+      ) {
+        issues.push({
+          severity: "error",
+          edgeId: edge.id,
+          message: `Data type mismatch: ${from.label ?? from.type}.${edge.fromPort} is ${outputType}, but ${to.label ?? to.type}.${edge.toPort} expects ${inputType}.`,
+        });
+      }
     }
   }
 

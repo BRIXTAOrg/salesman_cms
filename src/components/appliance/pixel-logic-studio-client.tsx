@@ -1,4 +1,5 @@
 // BRIXTA_PIXEL_LOGIC_KERNEL_V1
+// BRIXTA_PIXEL_LOGIC_AI_BRIDGE_V1
 "use client";
 
 import {
@@ -25,6 +26,13 @@ import {
   listPixelLogicNodeSpecs,
 } from "@/lib/pixel-logic-registry";
 import {
+  autoLayoutPixelLogicProgram,
+  buildPixelLogicAIContext,
+  parsePixelLogicAIImport,
+  pixelLogicRegistryFingerprint,
+  type PixelLogicAIImportResult,
+} from "@/lib/pixel-logic-ai-bridge";
+import {
   blankPixelLogicProgram,
   normalizePixelLogicProgram,
   PIXEL_LOGIC_METADATA_KEY,
@@ -32,7 +40,11 @@ import {
   type PixelLogicPortKind,
   type PixelLogicProgram,
 } from "@/lib/pixel-logic-types";
-import { validatePixelLogicProgram } from "@/lib/pixel-logic-validation";
+import {
+  validatePixelLogicProgram,
+  type PixelLogicValidationIssue,
+} from "@/lib/pixel-logic-validation";
+import { validatePixelLogicAgainstResponsibility } from "@/lib/pixel-logic-context-validation";
 import {
   RESPONSIBILITY_KERNEL_METADATA_KEY,
   type ResponsibilityKernel,
@@ -117,6 +129,11 @@ export default function PixelLogicStudioClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiImportText, setAiImportText] = useState("");
+  const [aiImportResult, setAiImportResult] =
+    useState<PixelLogicAIImportResult | null>(null);
+  const [aiIssues, setAiIssues] = useState<PixelLogicValidationIssue[]>([]);
 
   const selectedResponsibility = useMemo(
     () => responsibilities.find((item) => item.id === responsibilityId) ?? null,
@@ -144,8 +161,11 @@ export default function PixelLogicStudioClient() {
   const toSpec = toNode ? getPixelLogicNodeSpec(toNode.type) : undefined;
 
   const validation = useMemo(
-    () => validatePixelLogicProgram(program),
-    [program],
+    () => [
+      ...validatePixelLogicProgram(program),
+      ...validatePixelLogicAgainstResponsibility(program, kernel),
+    ],
+    [program, kernel],
   );
   const errorCount = validation.filter((item) => item.severity === "error").length;
   const warningCount = validation.filter(
@@ -194,6 +214,9 @@ export default function PixelLogicStudioClient() {
         setExtension(nextExtension);
         setProgram(programFromExtension(nextExtension, title));
         setSelectedNodeId(null);
+        setAiImportResult(null);
+        setAiIssues([]);
+        setAiImportText("");
       } catch (error) {
         setMessage(
           error instanceof Error
@@ -317,6 +340,122 @@ export default function PixelLogicStudioClient() {
     setMessage(`${kind === "flow" ? "Flow" : "Data"} connection added.`);
   }
 
+  async function copyAIContext() {
+    if (!selectedResponsibility) {
+      setMessage("Choose a Responsibility before generating AI context.");
+      return;
+    }
+
+    try {
+      const context = buildPixelLogicAIContext({
+        responsibilityId: selectedResponsibility.id,
+        responsibilityTitle: selectedResponsibility.title,
+        kernel,
+        currentProgram: program,
+      });
+      await navigator.clipboard.writeText(context);
+      setMessage(
+        "AI context copied. Paste it into ChatGPT, add your business requirement, then paste the returned JSON back here.",
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to copy Pixel Logic AI context.",
+      );
+    }
+  }
+
+  function validateAIImport() {
+    if (!selectedResponsibility) return;
+    try {
+      const result = parsePixelLogicAIImport(
+        aiImportText,
+        `${selectedResponsibility.title} Logic`,
+      );
+      const issues: PixelLogicValidationIssue[] = [
+        ...validatePixelLogicProgram(result.program),
+        ...validatePixelLogicAgainstResponsibility(result.program, kernel),
+      ];
+
+      const currentFingerprint = pixelLogicRegistryFingerprint();
+      if (
+        result.registryFingerprint &&
+        result.registryFingerprint !== currentFingerprint
+      ) {
+        issues.push({
+          severity: "warning",
+          message: `This AI result was generated against registry ${result.registryFingerprint}, while the current registry is ${currentFingerprint}. It has been revalidated against the current registry.`,
+        });
+      }
+
+      if (
+        result.responsibilityId !== undefined &&
+        String(result.responsibilityId) !== String(selectedResponsibility.id)
+      ) {
+        issues.push({
+          severity: "error",
+          message: `AI result targets Responsibility ${String(result.responsibilityId)}, not the currently selected Responsibility ${selectedResponsibility.id}.`,
+        });
+      }
+
+      if (result.unsupportedCapabilities.length > 0) {
+        issues.push({
+          severity: "error",
+          message: `The requested workflow needs unsupported capabilities: ${result.unsupportedCapabilities.join(", ")}. Install/register those capabilities or revise the workflow before importing.`,
+        });
+      }
+
+      setAiImportResult(result);
+      setAiIssues(issues);
+      const errors = issues.filter((item) => item.severity === "error").length;
+      setMessage(
+        errors > 0
+          ? `AI logic parsed, but ${errors} blocking validation error${errors === 1 ? "" : "s"} must be fixed.`
+          : "AI logic is valid for this Responsibility. Review it, then import it into the canvas.",
+      );
+    } catch (error) {
+      setAiImportResult(null);
+      setAiIssues([
+        {
+          severity: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Unable to parse AI-generated Pixel Logic.",
+        },
+      ]);
+      setMessage("AI import could not be validated.");
+    }
+  }
+
+  function applyAIImport() {
+    if (!aiImportResult) return;
+    if (aiIssues.some((item) => item.severity === "error")) {
+      setMessage("Fix the blocking AI import errors before importing.");
+      return;
+    }
+
+    const next = autoLayoutPixelLogicProgram(aiImportResult.program);
+    setProgram({
+      ...next,
+      metadata: {
+        ...next.metadata,
+        generatedBy: next.metadata.generatedBy ?? "external-ai",
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    setSelectedNodeId(null);
+    setFromNodeId("");
+    setFromPort("");
+    setToNodeId("");
+    setToPort("");
+    setAiOpen(false);
+    setMessage(
+      "AI Pixel Logic imported into the canvas. Review the graph and Validation panel, then click Save logic.",
+    );
+  }
+
   async function save() {
     if (!responsibilityId || !extension) return;
     if (errorCount > 0) {
@@ -414,6 +553,15 @@ export default function PixelLogicStudioClient() {
               Refresh
             </SecondaryButton>
 
+            <SecondaryButton
+              type="button"
+              onClick={() => setAiOpen((current) => !current)}
+              disabled={!selectedResponsibility || loading}
+            >
+              <Zap className="h-4 w-4" />
+              Generate with AI
+            </SecondaryButton>
+
             <PrimaryButton
               type="button"
               onClick={() => void save()}
@@ -462,6 +610,120 @@ export default function PixelLogicStudioClient() {
       {message && (
         <Panel className="py-3">
           <div className="text-sm">{message}</div>
+        </Panel>
+      )}
+
+      {aiOpen && selectedResponsibility && (
+        <Panel>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="text-base font-semibold">Generate with AI</div>
+              <div className="mt-1 max-w-3xl text-sm text-muted-foreground">
+                BRIXTA exports the live Pixel Logic Registry plus this Responsibility's
+                actions, captures, contexts, states and actors. ChatGPT is constrained
+                to that contract; BRIXTA still validates everything before import.
+              </div>
+            </div>
+            <Pill>{pixelLogicRegistryFingerprint()}</Pill>
+          </div>
+
+          <div className="mt-5 grid gap-5 xl:grid-cols-2">
+            <div className="rounded-lg border p-4">
+              <div className="text-sm font-semibold">1. Copy BRIXTA AI context</div>
+              <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Paste this into ChatGPT and add your business requirement after the
+                BUSINESS REQUIREMENT marker. The Registry is the language; GPT is
+                only composing legal blocks from it.
+              </div>
+              <div className="mt-4">
+                <PrimaryButton type="button" onClick={() => void copyAIContext()}>
+                  Copy AI context
+                </PrimaryButton>
+              </div>
+            </div>
+
+            <div className="rounded-lg border p-4">
+              <div className="text-sm font-semibold">2. Paste generated Pixel Logic</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Paste the JSON object ChatGPT returns. Markdown fences are tolerated,
+                but alternate workflow formats are rejected.
+              </div>
+              <textarea
+                value={aiImportText}
+                onChange={(event) => {
+                  setAiImportText(event.target.value);
+                  setAiImportResult(null);
+                  setAiIssues([]);
+                }}
+                placeholder='{"format":"brixta.pixel-logic","formatVersion":1,...}'
+                className="mt-3 min-h-52 w-full rounded-md border bg-background p-3 font-mono text-xs outline-none focus:ring-2 focus:ring-ring"
+              />
+              <div className="mt-3 flex flex-wrap gap-2">
+                <SecondaryButton type="button" onClick={validateAIImport}>
+                  Validate AI JSON
+                </SecondaryButton>
+                <PrimaryButton
+                  type="button"
+                  onClick={applyAIImport}
+                  disabled={
+                    !aiImportResult ||
+                    aiIssues.some((item) => item.severity === "error")
+                  }
+                >
+                  Import into canvas
+                </PrimaryButton>
+              </div>
+            </div>
+          </div>
+
+          {(aiImportResult || aiIssues.length > 0) && (
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-lg border p-4">
+                <div className="text-sm font-semibold">Import validation</div>
+                {aiIssues.length === 0 ? (
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    No blocking issues detected.
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    {aiIssues.map((issue, index) => (
+                      <div
+                        key={`ai-issue:${index}`}
+                        className="rounded-md border p-2 text-xs"
+                      >
+                        <div className="font-medium uppercase">{issue.severity}</div>
+                        <div className="mt-1 text-muted-foreground">
+                          {issue.message}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border p-4">
+                <div className="text-sm font-semibold">AI result summary</div>
+                {aiImportResult ? (
+                  <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                    <div>{aiImportResult.program.nodes.length} nodes · {aiImportResult.program.edges.length} wires</div>
+                    <div>Registry: {aiImportResult.registryFingerprint ?? "not supplied"}</div>
+                    <div>
+                      Unsupported capabilities: {aiImportResult.unsupportedCapabilities.length}
+                    </div>
+                    {aiImportResult.notes.length > 0 && (
+                      <div>
+                        Notes: {aiImportResult.notes.join(" · ")}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Validate a pasted result to inspect it.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </Panel>
       )}
 
