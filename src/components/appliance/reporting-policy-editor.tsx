@@ -23,37 +23,37 @@ const SCOPES: Array<{
     value:
       "same_department",
     label:
-      "Same department",
+      "This employee's department",
   },
   {
     value:
       "same_area",
     label:
-      "Same area",
+      "This employee's area",
   },
   {
     value:
       "same_zone",
     label:
-      "Same zone",
+      "This employee's zone",
   },
   {
     value:
       "same_department_area",
     label:
-      "Same department + area",
+      "Same department and area",
   },
   {
     value:
       "same_department_zone",
     label:
-      "Same department + zone",
+      "Same department and zone",
   },
   {
     value:
       "organization",
     label:
-      "Entire organization",
+      "Anywhere in the organization",
   },
 ];
 
@@ -125,17 +125,17 @@ function statusLabel(
 
   switch (status) {
     case "resolved":
-      return "Resolved";
+      return "Ready";
     case "top_level":
-      return "Top level";
+      return "No manager";
     case "ambiguous":
-      return "Ambiguous";
+      return "Multiple people match";
     case "no_match":
-      return "No match";
+      return "Nobody found";
     case "invalid":
-      return "Invalid";
+      return "Needs attention";
     default:
-      return "Unconfigured";
+      return "Not set";
   }
 }
 
@@ -213,17 +213,17 @@ export default function ReportingPolicyEditor({
     <div className="space-y-4 rounded-lg border p-4">
       <div>
         <div className="font-medium">
-          Direct manager resolution
+          Default manager & approver
         </div>
 
         <div className="mt-1 text-xs text-muted-foreground">
-          BRIXTA uses this relationship for manager_of(...) inside Responsibilities such as Leave approvals.
+          This is this employee's normal manager and default approver. If a Responsibility explicitly chooses someone else, that rule takes priority.
         </div>
       </div>
 
       <label className="block text-sm">
         <span className="mb-1 block font-medium">
-          Resolution method
+          How should BRIXTA choose them?
         </span>
 
         <select
@@ -237,19 +237,19 @@ export default function ReportingPolicyEditor({
           }
         >
           <option value="unset">
-            Not configured
+            Not set yet
           </option>
 
           <option value="specific_user">
-            Specific employee
+            Choose one person
           </option>
 
           <option value="role">
-            By Role + scope
+            Choose automatically by role
           </option>
 
           <option value="top_level">
-            Top level / no manager
+            No manager / top-level employee
           </option>
         </select>
       </label>
@@ -258,7 +258,7 @@ export default function ReportingPolicyEditor({
         "specific_user" && (
         <label className="block text-sm">
           <span className="mb-1 block font-medium">
-            Direct manager
+            Manager / default approver
           </span>
 
           <select
@@ -282,7 +282,7 @@ export default function ReportingPolicyEditor({
             }
           >
             <option value="">
-              Choose employee
+              Choose a person
             </option>
 
             {availableEmployees.map(
@@ -316,7 +316,7 @@ export default function ReportingPolicyEditor({
         <div className="grid gap-3 md:grid-cols-2">
           <label className="block text-sm">
             <span className="mb-1 block font-medium">
-              Manager Role
+              Role
             </span>
 
             <select
@@ -344,7 +344,7 @@ export default function ReportingPolicyEditor({
               }
             >
               <option value="">
-                Choose Role
+                Choose a role
               </option>
 
               {roles.map(
@@ -366,13 +366,13 @@ export default function ReportingPolicyEditor({
             </select>
 
             <div className="mt-1 text-[11px] text-muted-foreground">
-              This uses the stable Authority Role assignment, not a free-text designation.
+              BRIXTA will choose an active person who has this role.
             </div>
           </label>
 
           <label className="block text-sm">
             <span className="mb-1 block font-medium">
-              Resolve within
+              Where should BRIXTA look?
             </span>
 
             <select
@@ -415,7 +415,7 @@ export default function ReportingPolicyEditor({
       {mode ===
         "top_level" && (
         <div className="rounded-md border bg-muted/20 p-3 text-sm">
-          This employee is intentionally at the top of this reporting branch. A missing manager will not be treated as incomplete configuration.
+          This employee has no default manager. Use this for owners, directors, or other top-level people who should not report to someone else.
         </div>
       )}
 
@@ -423,7 +423,7 @@ export default function ReportingPolicyEditor({
         <div className="rounded-md border bg-muted/10 p-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium">
-              Current resolution
+              Who will be chosen?
             </span>
 
             <Pill
@@ -473,7 +473,7 @@ export default function ReportingPolicyEditor({
             1 && (
             <div className="mt-3 space-y-1">
               <div className="text-xs font-medium">
-                Matching employees
+                People matching this rule
               </div>
 
               {snapshot.candidates?.map(
@@ -500,7 +500,7 @@ export default function ReportingPolicyEditor({
             1 && (
             <div className="mt-3">
               <div className="text-xs font-medium">
-                Organization path
+                Reporting path
               </div>
 
               <div className="mt-1 text-xs text-muted-foreground">
@@ -526,7 +526,7 @@ export default function ReportingPolicyEditor({
             onPreview
           }
         >
-          Preview resolution
+          Check who this selects
         </SecondaryButton>
       )}
     </div>
