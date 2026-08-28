@@ -472,6 +472,39 @@ function __brixta_compileKernelToBaseDefinition_unvalidated(
     )?.output ??
     outputs[0]?.output;
 
+  /*
+   * BRIXTA_RESPONSIBILITY_INSTANCE_MODE_V1
+   *
+   * A Responsibility can operate in one of two generic instance modes:
+   *
+   * continuing
+   *   The existing/current record remains the operational instance.
+   *   Examples: attendance session, trip in progress, machine session.
+   *
+   * repeatable
+   *   Opening the Responsibility starts from its initial Kernel state,
+   *   while previous records remain history.
+   *   Examples: leave request, expense claim, inspection, complaint.
+   *
+   * Pixel Reality can declare this on any primary employee action:
+   *
+   *   action.config.instanceMode = "repeatable"
+   *
+   * Default remains "continuing" for backward compatibility.
+   */
+  const instanceMode =
+    actions.some(
+      (item) =>
+        primaryEmployeeAction(
+          kernel,
+          item.action,
+        ) &&
+        item.action.config.instanceMode ===
+          "repeatable",
+    )
+      ? "repeatable"
+      : "continuing";
+
   return {
     schemaVersion: 2,
     input: {
@@ -484,6 +517,11 @@ function __brixta_compileKernelToBaseDefinition_unvalidated(
       actions: appActions,
       config: {
         generatedBy: "responsibility_unified_studio_v4",
+
+        /*
+         * Generic record lifecycle contract consumed by Flutter.
+         */
+        instanceMode,
 
         /*
          * Runtime state contract:
