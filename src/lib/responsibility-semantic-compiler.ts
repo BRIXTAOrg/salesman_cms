@@ -409,9 +409,21 @@ function inferActionRuntimeDefaults(kernel: ResponsibilityKernel) {
     const action = item.action;
 
     action.objectId = action.objectId || "current_record";
-    action.actorId = ["approve", "reject", "delegate"].includes(action.kind) && manager
-      ? "reporting_manager"
-      : "current_employee";
+
+    /*
+     * AUTHORITY PRECEDENCE:
+     *
+     * Explicit Pixel / Kernel actor wins.
+     *
+     * Semantic compilation may only infer an actor when the authored
+     * Responsibility did not specify one.
+     */
+    if (!action.actorId) {
+      action.actorId =
+        ["approve", "reject", "delegate"].includes(action.kind) && manager
+          ? "reporting_manager"
+          : "current_employee";
+    }
 
     const automatic = ["current_employee", "current_time"];
     if (location) automatic.push("current_location");
@@ -439,6 +451,69 @@ function inferSimpleApprovalLifecycle(kernel: ResponsibilityKernel) {
   const reject = actions.find((action) => action.kind === "reject");
 
   if (!submit || (!approve && !reject)) return;
+
+  /*
+   * BRIXTA_AUTHORED_LIFECYCLE_WINS_V1
+   *
+   * inferSimpleApprovalLifecycle() exists for old/simple Responsibilities
+   * where the customer only authored "Submit / Approve / Reject" and did
+   * not define a state machine.
+   *
+   * Pixel Reality, however, may explicitly author:
+   *
+   *   availableState
+   *   resultingState
+   *   state conditions in action.requires
+   *
+   * In that case inference MUST NOT replace the authored lifecycle.
+   *
+   * Example:
+   *
+   *   draft
+   *     -> pending_manager
+   *     -> approved / rejected / returned
+   *
+   * Replacing that with ready/pending_approval would leave the existing
+   * requires conditions pointing at draft/pending_manager and create an
+   * internally contradictory Kernel.
+   */
+  const authoredApprovalActions = [
+    submit,
+    approve,
+    reject,
+  ].filter(
+    (action): action is KernelAction =>
+      Boolean(action),
+  );
+
+  const hasExplicitLifecycle =
+    authoredApprovalActions.some(
+      (action) => {
+        const availableState =
+          typeof action.config.availableState === "string" &&
+          action.config.availableState.trim().length > 0;
+
+        const resultingState =
+          typeof action.config.resultingState === "string" &&
+          action.config.resultingState.trim().length > 0;
+
+        const stateRequirement =
+          action.requires?.conditions.some(
+            (condition) =>
+              condition.left.kind === "state",
+          ) === true;
+
+        return (
+          availableState ||
+          resultingState ||
+          stateRequirement
+        );
+      },
+    );
+
+  if (hasExplicitLifecycle) {
+    return;
+  }
 
   ensureActor(kernel, {
     id: "reporting_manager",
