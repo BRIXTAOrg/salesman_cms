@@ -120,7 +120,7 @@ export function validatePixelLogicProgram(
       );
       if (!connected) {
         issues.push({
-          severity: "warning",
+          severity: "error",
           nodeId: node.id,
           message: `${node.label ?? spec.label}: required input "${input.label}" is not connected.`,
         });
