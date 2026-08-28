@@ -91,6 +91,20 @@ import {
   STARTER_TEMPLATES,
 } from "@/lib/responsibility-kernel-catalog";
 import { compileResponsibilitySemantics } from "@/lib/responsibility-semantic-compiler";
+
+import {
+  RESPONSIBILITY_APP_BUILDER_BLOCKS,
+} from "@/lib/responsibility-app-builder-block-registry";
+
+import {
+  applyResponsibilityAppBuilderAIImport,
+  buildResponsibilityAppBuilderAIContext,
+  parseResponsibilityAppBuilderAIImport,
+  responsibilityAppBuilderRegistryFingerprint,
+  validateResponsibilityAppBuilderAIImport,
+  type AppBuilderNativeBlockContext,
+  type ResponsibilityAppBuilderAIImportResult,
+} from "@/lib/responsibility-app-builder-ai-bridge";
 import {
   rankIntentCandidates,
   suggestRecipeComposition,
@@ -1825,7 +1839,9 @@ const INTENT_SYNONYMS: Array<[string, string[]]> = [
   ["notify", ["notification", "manager", "alert", "push"]],
 ];
 
-function discoveryItems(): DiscoverItem[] {
+function discoveryItems(
+  nativeBlocks: NativeBlock[] = NATIVE_BLOCKS,
+): DiscoverItem[] {
   const recipes = SMART_RECIPES.map<DiscoverItem>((item) => ({
     id: `recipe:${item.key}`,
     kind: "recipe",
@@ -1836,7 +1852,7 @@ function discoveryItems(): DiscoverItem[] {
     group: "Recommended",
     payload: item.key,
   }));
-  const native = NATIVE_BLOCKS.map<DiscoverItem>((item) => ({
+  const native = nativeBlocks.map<DiscoverItem>((item) => ({
     id: `native:${item.key}`,
     kind: "native",
     title: item.label,
@@ -5763,6 +5779,8 @@ function PlayPhone({ kernel }: { kernel: ResponsibilityKernel }) {
 }
 
 export default function ResponsibilityAppBuilder({
+  responsibilityId,
+  responsibilityTitle,
   kernel,
   dataSources,
   roles,
@@ -5770,6 +5788,8 @@ export default function ResponsibilityAppBuilder({
   departments,
   onChange,
 }: {
+  responsibilityId: number | string;
+  responsibilityTitle: string;
   kernel: ResponsibilityKernel;
   dataSources: PlatformDataSource[];
   roles: Role[];
@@ -5782,11 +5802,83 @@ export default function ResponsibilityAppBuilder({
   const [query, setQuery] = useState("");
   const [play, setPlay] = useState(false);
   const [showStarters, setShowStarters] = useState(false);
+
+  /*
+   * Generate-with-AI belongs to the APP BUILDER only.
+   *
+   * Pixel Logic remains a separate editor / separate AI contract.
+   */
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiImportText, setAiImportText] = useState("");
+  const [aiImportResult, setAiImportResult] =
+    useState<ResponsibilityAppBuilderAIImportResult | null>(null);
+  const [aiIssues, setAiIssues] = useState<string[]>([]);
+  const [aiMessage, setAiMessage] = useState("");
+
+  /*
+   * Future blocks registered in
+   * responsibility-app-builder-block-registry.ts
+   * become normal NativeBlock entries here.
+   */
+  const extensionNativeBlocks = useMemo<NativeBlock[]>(
+    () =>
+      RESPONSIBILITY_APP_BUILDER_BLOCKS.map((block) => ({
+        key: block.key,
+        label: block.label,
+        description: block.description,
+        kind: block.kind,
+        keywords: block.keywords,
+        config: {
+          ...block.config,
+
+          ...(block.runtime
+            ? {
+                runtimeSupport:
+                  block.runtime,
+              }
+            : {}),
+
+          ...(block.compliance
+            ? {
+                compliance:
+                  block.compliance,
+              }
+            : {}),
+
+          ...(block.resources
+            ? {
+                resourceProfile:
+                  block.resources,
+              }
+            : {}),
+        },
+
+        icon: captureIcon(
+          block.kind,
+          typeof block.config.nativeCapability === "string"
+            ? block.config.nativeCapability
+            : block.key,
+        ),
+      })),
+    [],
+  );
+
+  const allNativeBlocks = useMemo(
+    () => [
+      ...NATIVE_BLOCKS,
+      ...extensionNativeBlocks,
+    ],
+    [extensionNativeBlocks],
+  );
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
   const layout = kernel.metadata.ui?.layout ?? [];
-  const allDiscovery = useMemo(() => discoveryItems(), []);
+  const allDiscovery = useMemo(
+    () => discoveryItems(allNativeBlocks),
+    [allNativeBlocks],
+  );
   const canvasSignals = useMemo(
     () =>
       kernel.possibilities
@@ -5852,6 +5944,194 @@ export default function ResponsibilityAppBuilder({
     });
   }
 
+  function aiNativeContext(): AppBuilderNativeBlockContext[] {
+    return allNativeBlocks.map((block) => {
+      const config =
+        block.config ?? {};
+
+      return {
+        key:
+          block.key,
+
+        label:
+          block.label,
+
+        description:
+          block.description,
+
+        kind:
+          block.kind,
+
+        keywords:
+          block.keywords,
+
+        config,
+
+        runtime:
+          config.runtimeSupport &&
+          typeof config.runtimeSupport === "object" &&
+          !Array.isArray(config.runtimeSupport)
+            ? config.runtimeSupport as Record<string, unknown>
+            : undefined,
+
+        compliance:
+          config.compliance &&
+          typeof config.compliance === "object" &&
+          !Array.isArray(config.compliance)
+            ? config.compliance as Record<string, unknown>
+            : undefined,
+
+        resources:
+          config.resourceProfile &&
+          typeof config.resourceProfile === "object" &&
+          !Array.isArray(config.resourceProfile)
+            ? config.resourceProfile as Record<string, unknown>
+            : undefined,
+      };
+    });
+  }
+
+
+  async function copyAppBuilderAIContext() {
+    try {
+      const context =
+        buildResponsibilityAppBuilderAIContext({
+          responsibilityId,
+          responsibilityTitle,
+          kernel,
+          roles,
+          employees,
+          departments,
+          dataSources,
+          nativeBlocks:
+            aiNativeContext(),
+        });
+
+      await navigator.clipboard.writeText(
+        context,
+      );
+
+      setAiMessage(
+        "App Builder AI context copied. Paste it into ChatGPT, describe the phone/app you want, then paste the returned JSON here.",
+      );
+    } catch (error) {
+      setAiMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to copy App Builder AI context.",
+      );
+    }
+  }
+
+
+  function validateAppBuilderAI() {
+    try {
+      const result =
+        parseResponsibilityAppBuilderAIImport(
+          aiImportText,
+        );
+
+      const issues =
+        validateResponsibilityAppBuilderAIImport(
+          kernel,
+          result,
+          aiNativeContext(),
+        );
+
+
+      if (
+        String(
+          result.responsibilityId,
+        ) !==
+        String(
+          responsibilityId,
+        )
+      ) {
+        issues.push(
+          `AI result targets Responsibility ${String(result.responsibilityId)}, not ${String(responsibilityId)}.`,
+        );
+      }
+
+
+      const currentFingerprint =
+        responsibilityAppBuilderRegistryFingerprint(
+          aiNativeContext(),
+        );
+
+      if (
+        result.blockRegistryFingerprint !==
+        currentFingerprint
+      ) {
+        issues.push(
+          `App Builder registry changed. AI used ${result.blockRegistryFingerprint}, current registry is ${currentFingerprint}. Copy a fresh AI Context and regenerate.`,
+        );
+      }
+
+
+      setAiImportResult(
+        result,
+      );
+
+      setAiIssues(
+        issues,
+      );
+
+      setAiMessage(
+        issues.length > 0
+          ? `AI App parsed, but ${issues.length} blocking issue${issues.length === 1 ? "" : "s"} must be fixed.`
+          : "AI App is valid. Review the summary, then Generate App.",
+      );
+    } catch (error) {
+      setAiImportResult(
+        null,
+      );
+
+      setAiIssues([
+        error instanceof Error
+          ? error.message
+          : "Unable to parse AI-generated App Builder JSON.",
+      ]);
+
+      setAiMessage(
+        "AI App could not be validated.",
+      );
+    }
+  }
+
+
+  function applyAppBuilderAI() {
+    if (
+      !aiImportResult ||
+      aiIssues.length > 0
+    ) {
+      return;
+    }
+
+    const next =
+      applyResponsibilityAppBuilderAIImport(
+        kernel,
+        aiImportResult,
+      );
+
+    onChange(
+      next,
+    );
+
+    setSelection({
+      kind:
+        "app",
+    });
+
+    setAiOpen(
+      false,
+    );
+
+    setAiMessage(
+      "AI-generated App Builder blocks were placed on the Responsibility canvas. Review them and save the draft.",
+    );
+  }
+
+
   function addCapture(kind: KernelCapture["kind"], index?: number) {
     const catalog = CAPTURE_CATALOG.find((item) => item.kind === kind);
     const captureId = randomKey(kind);
@@ -5877,7 +6157,7 @@ export default function ResponsibilityAppBuilder({
   }
 
   function addNative(key: string, index?: number) {
-    const native = NATIVE_BLOCKS.find((item) => item.key === key);
+    const native = allNativeBlocks.find((item) => item.key === key);
     if (!native) return;
     const captureId = randomKey(native.key);
     const possibilityId = randomKey("possibility");
@@ -6224,6 +6504,19 @@ export default function ResponsibilityAppBuilder({
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <PrimaryButton
+                type="button"
+                onClick={() => {
+                  setAiOpen(true);
+                  setAiImportResult(null);
+                  setAiIssues([]);
+                  setAiMessage("");
+                }}
+              >
+                <Sparkles className="h-4 w-4" />
+                Generate with AI
+              </PrimaryButton>
+
               <SecondaryButton
                 type="button"
                 onClick={() => setShowStarters((value) => !value)}
@@ -6418,6 +6711,246 @@ export default function ResponsibilityAppBuilder({
           </Panel>
         </div>
       </div>
+      {aiOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl border bg-background p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+
+                  <h2 className="text-lg font-semibold">
+                    Generate Responsibility App with AI
+                  </h2>
+                </div>
+
+                <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+                  Generate the App Builder blocks only. Pixel Logic remains
+                  separate and can be generated afterward from the Pixel Logic
+                  section.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="rounded-lg border px-3 py-1.5 text-sm"
+                onClick={() => setAiOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+
+
+            <div className="mt-5 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+              <div className="space-y-4">
+                <div className="rounded-xl border p-4">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Step 1
+                  </div>
+
+                  <div className="mt-1 font-medium">
+                    Copy the complete App Builder context
+                  </div>
+
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    It contains the current Responsibility, available fields,
+                    actions, outputs, native phone blocks, company roles,
+                    employees, runtime rules, platform restrictions and the
+                    exact accepted JSON shape.
+                  </p>
+
+                  <SecondaryButton
+                    type="button"
+                    className="mt-3"
+                    onClick={() => void copyAppBuilderAIContext()}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Copy AI Context
+                  </SecondaryButton>
+                </div>
+
+
+                <div className="rounded-xl border p-4">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Step 2
+                  </div>
+
+                  <div className="mt-1 font-medium">
+                    Tell AI what the employee app should contain
+                  </div>
+
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Example:
+                  </p>
+
+                  <div className="mt-2 rounded-lg bg-muted/30 p-3 text-sm">
+                    Employee sees Start Journey, the phone tracks the journey,
+                    then Stop Journey saves the distance. Completed journey
+                    records should be visible on the dashboard.
+                  </div>
+                </div>
+
+
+                <div className="rounded-xl border p-4">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Separation
+                  </div>
+
+                  <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                    <div>✓ App Builder AI creates UI / phone blocks.</div>
+                    <div>✓ It may define basic action lifecycle states.</div>
+                    <div>✕ It cannot generate Pixel nodes or wires.</div>
+                    <div>✕ It cannot invent unregistered phone capabilities.</div>
+                  </div>
+                </div>
+              </div>
+
+
+              <div className="space-y-3">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Step 3
+                  </div>
+
+                  <div className="mt-1 font-medium">
+                    Paste AI JSON
+                  </div>
+                </div>
+
+
+                <textarea
+                  className={`${textareaClass} min-h-[420px] font-mono text-xs`}
+                  value={aiImportText}
+                  placeholder={`{
+  "format": "brixta.app-builder",
+  "formatVersion": 1,
+  ...
+}`}
+                  onChange={(event) => {
+                    setAiImportText(
+                      event.target.value,
+                    );
+
+                    setAiImportResult(
+                      null,
+                    );
+
+                    setAiIssues(
+                      [],
+                    );
+                  }}
+                />
+
+
+                <div className="flex flex-wrap gap-2">
+                  <SecondaryButton
+                    type="button"
+                    onClick={validateAppBuilderAI}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    Validate AI App
+                  </SecondaryButton>
+
+                  <PrimaryButton
+                    type="button"
+                    disabled={
+                      !aiImportResult ||
+                      aiIssues.length > 0
+                    }
+                    onClick={applyAppBuilderAI}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Generate App
+                  </PrimaryButton>
+                </div>
+
+
+                {aiMessage && (
+                  <div
+                    className={cx(
+                      "rounded-xl border p-3 text-sm",
+                      aiIssues.length > 0
+                        ? "border-red-500/30 bg-red-500/5"
+                        : "border-emerald-500/30 bg-emerald-500/5",
+                    )}
+                  >
+                    {aiMessage}
+                  </div>
+                )}
+
+
+                {aiIssues.length > 0 && (
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-3">
+                    <div className="text-sm font-medium">
+                      Blocking validation issues
+                    </div>
+
+                    <ul className="mt-2 space-y-1 text-sm">
+                      {aiIssues.map((issue, index) => (
+                        <li key={`${issue}-${index}`}>
+                          • {issue}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+
+                {aiImportResult && aiIssues.length === 0 && (
+                  <div className="rounded-xl border p-4">
+                    <div className="text-sm font-medium">
+                      AI App Preview
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                      <div className="rounded-lg bg-muted/30 p-2">
+                        <div className="text-xs text-muted-foreground">
+                          Fields
+                        </div>
+
+                        <div className="text-lg font-semibold">
+                          {aiImportResult.app.captures.length}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg bg-muted/30 p-2">
+                        <div className="text-xs text-muted-foreground">
+                          Actions
+                        </div>
+
+                        <div className="text-lg font-semibold">
+                          {aiImportResult.app.actions.length}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg bg-muted/30 p-2">
+                        <div className="text-xs text-muted-foreground">
+                          Outputs
+                        </div>
+
+                        <div className="text-lg font-semibold">
+                          {aiImportResult.app.outputs.length}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg bg-muted/30 p-2">
+                        <div className="text-xs text-muted-foreground">
+                          Phone blocks
+                        </div>
+
+                        <div className="text-lg font-semibold">
+                          {aiImportResult.app.layout.length}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <DragOverlay>
         {activeDragId ? (
           <div className="rounded-xl border bg-background px-3 py-2 text-sm shadow-xl">

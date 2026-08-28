@@ -958,13 +958,23 @@ export default function ResponsibilityKernelClient() {
         </Panel>
       )}
 
-      {!selectedResponsibility && responsibilities.length === 0 ? (
+      {!selectedResponsibility ? (
         <EmptyState
-          title="Create your first Responsibility"
-          description="Use New above. Choose the target Role(s), then build the phone."
+          title={
+            responsibilities.length === 0
+              ? "Create your first Responsibility"
+              : "Choose a Responsibility"
+          }
+          description={
+            responsibilities.length === 0
+              ? "Use New above. Choose the target Role(s), then build the phone."
+              : "Select a Responsibility above to open its App Builder."
+          }
         />
       ) : (
         <ResponsibilityAppBuilder
+          responsibilityId={selectedResponsibility.id}
+          responsibilityTitle={selectedResponsibility.title}
           kernel={kernel}
           dataSources={dataSources}
           roles={roles}
