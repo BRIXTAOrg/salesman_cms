@@ -505,6 +505,9 @@ function __brixta_compileKernelToBaseDefinition_unvalidated(
       ? "repeatable"
       : "continuing";
 
+  const uiDocument =
+    kernel.metadata.ui?.uiDocument;
+
   return {
     schemaVersion: 2,
     input: {
@@ -513,10 +516,28 @@ function __brixta_compileKernelToBaseDefinition_unvalidated(
       fields,
     },
     app: {
-      renderer: "action_form_v1",
+      /*
+       * Old Responsibilities remain action_form_v1.
+       *
+       * Only Responsibilities that explicitly contain a visual UI document
+       * switch to the new renderer.
+       */
+      renderer:
+        uiDocument
+          ? "brixta_ui_v1"
+          : "action_form_v1",
       actions: appActions,
       config: {
         generatedBy: "responsibility_unified_studio_v4",
+
+        /*
+         * BRIXTA_VISUAL_UI_DOCUMENT_V1
+         *
+         * Declarative only. Flutter already contains the renderer/adapters.
+         * No executable source code is downloaded from CMS.
+         */
+        uiDocument:
+          uiDocument ?? null,
 
         /*
          * Generic record lifecycle contract consumed by Flutter.

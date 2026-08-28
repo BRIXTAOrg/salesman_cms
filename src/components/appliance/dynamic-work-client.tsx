@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import {
@@ -23,6 +24,12 @@ import {
   apiJson,
 } from "./client";
 import RecordOutput from "./record-output";
+
+import {
+  GenericJsonTable,
+  type GenericJsonColumn,
+  type GenericJsonRow,
+} from "@/components/generic-json-table";
 import {
   EmptyState,
   PageIntro,
@@ -222,6 +229,137 @@ export default function DynamicWorkClient({
     }
   }, [responsibility, buildQuery]);
 
+  const genericRows =
+    useMemo<
+      GenericJsonRow[]
+    >(
+      () => {
+        if (
+          !responsibility
+        ) {
+          return [];
+        }
+
+        return records.map(
+          (record) => ({
+            id:
+              record.id,
+
+            employee:
+              record.employeeName ??
+              "—",
+
+            employee_code:
+              record.employeeCode ??
+              "",
+
+            ...record.payload,
+
+            status:
+              record.status,
+
+            created_at:
+              record.createdAt ??
+              "",
+
+            updated_at:
+              record.updatedAt ??
+              "",
+          }),
+        );
+      },
+      [
+        records,
+        responsibility,
+      ],
+    );
+
+
+  const genericColumns =
+    useMemo<
+      GenericJsonColumn[]
+    >(
+      () => {
+        if (
+          !responsibility
+        ) {
+          return [];
+        }
+
+        return [
+          {
+            key:
+              "employee",
+
+            label:
+              "Employee",
+          },
+
+          {
+            key:
+              "employee_code",
+
+            label:
+              "Employee code",
+          },
+
+          ...responsibility.definition.input.fields.map(
+            (field) => ({
+              key:
+                field.key,
+
+              label:
+                field.label,
+            }),
+          ),
+
+          {
+            key:
+              "status",
+
+            label:
+              "Status",
+          },
+
+          {
+            key:
+              "created_at",
+
+            label:
+              "Created at",
+          },
+
+          {
+            key:
+              "updated_at",
+
+            label:
+              "Updated at",
+          },
+        ];
+      },
+      [
+        responsibility,
+      ],
+    );
+
+
+  const specializedRenderer =
+    responsibility
+      ? new Set([
+          "map_points",
+          "map_route",
+          "map",
+          "route",
+          "chart",
+          "calendar",
+          "gallery",
+        ]).has(
+          responsibility.definition.output.renderer,
+        )
+      : false;
+
+
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
       <PageIntro
@@ -308,10 +446,18 @@ export default function DynamicWorkClient({
             </div>
           </div>
 
-          <RecordOutput
-            responsibility={responsibility}
-            records={records}
-          />
+          {specializedRenderer ? (
+            <RecordOutput
+              responsibility={responsibility}
+              records={records}
+            />
+          ) : (
+            <GenericJsonTable
+              title="Records"
+              data={genericRows}
+              columns={genericColumns}
+            />
+          )}
         </>
       ) : null}
     </div>

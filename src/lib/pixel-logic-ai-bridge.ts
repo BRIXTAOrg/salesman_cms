@@ -1195,7 +1195,20 @@ export function buildPixelLogicAIContext({
         },
       },
 
-      scheduling: {
+      actionExecution: {
+      triggerActionEffect: {
+        recursiveExecution:
+          false,
+
+        behavior:
+          "effect.trigger_action currently emits a deterministic trigger instruction. It does NOT recursively execute the target action inside the same Kernel call.",
+
+        guidance:
+          "When an action can perform the final state transition/persistence itself, prefer that instead of inventing a second automatic submit action.",
+      },
+    },
+
+    scheduling: {
         recurringScheduleHost:
           false,
 

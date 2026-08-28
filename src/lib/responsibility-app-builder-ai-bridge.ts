@@ -21,6 +21,12 @@ import {
   validateResponsibilityKernel,
 } from "@/lib/responsibility-kernel-validation";
 
+import {
+  RESPONSIBILITY_UI_BLOCK_REGISTRY,
+  parseResponsibilityUiDocument,
+  type ResponsibilityUiDocument,
+} from "@/lib/responsibility-ui-document";
+
 export const RESPONSIBILITY_APP_BUILDER_AI_FORMAT =
   "brixta.app-builder" as const;
 
@@ -66,6 +72,13 @@ export type ResponsibilityAppBuilderAIImportResult = {
       type: "capture" | "action" | "output";
       id: string;
     }>;
+
+    /**
+     * Real visual app document.
+     *
+     * Captures are NOT presentation blocks.
+     */
+    uiDocument: ResponsibilityUiDocument;
   };
 
   unsupportedCapabilities: string[];
@@ -269,6 +282,9 @@ function stableRegistryValue(
             item.label,
         }),
       ),
+
+    visualUiBlocks:
+      RESPONSIBILITY_UI_BLOCK_REGISTRY,
 
     nativeBlocks:
       nativeBlocks
@@ -563,6 +579,57 @@ export function buildResponsibilityAppBuilderAIContext(
         },
       ],
 
+      uiDocument: {
+        version: 1,
+
+        engine:
+          "brixta_stac_v1",
+
+        rootIds: [
+          "example_heading",
+          "example_action_button",
+        ],
+
+        blocks: [
+          {
+            id:
+              "example_heading",
+
+            type:
+              "display.text",
+
+            config: {
+              text:
+                "Example app",
+              size:
+                "hero",
+              alignment:
+                "center",
+            },
+          },
+
+          {
+            id:
+              "example_action_button",
+
+            type:
+              "interaction.action_button",
+
+            actionId:
+              "submit",
+
+            config: {
+              label:
+                "Submit",
+              style:
+                "primary",
+              size:
+                "large",
+            },
+          },
+        ],
+      },
+
       layout: [
         {
           type:
@@ -636,6 +703,9 @@ export function buildResponsibilityAppBuilderAIContext(
       outputs:
         OUTPUT_CATALOG,
 
+      visualUiBlocks:
+        RESPONSIBILITY_UI_BLOCK_REGISTRY,
+
       phoneAndNativeBlocks:
         input.nativeBlocks,
     },
@@ -672,6 +742,23 @@ export function buildResponsibilityAppBuilderAIContext(
       ],
     },
 
+    visualFirstRules: [
+      "BRIXTA VISUAL-FIRST RULES",
+      "A capture is DATA COLLECTION. It is not a generic display widget.",
+      "NEVER create a number capture merely to display a counter, score, KPI or calculated value.",
+      "NEVER create a short_text capture merely to display a banner, heading, success message or animation text.",
+      "Use app.uiDocument display.* blocks for read-only presentation.",
+      "Use interaction.action_button for a real button.",
+      "Use overlay.fullscreen for a full-screen state-driven visual experience.",
+      "Use animation on UI blocks rather than inventing form fields for animation state.",
+      "Bind counters and calculated displays to computed values whenever the value is produced by Pixel Logic.",
+      "captureIds on an action contain ONLY values that must actually be collected from the employee/device for that action.",
+      "A button that only triggers behavior normally has captureIds: [].",
+      "For a visual-only app it is valid for app.captures to be [].",
+      "The compatibility app.layout still lists business actions/captures needed by runtime publishing. The visual arrangement belongs in app.uiDocument.rootIds and blocks.",
+      "Do not turn a non-form application into a form merely because capture primitives exist.",
+    ],
+
     separationRules: [
       "THIS IS APP BUILDER AI, NOT PIXEL LOGIC.",
       "Generate phone/UI blocks, actors, contexts, states, captures, actions, outputs and layout only.",
@@ -707,6 +794,164 @@ export function buildResponsibilityAppBuilderAIContext(
 
     acceptedJsonExample:
       example,
+
+    visualOnlyExample: {
+      purpose:
+        "REFERENCE FOR APPS THAT ARE NOT FORMS. This example intentionally has zero captures.",
+
+      app: {
+        captures: [],
+
+        actions: [
+          {
+            id:
+              "increment",
+
+            label:
+              "CLICK ME",
+
+            kind:
+              "submit",
+
+            actorId:
+              "current_employee",
+
+            objectId:
+              "current_record",
+
+            captureIds: [],
+
+            config: {
+              availableState:
+                "draft",
+
+              resultingState:
+                "draft",
+
+              successMessage:
+                "Clicked.",
+            },
+          },
+        ],
+
+        layout: [
+          {
+            type:
+              "action",
+
+            id:
+              "increment",
+          },
+        ],
+
+        uiDocument: {
+          version:
+            1,
+
+          engine:
+            "brixta_stac_v1",
+
+          rootIds: [
+            "counter",
+            "button",
+            "celebration",
+          ],
+
+          blocks: [
+            {
+              id:
+                "counter",
+
+              type:
+                "display.counter",
+
+              binding: {
+                scope:
+                  "computed",
+
+                key:
+                  "click_count",
+              },
+
+              animation: {
+                preset:
+                  "scale",
+
+                durationMs:
+                  180,
+              },
+
+              config: {
+                size:
+                  "hero",
+
+                alignment:
+                  "center",
+              },
+            },
+
+            {
+              id:
+                "button",
+
+              type:
+                "interaction.action_button",
+
+              actionId:
+                "increment",
+
+              config: {
+                label:
+                  "CLICK ME",
+
+                style:
+                  "primary",
+
+                size:
+                  "large",
+              },
+            },
+
+            {
+              id:
+                "celebration",
+
+              type:
+                "overlay.fullscreen",
+
+              visibility: {
+                binding: {
+                  scope:
+                    "state",
+
+                  key:
+                    "process",
+                },
+
+                operator:
+                  "eq",
+
+                value:
+                  "completed",
+              },
+
+              animation: {
+                preset:
+                  "fade_scale",
+
+                durationMs:
+                  500,
+              },
+
+              config: {
+                text:
+                  "MEOW!",
+              },
+            },
+          ],
+        },
+      },
+    },
 
     rejectedExamples: [
       {
@@ -1321,6 +1566,11 @@ export function parseResponsibilityAppBuilderAIImport(
     );
 
 
+  const uiDocument =
+    parseResponsibilityUiDocument(
+      app.uiDocument,
+    );
+
   return {
     format:
       RESPONSIBILITY_APP_BUILDER_AI_FORMAT,
@@ -1367,6 +1617,7 @@ export function parseResponsibilityAppBuilderAIImport(
       outputs,
 
       layout,
+      uiDocument,
     },
 
     unsupportedCapabilities:
@@ -1606,6 +1857,11 @@ export function applyResponsibilityAppBuilderAIImport(
       employeeOwnHistoryVisible:
         result.app.employeeOwnHistoryVisible,
 
+      uiDocument:
+        clone(
+          result.app.uiDocument,
+        ),
+
       layout:
         result.app.layout
           .map(
@@ -1828,6 +2084,31 @@ export function validateResponsibilityAppBuilderAIImport(
     ) {
       issues.push(
         `Capture "${capture.id}" requests unregistered native capability "${capability}".`,
+      );
+    }
+  }
+
+
+  const declaredActionIds =
+    new Set(
+      result.app.actions.map(
+        (action) =>
+          action.id,
+      ),
+    );
+
+  for (
+    const block
+    of result.app.uiDocument.blocks
+  ) {
+    if (
+      block.actionId &&
+      !declaredActionIds.has(
+        block.actionId,
+      )
+    ) {
+      issues.push(
+        `UI block "${block.id}" references unknown action "${block.actionId}".`,
       );
     }
   }

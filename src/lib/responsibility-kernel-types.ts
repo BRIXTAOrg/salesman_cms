@@ -1,3 +1,5 @@
+import type { ResponsibilityUiDocument } from "@/lib/responsibility-ui-document";
+
 /**
  * BRIXTA Responsibility Kernel v3/v5 UI contract.
  *
@@ -312,8 +314,18 @@ export type KernelRule = {
 };
 
 export type KernelUiDefinition = {
-  /** Ordered possibility IDs shown on the employee phone surface. */
+  /** Ordered compatibility possibility IDs shown on the employee phone surface. */
   layout: string[];
+
+  /**
+   * BRIXTA_VISUAL_UI_DOCUMENT_V1
+   *
+   * A true visual application document.
+   *
+   * This is deliberately separate from captures/actions and from Pixel Logic.
+   * Old Responsibilities can omit it and continue through action_form_v1.
+   */
+  uiDocument?: ResponsibilityUiDocument;
   /** Optional friendly app title/description independent of internal keys. */
   title?: string;
   description?: string;

@@ -60,11 +60,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
-import type {
-  Department,
-  Employee,
-  Role,
-} from "@/lib/appliance-types";
+import type { Department, Employee, Role } from "@/lib/appliance-types";
 import type { PlatformDataSource } from "@/lib/platform-vnext-types";
 import type {
   KernelAction,
@@ -92,9 +88,7 @@ import {
 } from "@/lib/responsibility-kernel-catalog";
 import { compileResponsibilitySemantics } from "@/lib/responsibility-semantic-compiler";
 
-import {
-  RESPONSIBILITY_APP_BUILDER_BLOCKS,
-} from "@/lib/responsibility-app-builder-block-registry";
+import { RESPONSIBILITY_APP_BUILDER_BLOCKS } from "@/lib/responsibility-app-builder-block-registry";
 
 import {
   applyResponsibilityAppBuilderAIImport,
@@ -109,6 +103,17 @@ import {
   rankIntentCandidates,
   suggestRecipeComposition,
 } from "@/lib/responsibility-intent-graph";
+
+import type { ResponsibilityUiBlockType } from "@/lib/responsibility-ui-document";
+
+import {
+  VisualBlockInspector,
+  VisualPaletteSection,
+  VisualPhoneCanvas,
+  addVisualBlock,
+  deleteVisualBlock,
+  reorderVisualRoots,
+} from "./responsibility-visual-builder";
 import { cx } from "./client";
 import {
   Field,
@@ -794,7 +799,8 @@ type Selection =
   | { kind: "possibility"; id: string }
   | { kind: "context"; id: string }
   | { kind: "state"; id: string }
-  | { kind: "actor"; id: string };
+  | { kind: "actor"; id: string }
+  | { kind: "ui"; id: string };
 
 type RecipeResult = { kernel: ResponsibilityKernel; selection?: Selection };
 type SmartRecipe = {
@@ -3402,79 +3408,41 @@ type SimpleReviewTarget =
       departmentId?: string;
     };
 
-function reviewTargetFromAction(
-  action: KernelAction,
-): SimpleReviewTarget {
-  const raw =
-    action.config
-      .reviewTarget;
+function reviewTargetFromAction(action: KernelAction): SimpleReviewTarget {
+  const raw = action.config.reviewTarget;
 
-  if (
-    raw &&
-    typeof raw ===
-      "object" &&
-    !Array.isArray(raw)
-  ) {
-    const target =
-      raw as Record<
-        string,
-        unknown
-      >;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const target = raw as Record<string, unknown>;
 
-    const kind =
-      String(
-        target.kind ??
-        "",
-      );
+    const kind = String(target.kind ?? "");
 
-    if (
-      kind === "employee"
-    ) {
+    if (kind === "employee") {
       return {
-        kind:
-          "employee",
-        userId:
-          Number(
-            target.userId,
-          ) || undefined,
+        kind: "employee",
+        userId: Number(target.userId) || undefined,
       };
     }
 
-    if (
-      kind === "role"
-    ) {
+    if (kind === "role") {
       return {
-        kind:
-          "role",
-        roleId:
-          Number(
-            target.roleId,
-          ) || undefined,
+        kind: "role",
+        roleId: Number(target.roleId) || undefined,
       };
     }
 
-    if (
-      kind ===
-      "department"
-    ) {
+    if (kind === "department") {
       return {
-        kind:
-          "department",
+        kind: "department",
         departmentId:
-          typeof target.departmentId ===
-            "string"
+          typeof target.departmentId === "string"
             ? target.departmentId
             : undefined,
       };
     }
 
-    if (
-      kind ===
-      "default"
-    ) {
+    if (kind === "default") {
       return {
-        kind:
-          "default",
+        kind: "default",
       };
     }
   }
@@ -3482,41 +3450,21 @@ function reviewTargetFromAction(
   /*
    * Backward compatibility with the old reviewApprover string.
    */
-  const legacy =
-    configString(
-      action.config,
-      "reviewApprover",
-    );
+  const legacy = configString(action.config, "reviewApprover");
 
-  if (
-    legacy.startsWith(
-      "role:",
-    )
-  ) {
-    const roleId =
-      Number(
-        legacy.slice(
-          "role:".length,
-        ),
-      );
+  if (legacy.startsWith("role:")) {
+    const roleId = Number(legacy.slice("role:".length));
 
-    if (
-      Number.isInteger(
-        roleId,
-      ) &&
-      roleId > 0
-    ) {
+    if (Number.isInteger(roleId) && roleId > 0) {
       return {
-        kind:
-          "role",
+        kind: "role",
         roleId,
       };
     }
   }
 
   return {
-    kind:
-      "default",
+    kind: "default",
   };
 }
 
@@ -3553,16 +3501,9 @@ function AutomaticActionInspector({
     );
   }
 
-  const reviewRequired =
-    configBoolean(
-      action.config,
-      "reviewRequired",
-    );
+  const reviewRequired = configBoolean(action.config, "reviewRequired");
 
-  const reviewTarget =
-    reviewTargetFromAction(
-      action,
-    );
+  const reviewTarget = reviewTargetFromAction(action);
 
   function patchReview(patch: Record<string, unknown>) {
     patchAction({
@@ -3662,22 +3603,12 @@ function AutomaticActionInspector({
             checked={reviewRequired}
             onChange={(event) =>
               patchReview({
-                reviewRequired:
-                  event.target
-                    .checked,
+                reviewRequired: event.target.checked,
 
-                reviewTarget:
-                  event.target
-                    .checked
-                    ? reviewTarget
-                    : null,
+                reviewTarget: event.target.checked ? reviewTarget : null,
 
                 // Legacy compatibility.
-                reviewApprover:
-                  event.target
-                    .checked
-                    ? "reports_to"
-                    : "",
+                reviewApprover: event.target.checked ? "reports_to" : "",
               })
             }
           />
@@ -3697,49 +3628,34 @@ function AutomaticActionInspector({
             <Field label="Send decision to">
               <select
                 className={inputClass}
-                value={
-                  reviewTarget.kind
-                }
+                value={reviewTarget.kind}
                 onChange={(event) => {
-                  const kind =
-                    event.target.value;
+                  const kind = event.target.value;
 
-                  if (
-                    kind ===
-                    "employee"
-                  ) {
+                  if (kind === "employee") {
                     patchReview({
                       reviewTarget: {
-                        kind:
-                          "employee",
+                        kind: "employee",
                       },
                     });
 
                     return;
                   }
 
-                  if (
-                    kind ===
-                    "role"
-                  ) {
+                  if (kind === "role") {
                     patchReview({
                       reviewTarget: {
-                        kind:
-                          "role",
+                        kind: "role",
                       },
                     });
 
                     return;
                   }
 
-                  if (
-                    kind ===
-                    "department"
-                  ) {
+                  if (kind === "department") {
                     patchReview({
                       reviewTarget: {
-                        kind:
-                          "department",
+                        kind: "department",
                       },
                     });
 
@@ -3748,208 +3664,117 @@ function AutomaticActionInspector({
 
                   patchReview({
                     reviewTarget: {
-                      kind:
-                        "default",
+                      kind: "default",
                     },
 
-                    reviewApprover:
-                      "reports_to",
+                    reviewApprover: "reports_to",
                   });
                 }}
               >
-                <option value="default">
-                  Default reporting manager
-                </option>
+                <option value="default">Default reporting manager</option>
 
-                <option value="employee">
-                  Specific employee
-                </option>
+                <option value="employee">Specific employee</option>
 
-                <option value="role">
-                  Authority Role
-                </option>
+                <option value="role">Authority Role</option>
 
-                <option value="department">
-                  Department
-                </option>
+                <option value="department">Department</option>
               </select>
             </Field>
 
-            {reviewTarget.kind ===
-              "employee" && (
+            {reviewTarget.kind === "employee" && (
               <Field label="Employee">
                 <select
                   className={inputClass}
-                  value={
-                    reviewTarget
-                      .userId ??
-                    ""
-                  }
+                  value={reviewTarget.userId ?? ""}
                   onChange={(event) =>
                     patchReview({
                       reviewTarget: {
-                        kind:
-                          "employee",
+                        kind: "employee",
 
-                        userId:
-                          Number(
-                            event.target
-                              .value,
-                          ) ||
-                          undefined,
+                        userId: Number(event.target.value) || undefined,
                       },
                     })
                   }
                 >
-                  <option value="">
-                    Choose employee...
-                  </option>
+                  <option value="">Choose employee...</option>
 
                   {employees
                     .filter(
-                      (
-                        employee,
-                      ) =>
-                        employee.status !==
-                          "inactive" &&
-                        employee.status !==
-                          "suspended",
+                      (employee) =>
+                        employee.status !== "inactive" &&
+                        employee.status !== "suspended",
                     )
-                    .map(
-                      (
-                        employee,
-                      ) => (
-                        <option
-                          key={
-                            employee.id
-                          }
-                          value={
-                            employee.id
-                          }
-                        >
-                          {employee.name ??
-                            employee.employeeCode ??
-                            `Employee ${employee.id}`}
-                        </option>
-                      ),
-                    )}
+                    .map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.name ??
+                          employee.employeeCode ??
+                          `Employee ${employee.id}`}
+                      </option>
+                    ))}
                 </select>
               </Field>
             )}
 
-            {reviewTarget.kind ===
-              "role" && (
+            {reviewTarget.kind === "role" && (
               <Field label="Role">
                 <select
                   className={inputClass}
-                  value={
-                    reviewTarget
-                      .roleId ??
-                    ""
-                  }
+                  value={reviewTarget.roleId ?? ""}
                   onChange={(event) => {
-                    const roleId =
-                      Number(
-                        event.target
-                          .value,
-                      ) ||
-                      undefined;
+                    const roleId = Number(event.target.value) || undefined;
 
                     patchReview({
                       reviewTarget: {
-                        kind:
-                          "role",
+                        kind: "role",
 
                         roleId,
                       },
 
-                      reviewApprover:
-                        roleId
-                          ? `role:${roleId}`
-                          : "",
+                      reviewApprover: roleId ? `role:${roleId}` : "",
                     });
                   }}
                 >
-                  <option value="">
-                    Choose Role...
-                  </option>
+                  <option value="">Choose Role...</option>
 
-                  {roles.map(
-                    (role) => (
-                      <option
-                        key={
-                          role.id
-                        }
-                        value={
-                          role.id
-                        }
-                      >
-                        {
-                          role.label
-                        }
-                      </option>
-                    ),
-                  )}
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.label}
+                    </option>
+                  ))}
                 </select>
               </Field>
             )}
 
-            {reviewTarget.kind ===
-              "department" && (
+            {reviewTarget.kind === "department" && (
               <Field label="Department">
                 <select
                   className={inputClass}
-                  value={
-                    reviewTarget
-                      .departmentId ??
-                    ""
-                  }
+                  value={reviewTarget.departmentId ?? ""}
                   onChange={(event) =>
                     patchReview({
                       reviewTarget: {
-                        kind:
-                          "department",
+                        kind: "department",
 
-                        departmentId:
-                          event.target
-                            .value ||
-                          undefined,
+                        departmentId: event.target.value || undefined,
                       },
                     })
                   }
                 >
-                  <option value="">
-                    Choose Department...
-                  </option>
+                  <option value="">Choose Department...</option>
 
-                  {departments.map(
-                    (
-                      department,
-                    ) => (
-                      <option
-                        key={
-                          department.id
-                        }
-                        value={
-                          department.id
-                        }
-                      >
-                        {
-                          department.name
-                        }
-                      </option>
-                    ),
-                  )}
+                  {departments.map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.name}
+                    </option>
+                  ))}
                 </select>
               </Field>
             )}
 
             <div className="rounded-lg border bg-muted/10 p-3 text-xs leading-relaxed text-muted-foreground">
-              {reviewTarget.kind ===
-              "default"
+              {reviewTarget.kind === "default"
                 ? "No Responsibility-specific override. BRIXTA uses the submitting employee's default reporting rule from Employees."
-                : reviewTarget.kind ===
-                    "department"
+                : reviewTarget.kind === "department"
                   ? "BRIXTA resolves the Department's current default authority when the request reaches review."
                   : "This selection overrides the employee's default reporting rule for this Responsibility action only."}
             </div>
@@ -4962,7 +4787,8 @@ function AutomaticAppInspector({
       <div className="rounded-xl border p-4">
         <div className="text-sm font-semibold">Saved work</div>
         <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          Control whether employees can review entries they have already submitted.
+          Control whether employees can review entries they have already
+          submitted.
         </div>
 
         <label className="mt-4 flex cursor-pointer items-start gap-3">
@@ -4989,7 +4815,8 @@ function AutomaticAppInspector({
             </div>
             <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
               Each employee only sees their own records. For example, a Junior
-              Executive can review their own attendance, not another employee&apos;s.
+              Executive can review their own attendance, not another
+              employee&apos;s.
             </div>
           </div>
         </label>
@@ -5833,22 +5660,19 @@ export default function ResponsibilityAppBuilder({
 
           ...(block.runtime
             ? {
-                runtimeSupport:
-                  block.runtime,
+                runtimeSupport: block.runtime,
               }
             : {}),
 
           ...(block.compliance
             ? {
-                compliance:
-                  block.compliance,
+                compliance: block.compliance,
               }
             : {}),
 
           ...(block.resources
             ? {
-                resourceProfile:
-                  block.resources,
+                resourceProfile: block.resources,
               }
             : {}),
         },
@@ -5864,10 +5688,7 @@ export default function ResponsibilityAppBuilder({
   );
 
   const allNativeBlocks = useMemo(
-    () => [
-      ...NATIVE_BLOCKS,
-      ...extensionNativeBlocks,
-    ],
+    () => [...NATIVE_BLOCKS, ...extensionNativeBlocks],
     [extensionNativeBlocks],
   );
 
@@ -5875,6 +5696,15 @@ export default function ResponsibilityAppBuilder({
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
   const layout = kernel.metadata.ui?.layout ?? [];
+
+  /*
+   * VISUAL DOCUMENT IS AN ADDITIONAL LAYER.
+   *
+   * Existing builder layout/panels remain untouched so current muscle-memory
+   * UX survives.
+   */
+  const visualBlocks = kernel.metadata.ui?.uiDocument?.blocks ?? [];
+
   const allDiscovery = useMemo(
     () => discoveryItems(allNativeBlocks),
     [allNativeBlocks],
@@ -5946,24 +5776,18 @@ export default function ResponsibilityAppBuilder({
 
   function aiNativeContext(): AppBuilderNativeBlockContext[] {
     return allNativeBlocks.map((block) => {
-      const config =
-        block.config ?? {};
+      const config = block.config ?? {};
 
       return {
-        key:
-          block.key,
+        key: block.key,
 
-        label:
-          block.label,
+        label: block.label,
 
-        description:
-          block.description,
+        description: block.description,
 
-        kind:
-          block.kind,
+        kind: block.kind,
 
-        keywords:
-          block.keywords,
+        keywords: block.keywords,
 
         config,
 
@@ -5971,45 +5795,40 @@ export default function ResponsibilityAppBuilder({
           config.runtimeSupport &&
           typeof config.runtimeSupport === "object" &&
           !Array.isArray(config.runtimeSupport)
-            ? config.runtimeSupport as Record<string, unknown>
+            ? (config.runtimeSupport as Record<string, unknown>)
             : undefined,
 
         compliance:
           config.compliance &&
           typeof config.compliance === "object" &&
           !Array.isArray(config.compliance)
-            ? config.compliance as Record<string, unknown>
+            ? (config.compliance as Record<string, unknown>)
             : undefined,
 
         resources:
           config.resourceProfile &&
           typeof config.resourceProfile === "object" &&
           !Array.isArray(config.resourceProfile)
-            ? config.resourceProfile as Record<string, unknown>
+            ? (config.resourceProfile as Record<string, unknown>)
             : undefined,
       };
     });
   }
 
-
   async function copyAppBuilderAIContext() {
     try {
-      const context =
-        buildResponsibilityAppBuilderAIContext({
-          responsibilityId,
-          responsibilityTitle,
-          kernel,
-          roles,
-          employees,
-          departments,
-          dataSources,
-          nativeBlocks:
-            aiNativeContext(),
-        });
+      const context = buildResponsibilityAppBuilderAIContext({
+        responsibilityId,
+        responsibilityTitle,
+        kernel,
+        roles,
+        employees,
+        departments,
+        dataSources,
+        nativeBlocks: aiNativeContext(),
+      });
 
-      await navigator.clipboard.writeText(
-        context,
-      );
+      await navigator.clipboard.writeText(context);
 
       setAiMessage(
         "App Builder AI context copied. Paste it into ChatGPT, describe the phone/app you want, then paste the returned JSON here.",
@@ -6023,58 +5842,34 @@ export default function ResponsibilityAppBuilder({
     }
   }
 
-
   function validateAppBuilderAI() {
     try {
-      const result =
-        parseResponsibilityAppBuilderAIImport(
-          aiImportText,
-        );
+      const result = parseResponsibilityAppBuilderAIImport(aiImportText);
 
-      const issues =
-        validateResponsibilityAppBuilderAIImport(
-          kernel,
-          result,
-          aiNativeContext(),
-        );
+      const issues = validateResponsibilityAppBuilderAIImport(
+        kernel,
+        result,
+        aiNativeContext(),
+      );
 
-
-      if (
-        String(
-          result.responsibilityId,
-        ) !==
-        String(
-          responsibilityId,
-        )
-      ) {
+      if (String(result.responsibilityId) !== String(responsibilityId)) {
         issues.push(
           `AI result targets Responsibility ${String(result.responsibilityId)}, not ${String(responsibilityId)}.`,
         );
       }
 
-
       const currentFingerprint =
-        responsibilityAppBuilderRegistryFingerprint(
-          aiNativeContext(),
-        );
+        responsibilityAppBuilderRegistryFingerprint(aiNativeContext());
 
-      if (
-        result.blockRegistryFingerprint !==
-        currentFingerprint
-      ) {
+      if (result.blockRegistryFingerprint !== currentFingerprint) {
         issues.push(
           `App Builder registry changed. AI used ${result.blockRegistryFingerprint}, current registry is ${currentFingerprint}. Copy a fresh AI Context and regenerate.`,
         );
       }
 
+      setAiImportResult(result);
 
-      setAiImportResult(
-        result,
-      );
-
-      setAiIssues(
-        issues,
-      );
+      setAiIssues(issues);
 
       setAiMessage(
         issues.length > 0
@@ -6082,9 +5877,7 @@ export default function ResponsibilityAppBuilder({
           : "AI App is valid. Review the summary, then Generate App.",
       );
     } catch (error) {
-      setAiImportResult(
-        null,
-      );
+      setAiImportResult(null);
 
       setAiIssues([
         error instanceof Error
@@ -6092,45 +5885,40 @@ export default function ResponsibilityAppBuilder({
           : "Unable to parse AI-generated App Builder JSON.",
       ]);
 
-      setAiMessage(
-        "AI App could not be validated.",
-      );
+      setAiMessage("AI App could not be validated.");
     }
   }
 
-
   function applyAppBuilderAI() {
-    if (
-      !aiImportResult ||
-      aiIssues.length > 0
-    ) {
+    if (!aiImportResult || aiIssues.length > 0) {
       return;
     }
 
-    const next =
-      applyResponsibilityAppBuilderAIImport(
-        kernel,
-        aiImportResult,
-      );
+    const next = applyResponsibilityAppBuilderAIImport(kernel, aiImportResult);
 
-    onChange(
-      next,
-    );
+    onChange(next);
 
     setSelection({
-      kind:
-        "app",
+      kind: "app",
     });
 
-    setAiOpen(
-      false,
-    );
+    setAiOpen(false);
 
     setAiMessage(
       "AI-generated App Builder blocks were placed on the Responsibility canvas. Review them and save the draft.",
     );
   }
 
+  function addVisual(type: ResponsibilityUiBlockType, index?: number) {
+    const result = addVisualBlock(kernel, type, index);
+
+    onChange(result.kernel);
+
+    setSelection({
+      kind: "ui",
+      id: result.id,
+    });
+  }
 
   function addCapture(kind: KernelCapture["kind"], index?: number) {
     const catalog = CAPTURE_CATALOG.find((item) => item.kind === kind);
@@ -6400,6 +6188,47 @@ export default function ResponsibilityAppBuilder({
     const overId = event.over ? String(event.over.id) : null;
     setActiveDragId(null);
     if (!overId) return;
+
+    /*
+     * BRIXTA VISUAL UI DRAG/DROP
+     *
+     * This runs before the existing possibility/capture/action DnD.
+     */
+    if (activeId.startsWith("visual-palette:")) {
+      const type = activeId.slice(
+        "visual-palette:".length,
+      ) as ResponsibilityUiBlockType;
+
+      const roots = kernel.metadata.ui?.uiDocument?.rootIds ?? [];
+
+      const visualOverId = overId.startsWith("visual:")
+        ? overId.slice("visual:".length)
+        : null;
+
+      const index = visualOverId
+        ? Math.max(0, roots.indexOf(visualOverId))
+        : roots.length;
+
+      addVisual(type, index);
+
+      return;
+    }
+
+    if (activeId.startsWith("visual:") && overId.startsWith("visual:")) {
+      const from = activeId.slice("visual:".length);
+
+      const to = overId.slice("visual:".length);
+
+      onChange(reorderVisualRoots(kernel, from, to));
+
+      setSelection({
+        kind: "ui",
+        id: from,
+      });
+
+      return;
+    }
+
     if (activeId.startsWith("palette:")) {
       const parts = activeId.split(":");
       const item = [...results, ...allDiscovery].find(
@@ -6449,6 +6278,13 @@ export default function ResponsibilityAppBuilder({
     selection.kind === "actor"
       ? (kernel.runtimeWorld.actors.find((item) => item.id === selection.id) ??
         null)
+      : null;
+
+  const selectedVisualBlock =
+    selection.kind === "ui"
+      ? (kernel.metadata.ui?.uiDocument?.blocks.find(
+          (item) => item.id === selection.id,
+        ) ?? null)
       : null;
 
   if (play) {
@@ -6600,6 +6436,8 @@ export default function ResponsibilityAppBuilder({
               )}
             </div>
             <div className="space-y-5">
+              <VisualPaletteSection query={query} onAdd={addVisual} />
+
               {grouped.map((section) => (
                 <div key={section.group}>
                   <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -6633,13 +6471,57 @@ export default function ResponsibilityAppBuilder({
                   Drag, reorder and click anything.
                 </div>
               </div>
-              <Pill>{layout.length} blocks</Pill>
+              <Pill>{layout.length + visualBlocks.length} blocks</Pill>
             </div>
-            <PhoneCanvas
-              kernel={kernel}
-              selection={selection}
-              onSelect={setSelection}
-            />
+            {visualBlocks.length > 0 ? (
+              <VisualPhoneCanvas
+                kernel={kernel}
+                selectedId={selection.kind === "ui" ? selection.id : undefined}
+                onSelect={(id) =>
+                  setSelection({
+                    kind: "ui",
+                    id,
+                  })
+                }
+              />
+            ) : (
+              <PhoneCanvas
+                kernel={kernel}
+                selection={selection}
+                onSelect={setSelection}
+              />
+            )}
+
+            {visualBlocks.length > 0 && (
+              <Panel className="mt-4">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="mt-0.5 h-4 w-4 text-primary" />
+
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold">
+                      Visual app layer
+                    </div>
+
+                    <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      These are presentation blocks, not form inputs. They are
+                      rendered by the new BRIXTA/Stac phone runtime.
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {visualBlocks.map((block) => (
+                        <span
+                          key={block.id}
+                          className="rounded-full border bg-muted/20 px-2 py-1 text-[10px]"
+                        >
+                          {block.type.replace(/[._]/g, " ")}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </Panel>
+            )}
+
             <Panel className="mt-4">
               <div className="flex items-start gap-3">
                 <Sparkles className="mt-0.5 h-4 w-4 text-primary" />
@@ -6658,7 +6540,20 @@ export default function ResponsibilityAppBuilder({
           </div>
 
           <Panel className="min-w-0 2xl:max-h-[calc(100vh-190px)] 2xl:overflow-y-auto">
-            {selectedPossibility?.type === "capture" ? (
+            {selectedVisualBlock ? (
+              <VisualBlockInspector
+                kernel={kernel}
+                block={selectedVisualBlock}
+                onChange={onChange}
+                onDelete={() => {
+                  onChange(deleteVisualBlock(kernel, selectedVisualBlock.id));
+
+                  setSelection({
+                    kind: "app",
+                  });
+                }}
+              />
+            ) : selectedPossibility?.type === "capture" ? (
               <CaptureInspector
                 kernel={kernel}
                 possibility={selectedPossibility}
@@ -6740,7 +6635,6 @@ export default function ResponsibilityAppBuilder({
               </button>
             </div>
 
-
             <div className="mt-5 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
               <div className="space-y-4">
                 <div className="rounded-xl border p-4">
@@ -6769,7 +6663,6 @@ export default function ResponsibilityAppBuilder({
                   </SecondaryButton>
                 </div>
 
-
                 <div className="rounded-xl border p-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Step 2
@@ -6779,9 +6672,7 @@ export default function ResponsibilityAppBuilder({
                     Tell AI what the employee app should contain
                   </div>
 
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Example:
-                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">Example:</p>
 
                   <div className="mt-2 rounded-lg bg-muted/30 p-3 text-sm">
                     Employee sees Start Journey, the phone tracks the journey,
@@ -6789,7 +6680,6 @@ export default function ResponsibilityAppBuilder({
                     records should be visible on the dashboard.
                   </div>
                 </div>
-
 
                 <div className="rounded-xl border p-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -6800,11 +6690,12 @@ export default function ResponsibilityAppBuilder({
                     <div>✓ App Builder AI creates UI / phone blocks.</div>
                     <div>✓ It may define basic action lifecycle states.</div>
                     <div>✕ It cannot generate Pixel nodes or wires.</div>
-                    <div>✕ It cannot invent unregistered phone capabilities.</div>
+                    <div>
+                      ✕ It cannot invent unregistered phone capabilities.
+                    </div>
                   </div>
                 </div>
               </div>
-
 
               <div className="space-y-3">
                 <div>
@@ -6812,11 +6703,8 @@ export default function ResponsibilityAppBuilder({
                     Step 3
                   </div>
 
-                  <div className="mt-1 font-medium">
-                    Paste AI JSON
-                  </div>
+                  <div className="mt-1 font-medium">Paste AI JSON</div>
                 </div>
-
 
                 <textarea
                   className={`${textareaClass} min-h-[420px] font-mono text-xs`}
@@ -6827,43 +6715,29 @@ export default function ResponsibilityAppBuilder({
   ...
 }`}
                   onChange={(event) => {
-                    setAiImportText(
-                      event.target.value,
-                    );
+                    setAiImportText(event.target.value);
 
-                    setAiImportResult(
-                      null,
-                    );
+                    setAiImportResult(null);
 
-                    setAiIssues(
-                      [],
-                    );
+                    setAiIssues([]);
                   }}
                 />
 
-
                 <div className="flex flex-wrap gap-2">
-                  <SecondaryButton
-                    type="button"
-                    onClick={validateAppBuilderAI}
-                  >
+                  <SecondaryButton type="button" onClick={validateAppBuilderAI}>
                     <ShieldCheck className="h-4 w-4" />
                     Validate AI App
                   </SecondaryButton>
 
                   <PrimaryButton
                     type="button"
-                    disabled={
-                      !aiImportResult ||
-                      aiIssues.length > 0
-                    }
+                    disabled={!aiImportResult || aiIssues.length > 0}
                     onClick={applyAppBuilderAI}
                   >
                     <Sparkles className="h-4 w-4" />
                     Generate App
                   </PrimaryButton>
                 </div>
-
 
                 {aiMessage && (
                   <div
@@ -6878,7 +6752,6 @@ export default function ResponsibilityAppBuilder({
                   </div>
                 )}
 
-
                 {aiIssues.length > 0 && (
                   <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-3">
                     <div className="text-sm font-medium">
@@ -6887,20 +6760,15 @@ export default function ResponsibilityAppBuilder({
 
                     <ul className="mt-2 space-y-1 text-sm">
                       {aiIssues.map((issue, index) => (
-                        <li key={`${issue}-${index}`}>
-                          • {issue}
-                        </li>
+                        <li key={`${issue}-${index}`}>• {issue}</li>
                       ))}
                     </ul>
                   </div>
                 )}
 
-
                 {aiImportResult && aiIssues.length === 0 && (
                   <div className="rounded-xl border p-4">
-                    <div className="text-sm font-medium">
-                      AI App Preview
-                    </div>
+                    <div className="text-sm font-medium">AI App Preview</div>
 
                     <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
                       <div className="rounded-lg bg-muted/30 p-2">
