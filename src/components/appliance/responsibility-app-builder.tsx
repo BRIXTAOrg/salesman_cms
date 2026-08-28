@@ -60,7 +60,11 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
-import type { Role } from "@/lib/appliance-types";
+import type {
+  Department,
+  Employee,
+  Role,
+} from "@/lib/appliance-types";
 import type { PlatformDataSource } from "@/lib/platform-vnext-types";
 import type {
   KernelAction,
@@ -3365,16 +3369,155 @@ function CaptureInspector({
   );
 }
 
+type SimpleReviewTarget =
+  | {
+      kind: "default";
+    }
+  | {
+      kind: "employee";
+      userId?: number;
+    }
+  | {
+      kind: "role";
+      roleId?: number;
+    }
+  | {
+      kind: "department";
+      departmentId?: string;
+    };
+
+function reviewTargetFromAction(
+  action: KernelAction,
+): SimpleReviewTarget {
+  const raw =
+    action.config
+      .reviewTarget;
+
+  if (
+    raw &&
+    typeof raw ===
+      "object" &&
+    !Array.isArray(raw)
+  ) {
+    const target =
+      raw as Record<
+        string,
+        unknown
+      >;
+
+    const kind =
+      String(
+        target.kind ??
+        "",
+      );
+
+    if (
+      kind === "employee"
+    ) {
+      return {
+        kind:
+          "employee",
+        userId:
+          Number(
+            target.userId,
+          ) || undefined,
+      };
+    }
+
+    if (
+      kind === "role"
+    ) {
+      return {
+        kind:
+          "role",
+        roleId:
+          Number(
+            target.roleId,
+          ) || undefined,
+      };
+    }
+
+    if (
+      kind ===
+      "department"
+    ) {
+      return {
+        kind:
+          "department",
+        departmentId:
+          typeof target.departmentId ===
+            "string"
+            ? target.departmentId
+            : undefined,
+      };
+    }
+
+    if (
+      kind ===
+      "default"
+    ) {
+      return {
+        kind:
+          "default",
+      };
+    }
+  }
+
+  /*
+   * Backward compatibility with the old reviewApprover string.
+   */
+  const legacy =
+    configString(
+      action.config,
+      "reviewApprover",
+    );
+
+  if (
+    legacy.startsWith(
+      "role:",
+    )
+  ) {
+    const roleId =
+      Number(
+        legacy.slice(
+          "role:".length,
+        ),
+      );
+
+    if (
+      Number.isInteger(
+        roleId,
+      ) &&
+      roleId > 0
+    ) {
+      return {
+        kind:
+          "role",
+        roleId,
+      };
+    }
+  }
+
+  return {
+    kind:
+      "default",
+  };
+}
+
 function AutomaticActionInspector({
   kernel,
   possibility,
   roles,
+  employees,
+  departments,
   onChange,
   onDelete,
 }: {
   kernel: ResponsibilityKernel;
   possibility: Extract<KernelPossibility, { type: "action" }>;
   roles: Role[];
+  employees: Employee[];
+  departments: Department[];
   onChange: (kernel: ResponsibilityKernel) => void;
   onDelete: () => void;
 }) {
@@ -3394,9 +3537,16 @@ function AutomaticActionInspector({
     );
   }
 
-  const reviewRequired = configBoolean(action.config, "reviewRequired");
-  const reviewApprover =
-    configString(action.config, "reviewApprover") || "reports_to";
+  const reviewRequired =
+    configBoolean(
+      action.config,
+      "reviewRequired",
+    );
+
+  const reviewTarget =
+    reviewTargetFromAction(
+      action,
+    );
 
   function patchReview(patch: Record<string, unknown>) {
     patchAction({
@@ -3496,8 +3646,22 @@ function AutomaticActionInspector({
             checked={reviewRequired}
             onChange={(event) =>
               patchReview({
-                reviewRequired: event.target.checked,
-                reviewApprover: event.target.checked ? reviewApprover : "",
+                reviewRequired:
+                  event.target
+                    .checked,
+
+                reviewTarget:
+                  event.target
+                    .checked
+                    ? reviewTarget
+                    : null,
+
+                // Legacy compatibility.
+                reviewApprover:
+                  event.target
+                    .checked
+                    ? "reports_to"
+                    : "",
               })
             }
           />
@@ -3513,26 +3677,265 @@ function AutomaticActionInspector({
         </label>
 
         {reviewRequired && (
-          <div className="mt-4">
-            <Field label="Who should check it?">
+          <div className="mt-4 space-y-3">
+            <Field label="Send decision to">
               <select
                 className={inputClass}
-                value={reviewApprover}
-                onChange={(event) =>
-                  patchReview({ reviewApprover: event.target.value })
+                value={
+                  reviewTarget.kind
                 }
+                onChange={(event) => {
+                  const kind =
+                    event.target.value;
+
+                  if (
+                    kind ===
+                    "employee"
+                  ) {
+                    patchReview({
+                      reviewTarget: {
+                        kind:
+                          "employee",
+                      },
+                    });
+
+                    return;
+                  }
+
+                  if (
+                    kind ===
+                    "role"
+                  ) {
+                    patchReview({
+                      reviewTarget: {
+                        kind:
+                          "role",
+                      },
+                    });
+
+                    return;
+                  }
+
+                  if (
+                    kind ===
+                    "department"
+                  ) {
+                    patchReview({
+                      reviewTarget: {
+                        kind:
+                          "department",
+                      },
+                    });
+
+                    return;
+                  }
+
+                  patchReview({
+                    reviewTarget: {
+                      kind:
+                        "default",
+                    },
+
+                    reviewApprover:
+                      "reports_to",
+                  });
+                }}
               >
-                <option value="reports_to">Their reporting manager</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={`role:${role.id}`}>
-                    {role.label}
-                  </option>
-                ))}
+                <option value="default">
+                  Default reporting manager
+                </option>
+
+                <option value="employee">
+                  Specific employee
+                </option>
+
+                <option value="role">
+                  Authority Role
+                </option>
+
+                <option value="department">
+                  Department
+                </option>
               </select>
             </Field>
-            <div className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              The employee does not see workflow states or routing. The next
-              business step simply waits until this check is approved.
+
+            {reviewTarget.kind ===
+              "employee" && (
+              <Field label="Employee">
+                <select
+                  className={inputClass}
+                  value={
+                    reviewTarget
+                      .userId ??
+                    ""
+                  }
+                  onChange={(event) =>
+                    patchReview({
+                      reviewTarget: {
+                        kind:
+                          "employee",
+
+                        userId:
+                          Number(
+                            event.target
+                              .value,
+                          ) ||
+                          undefined,
+                      },
+                    })
+                  }
+                >
+                  <option value="">
+                    Choose employee...
+                  </option>
+
+                  {employees
+                    .filter(
+                      (
+                        employee,
+                      ) =>
+                        employee.status !==
+                          "inactive" &&
+                        employee.status !==
+                          "suspended",
+                    )
+                    .map(
+                      (
+                        employee,
+                      ) => (
+                        <option
+                          key={
+                            employee.id
+                          }
+                          value={
+                            employee.id
+                          }
+                        >
+                          {employee.name ??
+                            employee.employeeCode ??
+                            `Employee ${employee.id}`}
+                        </option>
+                      ),
+                    )}
+                </select>
+              </Field>
+            )}
+
+            {reviewTarget.kind ===
+              "role" && (
+              <Field label="Role">
+                <select
+                  className={inputClass}
+                  value={
+                    reviewTarget
+                      .roleId ??
+                    ""
+                  }
+                  onChange={(event) => {
+                    const roleId =
+                      Number(
+                        event.target
+                          .value,
+                      ) ||
+                      undefined;
+
+                    patchReview({
+                      reviewTarget: {
+                        kind:
+                          "role",
+
+                        roleId,
+                      },
+
+                      reviewApprover:
+                        roleId
+                          ? `role:${roleId}`
+                          : "",
+                    });
+                  }}
+                >
+                  <option value="">
+                    Choose Role...
+                  </option>
+
+                  {roles.map(
+                    (role) => (
+                      <option
+                        key={
+                          role.id
+                        }
+                        value={
+                          role.id
+                        }
+                      >
+                        {
+                          role.label
+                        }
+                      </option>
+                    ),
+                  )}
+                </select>
+              </Field>
+            )}
+
+            {reviewTarget.kind ===
+              "department" && (
+              <Field label="Department">
+                <select
+                  className={inputClass}
+                  value={
+                    reviewTarget
+                      .departmentId ??
+                    ""
+                  }
+                  onChange={(event) =>
+                    patchReview({
+                      reviewTarget: {
+                        kind:
+                          "department",
+
+                        departmentId:
+                          event.target
+                            .value ||
+                          undefined,
+                      },
+                    })
+                  }
+                >
+                  <option value="">
+                    Choose Department...
+                  </option>
+
+                  {departments.map(
+                    (
+                      department,
+                    ) => (
+                      <option
+                        key={
+                          department.id
+                        }
+                        value={
+                          department.id
+                        }
+                      >
+                        {
+                          department.name
+                        }
+                      </option>
+                    ),
+                  )}
+                </select>
+              </Field>
+            )}
+
+            <div className="rounded-lg border bg-muted/10 p-3 text-xs leading-relaxed text-muted-foreground">
+              {reviewTarget.kind ===
+              "default"
+                ? "No Responsibility-specific override. BRIXTA uses the submitting employee's default reporting rule from Employees."
+                : reviewTarget.kind ===
+                    "department"
+                  ? "BRIXTA resolves the Department's current default authority when the request reaches review."
+                  : "This selection overrides the employee's default reporting rule for this Responsibility action only."}
             </div>
           </div>
         )}
@@ -5363,11 +5766,15 @@ export default function ResponsibilityAppBuilder({
   kernel,
   dataSources,
   roles,
+  employees,
+  departments,
   onChange,
 }: {
   kernel: ResponsibilityKernel;
   dataSources: PlatformDataSource[];
   roles: Role[];
+  employees: Employee[];
+  departments: Department[];
   onChange: (kernel: ResponsibilityKernel) => void;
 }) {
   const [selection, setSelection] = useState<Selection>({ kind: "app" });
@@ -5972,6 +6379,8 @@ export default function ResponsibilityAppBuilder({
                 kernel={kernel}
                 possibility={selectedPossibility}
                 roles={roles}
+                employees={employees}
+                departments={departments}
                 onChange={onChange}
                 onDelete={removeSelection}
               />

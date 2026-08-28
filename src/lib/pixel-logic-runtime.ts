@@ -200,6 +200,21 @@ function executeCoreNode(
     } else if (kind === "notify_actor") {
       effect.actorId = String(cfg.actorId ?? "");
       effect.value = cfg.message;
+    } else if (kind === "assign_actor") {
+      effect.actorId = String(cfg.actorId ?? "");
+    } else if (kind === "create_record") {
+      effect.actorId = String(cfg.actorId ?? "");
+      effect.targetKey = String(cfg.responsibilityKey ?? "");
+    } else if (kind === "update_record") {
+      effect.value = inputs.value ?? cfg.payload;
+    } else if (
+      kind === "delete_record" ||
+      kind === "remove_context" ||
+      kind === "freeze_data"
+    ) {
+      effect.targetKey = String(cfg.targetKey ?? "");
+    } else if (kind === "query_data") {
+      effect.targetKey = String(cfg.targetKey ?? cfg.sourceKey ?? "");
     } else if (kind === "trigger_action") {
       effect.targetKey = String(cfg.actionId ?? "");
     } else if (kind === "trigger_responsibility") {

@@ -86,6 +86,16 @@ export type PixelLogicVariable = {
   initialValue?: unknown;
 };
 
+export type PixelLogicRealityDeclaredMetadata = {
+  actorIds: string[];
+  contextIds: string[];
+  objectIds: string[];
+  stateIds: string[];
+  captureIds: string[];
+  actionIds: string[];
+  outputIds: string[];
+};
+
 export type PixelLogicProgram = {
   version: 1;
   enabled: boolean;
@@ -97,6 +107,17 @@ export type PixelLogicProgram = {
     description?: string;
     generatedBy?: string;
     updatedAt?: string;
+
+    /**
+     * BRIXTA_PIXEL_REALITY_V2
+     *
+     * Business IDs declared by the AI Reality proposal but not necessarily
+     * present in the currently-published Responsibility Kernel yet.
+     *
+     * Used for pre-import validation only. This does not itself publish
+     * or authorize anything.
+     */
+    pixelRealityDeclared?: PixelLogicRealityDeclaredMetadata;
   };
 };
 
@@ -115,6 +136,19 @@ function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? [
+        ...new Set(
+          value
+            .map(String)
+            .map((item) => item.trim())
+            .filter(Boolean),
+        ),
+      ]
+    : [];
 }
 
 export function blankPixelLogicProgram(name = "Pixel Logic"): PixelLogicProgram {
@@ -234,6 +268,33 @@ export function normalizePixelLogicProgram(
         typeof metadata.updatedAt === "string"
           ? metadata.updatedAt
           : undefined,
+
+      pixelRealityDeclared: (() => {
+        const declared = asObject(
+          metadata.pixelRealityDeclared,
+        );
+
+        if (Object.keys(declared).length === 0) {
+          return undefined;
+        }
+
+        return {
+          actorIds:
+            asStringArray(declared.actorIds),
+          contextIds:
+            asStringArray(declared.contextIds),
+          objectIds:
+            asStringArray(declared.objectIds),
+          stateIds:
+            asStringArray(declared.stateIds),
+          captureIds:
+            asStringArray(declared.captureIds),
+          actionIds:
+            asStringArray(declared.actionIds),
+          outputIds:
+            asStringArray(declared.outputIds),
+        };
+      })(),
     },
   };
 }

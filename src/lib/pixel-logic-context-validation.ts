@@ -8,6 +8,24 @@ function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+// BRIXTA_PIXEL_REALITY_VALIDATION_V2
+function objectValue(value: unknown): Record<string, unknown> {
+  return value &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : {};
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value
+        .map(String)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+}
+
 export function validatePixelLogicAgainstResponsibility(
   program: PixelLogicProgram,
   kernel: ResponsibilityKernel | null,
@@ -72,6 +90,61 @@ export function validatePixelLogicAgainstResponsibility(
   const states = new Set(kernel.runtimeWorld.states.map((item) => item.id));
   const actors = new Set(kernel.runtimeWorld.actors.map((item) => item.id));
   const objects = new Set(kernel.runtimeWorld.objects.map((item) => item.id));
+
+  /*
+   * Pixel Reality V2 may declare business concepts that do not exist in the
+   * currently-published Kernel yet.
+   *
+   * The graph MUST be allowed to reference those declarations during the
+   * pre-import human review.
+   */
+  const programMetadata =
+    objectValue(
+      program.metadata,
+    );
+
+  const declared =
+    objectValue(
+      programMetadata.pixelRealityDeclared,
+    );
+
+  for (const id of stringArray(declared.actionIds)) {
+    actions.add(id);
+  }
+
+  for (const id of stringArray(declared.captureIds)) {
+    captures.add(id);
+  }
+
+  for (const id of stringArray(declared.contextIds)) {
+    if (!contexts.has(id)) {
+      contexts.set(
+        id,
+        {
+          id,
+          label: id,
+          source: "literal",
+          mutable: true,
+          config: {
+            declaredBy:
+              "pixel_reality_v2",
+          },
+        },
+      );
+    }
+  }
+
+  for (const id of stringArray(declared.stateIds)) {
+    states.add(id);
+  }
+
+  for (const id of stringArray(declared.actorIds)) {
+    actors.add(id);
+  }
+
+  for (const id of stringArray(declared.objectIds)) {
+    objects.add(id);
+  }
 
   for (const node of program.nodes) {
     const spec = getPixelLogicNodeSpec(node.type);

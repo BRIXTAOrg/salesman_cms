@@ -17,7 +17,12 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SearchSelect } from "@/components/search-select";
-import type { Responsibility, Role } from "@/lib/appliance-types";
+import type {
+  Department,
+  Employee,
+  Responsibility,
+  Role,
+} from "@/lib/appliance-types";
 import type {
   PlatformDataSource,
   ResponsibilityExtensionConfig,
@@ -131,23 +136,139 @@ function builderActionOperation(action: KernelAction): "create" | "update" {
     : "update";
 }
 
-function inlineReviewIntent(action: KernelAction) {
-  const required = action.config.reviewRequired === true;
-  const rawApprover =
-    typeof action.config.reviewApprover === "string"
-      ? action.config.reviewApprover.trim()
-      : "";
+function inlineReviewIntent(
+  action: KernelAction,
+) {
+  const required =
+    action.config
+      .reviewRequired ===
+    true;
 
-  if (!required) return null;
-
-  if (rawApprover.startsWith("role:")) {
-    const roleId = Number(rawApprover.slice("role:".length));
-    return Number.isInteger(roleId) && roleId > 0
-      ? { kind: "role" as const, roleId }
-      : { kind: "reports_to" as const };
+  if (!required) {
+    return null;
   }
 
-  return { kind: "reports_to" as const };
+  const rawTarget =
+    action.config
+      .reviewTarget;
+
+  if (
+    rawTarget &&
+    typeof rawTarget ===
+      "object" &&
+    !Array.isArray(
+      rawTarget,
+    )
+  ) {
+    const target =
+      rawTarget as Record<
+        string,
+        unknown
+      >;
+
+    const kind =
+      String(
+        target.kind ??
+        "default",
+      );
+
+    if (
+      kind ===
+      "employee"
+    ) {
+      return {
+        kind:
+          "user" as const,
+
+        userId:
+          Number(
+            target.userId,
+          ),
+      };
+    }
+
+    if (
+      kind ===
+      "role"
+    ) {
+      return {
+        kind:
+          "role" as const,
+
+        roleId:
+          Number(
+            target.roleId,
+          ),
+      };
+    }
+
+    if (
+      kind ===
+      "department"
+    ) {
+      return {
+        kind:
+          "department" as const,
+
+        departmentId:
+          String(
+            target.departmentId ??
+            "",
+          ).trim(),
+      };
+    }
+
+    return {
+      kind:
+        "reports_to" as const,
+    };
+  }
+
+  /*
+   * Old Responsibility drafts continue to work.
+   */
+  const rawApprover =
+    typeof action.config
+      .reviewApprover ===
+      "string"
+      ? action.config
+          .reviewApprover
+          .trim()
+      : "";
+
+  if (
+    rawApprover.startsWith(
+      "role:",
+    )
+  ) {
+    const roleId =
+      Number(
+        rawApprover.slice(
+          "role:".length,
+        ),
+      );
+
+    return (
+      Number.isInteger(
+        roleId,
+      ) &&
+      roleId > 0
+    )
+      ? {
+          kind:
+            "role" as const,
+          roleId,
+        }
+      : {
+          kind:
+            "reports_to" as const,
+        };
+  }
+
+  return {
+    kind:
+      "reports_to" as const,
+  };
 }
 
 function inlineReviewWorkflowKey(responsibilityKey: string, actionId: string) {
@@ -166,6 +287,8 @@ export default function ResponsibilityKernelClient() {
   );
   const [dataSources, setDataSources] = useState<PlatformDataSource[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [targetRoleIds, setTargetRoleIds] = useState<number[]>([]);
 
   const [publishedVersion, setPublishedVersion] = useState(0);
@@ -206,14 +329,32 @@ export default function ResponsibilityKernelClient() {
     setLoading(true);
     setMessage(null);
     try {
-      const [responsibilityBody, sourceBody, roleBody] = await Promise.all([
+      const [
+        responsibilityBody,
+        sourceBody,
+        roleBody,
+        employeeBody,
+        departmentBody,
+      ] = await Promise.all([
         apiJson<{ responsibilities: Responsibility[] }>(
           "/api/appliance/responsibilities",
         ),
+
         apiJson<{ dataSources: PlatformDataSource[] }>(
           "/api/platform/data-sources",
         ),
-        apiJson<{ roles: Role[] }>("/api/platform/roles"),
+
+        apiJson<{ roles: Role[] }>(
+          "/api/platform/roles",
+        ),
+
+        apiJson<{ employees: Employee[] }>(
+          "/api/appliance/employees",
+        ),
+
+        apiJson<{ departments: Department[] }>(
+          "/api/appliance/departments",
+        ),
       ]);
 
       const active = (responsibilityBody.responsibilities ?? []).filter(
@@ -222,6 +363,8 @@ export default function ResponsibilityKernelClient() {
       setResponsibilities(active);
       setDataSources(sourceBody.dataSources ?? []);
       setRoles(roleBody.roles ?? []);
+      setEmployees(employeeBody.employees ?? []);
+      setDepartments(departmentBody.departments ?? []);
       setResponsibilityId((current) =>
         current && active.some((item) => item.id === current)
           ? current
@@ -356,9 +499,31 @@ export default function ResponsibilityKernelClient() {
         {
           stepType: "approval",
           title: `Verify ${current.label}`,
+
+          approverKind:
+            review.kind,
+
           ...(review.kind === "role"
-            ? { approverRoleIds: [review.roleId] }
-            : { approverKind: "reports_to" }),
+            ? {
+                approverRoleIds: [
+                  review.roleId,
+                ],
+              }
+            : {}),
+
+          ...(review.kind === "user"
+            ? {
+                approverUserId:
+                  review.userId,
+              }
+            : {}),
+
+          ...(review.kind === "department"
+            ? {
+                approverDepartmentId:
+                  review.departmentId,
+              }
+            : {}),
         },
       ];
 
@@ -803,6 +968,8 @@ export default function ResponsibilityKernelClient() {
           kernel={kernel}
           dataSources={dataSources}
           roles={roles}
+          employees={employees}
+          departments={departments}
           onChange={setKernel}
         />
       )}

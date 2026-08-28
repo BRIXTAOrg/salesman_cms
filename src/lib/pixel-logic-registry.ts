@@ -455,6 +455,136 @@ const specs: PixelLogicNodeSpec[] = [
       { key: "responsibilityKey", label: "Responsibility key", kind: "text" },
     ],
   },
+  // BRIXTA_PIXEL_REALITY_V2_EFFECTS
+  {
+    type: "effect.assign_actor",
+    label: "Assign actor",
+    description: "Resolve a Responsibility actor and create work for them.",
+    category: "Effects",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+    configFields: [
+      {
+        key: "actorId",
+        label: "Actor ID",
+        kind: "text",
+        placeholder: "reporting_manager",
+      },
+      {
+        key: "title",
+        label: "Work title",
+        kind: "text",
+        placeholder: "Approval required",
+      },
+      {
+        key: "description",
+        label: "Description",
+        kind: "text",
+      },
+    ],
+  },
+  {
+    type: "effect.create_record",
+    label: "Create record",
+    description: "Create/start another Responsibility record through the host runtime.",
+    category: "Effects",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+    configFields: [
+      {
+        key: "responsibilityKey",
+        label: "Responsibility key",
+        kind: "text",
+      },
+      {
+        key: "actorId",
+        label: "Target actor ID",
+        kind: "text",
+      },
+    ],
+  },
+  {
+    type: "effect.update_record",
+    label: "Update record",
+    description: "Apply a structured value/patch to the current Responsibility record.",
+    category: "Effects",
+    kind: "effect",
+    inputs: [
+      flowIn,
+      {
+        key: "value",
+        label: "Patch",
+        kind: "data",
+        valueType: "object",
+      },
+    ],
+    outputs: [flowOut],
+  },
+  {
+    type: "effect.delete_record",
+    label: "Delete record",
+    description: "Mark the current Responsibility record deleted through the Kernel host.",
+    category: "Effects",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+  },
+  {
+    type: "effect.query_data",
+    label: "Query data",
+    description: "Query a registered BRIXTA data source.",
+    category: "Effects",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+    configFields: [
+      {
+        key: "sourceKey",
+        label: "Data source key",
+        kind: "text",
+      },
+      {
+        key: "targetKey",
+        label: "Result key",
+        kind: "text",
+      },
+    ],
+  },
+  {
+    type: "effect.remove_context",
+    label: "Remove context",
+    description: "Remove a mutable value from Responsibility runtime context.",
+    category: "Effects",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+    configFields: [
+      {
+        key: "targetKey",
+        label: "Context key",
+        kind: "text",
+      },
+    ],
+  },
+  {
+    type: "effect.freeze_data",
+    label: "Freeze data",
+    description: "Freeze selected Responsibility data after a lifecycle point.",
+    category: "Effects",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+    configFields: [
+      {
+        key: "targetKey",
+        label: "Key",
+        kind: "text",
+      },
+    ],
+  },
+
   {
     type: "effect.append_history",
     label: "Append history",

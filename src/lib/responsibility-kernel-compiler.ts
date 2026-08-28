@@ -3,6 +3,8 @@ import type {
   ResponsibilityAppAction,
   ResponsibilityDefinition,
   ResponsibilityField,
+  ResponsibilitySurfaceDefinition,
+  ResponsibilitySurfaceManifest,
 } from "@/lib/appliance-types";
 import { compileResponsibilitySemantics } from "@/lib/responsibility-semantic-compiler";
 import type {
@@ -194,6 +196,171 @@ function actionToBaseAction(
   };
 }
 
+function compatibilityRenderer(
+  kind: KernelOutput["kind"] | undefined,
+) {
+  switch (kind) {
+    case "card":
+      return "cards";
+    case "list":
+      return "table";
+    case "map":
+      return "map_points";
+    case "route":
+      return "map_route";
+    case "chart":
+      return "metric";
+    case "calendar":
+    case "document":
+    case "receipt":
+    case "dashboard":
+    case "notification":
+      return "detail";
+    default:
+      return kind ?? "detail";
+  }
+}
+
+function outputSurfaceKinds(
+  output: KernelOutput,
+): Array<"app" | "dashboard"> {
+  const raw =
+    output.config.surfaceKinds;
+
+  if (Array.isArray(raw)) {
+    const values = [
+      ...new Set(
+        raw
+          .map(String)
+          .filter(
+            (
+              item,
+            ): item is
+              | "app"
+              | "dashboard" =>
+              item === "app" ||
+              item === "dashboard",
+          ),
+      ),
+    ];
+
+    if (values.length) {
+      return values;
+    }
+  }
+
+  // Historical outputs were office-side.
+  return ["dashboard"];
+}
+
+function compileSurfaceManifest(
+  outputs: Array<
+    Extract<
+      KernelPossibility,
+      { type: "output" }
+    >
+  >,
+  actions: Array<
+    Extract<
+      KernelPossibility,
+      { type: "action" }
+    >
+  >,
+): ResponsibilitySurfaceManifest {
+  const manifest:
+    ResponsibilitySurfaceManifest = {
+      version: 1,
+      app: [],
+      dashboard: [],
+    };
+
+  for (const item of outputs) {
+    const output =
+      item.output;
+
+    const actionIds =
+      actions
+        .filter(
+          (action) =>
+            !action.action.actorId ||
+            output.actorIds.length === 0 ||
+            output.actorIds.includes(
+              action.action.actorId,
+            ),
+        )
+        .map(
+          (action) =>
+            action.action.id,
+        );
+
+    for (
+      const surface of
+      outputSurfaceKinds(
+        output,
+      )
+    ) {
+      const definition:
+        ResponsibilitySurfaceDefinition = {
+          id:
+            output.id,
+          label:
+            output.label,
+          renderer:
+            output.kind,
+          surface,
+          actorIds:
+            output.actorIds,
+          stateIds:
+            output.stateIds,
+          visibleKeys:
+            output.visibleKeys,
+          actionIds,
+          config: {
+            ...output.config,
+            kernelOutputId:
+              output.id,
+          },
+        };
+
+      manifest[
+        surface
+      ].push(
+        definition,
+      );
+    }
+  }
+
+  return manifest;
+}
+
+function primaryEmployeeAction(
+  kernel: ResponsibilityKernel,
+  action: KernelAction,
+) {
+  if (!action.actorId) {
+    return true;
+  }
+
+  if (
+    action.actorId ===
+    "current_employee"
+  ) {
+    return true;
+  }
+
+  const actor =
+    kernel.runtimeWorld.actors.find(
+      (candidate) =>
+        candidate.id ===
+        action.actorId,
+    );
+
+  return (
+    actor?.resolver.kind ===
+    "current_user"
+  );
+}
+
 /**
  * Compile the unified visual/kernel definition into the existing generic
  * mobile Responsibility contract. This is the compatibility bridge that makes
@@ -267,10 +434,43 @@ function __brixta_compileKernelToBaseDefinition_unvalidated(
     (item) => captureFields.get(item.capture.id)!,
   );
 
-  const appActions = publishedActions.map((item) =>
-    actionToBaseAction(kernel, item.action, captureFields),
-  );
-  const output = outputs[0]?.output;
+  /*
+   * Static app actions are only the primary employee's offline/legacy
+   * fallback. Online App and Dashboard surfaces use Kernel actor projection.
+   */
+  const appActions =
+    publishedActions
+      .filter(
+        (item) =>
+          primaryEmployeeAction(
+            kernel,
+            item.action,
+          ),
+      )
+      .map((item) =>
+        actionToBaseAction(
+          kernel,
+          item.action,
+          captureFields,
+        ),
+      );
+
+  const surfaces =
+    compileSurfaceManifest(
+      outputs,
+      actions,
+    );
+
+  const output =
+    outputs.find(
+      (item) =>
+        outputSurfaceKinds(
+          item.output,
+        ).includes(
+          "dashboard",
+        ),
+    )?.output ??
+    outputs[0]?.output;
 
   return {
     schemaVersion: 2,
@@ -320,7 +520,9 @@ function __brixta_compileKernelToBaseDefinition_unvalidated(
       },
     },
     output: {
-      renderer: output?.kind ?? "detail",
+      renderer: compatibilityRenderer(
+        output?.kind,
+      ),
       config: {
         kernelOutputId: output?.id ?? null,
         actorIds: output?.actorIds ?? [],
@@ -328,6 +530,8 @@ function __brixta_compileKernelToBaseDefinition_unvalidated(
         visibleKeys: output?.visibleKeys ?? [],
       },
     },
+    surfaces,
+
     crud: {
       create:
         appActions.some((action) => action.operation === "create") ||

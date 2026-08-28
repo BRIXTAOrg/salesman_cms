@@ -220,6 +220,13 @@ export function buildWorkspaceManifest({
     });
 
     addNav(nav, "Management", {
+      key: "departments",
+      label: "Departments",
+      href: "/dashboard/workforce/departments",
+      icon: "network",
+    });
+
+    addNav(nav, "Management", {
       key: "dashboard_access",
       label: "Dashboard Access",
       href: "/dashboard/usersAndTeam",
@@ -262,7 +269,10 @@ export function buildWorkspaceManifest({
     workflow.steps.some((step) => step.type === "approval"),
   );
 
-  if (workflowHasApproval) {
+  if (
+    workflowHasApproval ||
+    pendingApprovals > 0
+  ) {
     addNav(nav, "Field App Control", {
       key: "approvals",
       label: "Approvals",

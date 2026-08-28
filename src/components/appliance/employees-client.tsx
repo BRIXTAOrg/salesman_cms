@@ -21,6 +21,8 @@ import {
 import type {
   Employee,
   EmployeeDetail,
+  ReportingPolicy,
+  ReportingSnapshot,
   Role,
 } from "@/lib/appliance-types";
 import {
@@ -32,6 +34,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { DataTableReusable } from "@/components/data-table-reusable";
 import { SearchSelect } from "@/components/search-select";
 import { MultiSelect } from "@/components/multi-select";
+import ReportingPolicyEditor from "./reporting-policy-editor";
 import {
   EmptyState,
   Field,
@@ -90,6 +93,29 @@ export default function EmployeesClient() {
   const [roleIds, setRoleIds] =
     useState<number[]>([]);
 
+  const [
+    createReportingPolicy,
+    setCreateReportingPolicy,
+  ] = useState<ReportingPolicy>({
+    version: 1,
+    mode: "unset",
+  });
+
+  const [
+    editReportingPolicy,
+    setEditReportingPolicy,
+  ] = useState<ReportingPolicy>({
+    version: 1,
+    mode: "unset",
+  });
+
+  const [
+    reportingSnapshot,
+    setReportingSnapshot,
+  ] = useState<ReportingSnapshot | null>(
+    null,
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     setMessage(null);
@@ -137,6 +163,24 @@ export default function EmployeesClient() {
           : [],
       );
       setEditDesignation(body.employee.designation ?? "");
+
+      setEditReportingPolicy(
+        body.reporting?.policy ?? {
+          version: 1,
+          mode:
+            body.employee.reportsToId
+              ? "specific_user"
+              : "unset",
+          userId:
+            body.employee.reportsToId ??
+            undefined,
+        },
+      );
+
+      setReportingSnapshot(
+        body.reporting ??
+        null,
+      );
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -232,6 +276,196 @@ export default function EmployeesClient() {
         cell: ({ row }) => row.original.designation ?? "—",
       },
       {
+        id: "reportingRule",
+        header: "Reporting Rule",
+        cell: ({ row }) => {
+          const policy =
+            row.original.reportingPolicy;
+
+          const mode =
+            policy?.mode ??
+            row.original.reportingMode ??
+            "unset";
+
+          if (mode === "top_level") {
+            return (
+              <div className="space-y-1">
+                <div className="font-medium">
+                  Top level
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  No direct manager
+                </div>
+              </div>
+            );
+          }
+
+          if (mode === "specific_user") {
+            const manager =
+              employees.find(
+                (employee) =>
+                  employee.id ===
+                  policy?.userId,
+              );
+
+            return (
+              <div className="space-y-1">
+                <div className="font-medium">
+                  Specific employee
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {manager?.name ??
+                    manager?.employeeCode ??
+                    (policy?.userId
+                      ? `Employee ${policy.userId}`
+                      : "Not selected")}
+                </div>
+              </div>
+            );
+          }
+
+          if (mode === "role") {
+            const role =
+              roles.find(
+                (item) =>
+                  item.id ===
+                  policy?.roleId,
+              );
+
+            const roleName =
+              role?.label ??
+              (
+                [
+                  role?.orgRole,
+                  role?.jobRole,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") ||
+                (
+                  policy?.roleId
+                    ? `Role ${policy.roleId}`
+                    : "Role not selected"
+                )
+              );
+
+            const scopeLabels:
+              Record<string, string> = {
+                same_department:
+                  "Same department",
+
+                same_area:
+                  "Same area",
+
+                same_zone:
+                  "Same zone",
+
+                same_department_area:
+                  "Same department + area",
+
+                same_department_zone:
+                  "Same department + zone",
+
+                organization:
+                  "Entire organization",
+              };
+
+            return (
+              <div className="space-y-1">
+                <div className="font-medium">
+                  {roleName}
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  {scopeLabels[
+                    policy?.scope ??
+                    "same_department"
+                  ] ??
+                    policy?.scope ??
+                    "Same department"}
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <Pill tone="neutral">
+              Not configured
+            </Pill>
+          );
+        },
+      },
+
+      {
+        id: "reportsTo",
+        header: "Reports To",
+        cell: ({ row }) => {
+          const status =
+            row.original.reportingStatus;
+
+          if (status === "resolved") {
+            return (
+              <div className="space-y-1">
+                <div className="font-medium">
+                  {row.original
+                    .reportingManagerName ??
+                    "Resolved manager"}
+                </div>
+
+                <Pill tone="good">
+                  Resolved
+                </Pill>
+              </div>
+            );
+          }
+
+          if (status === "top_level") {
+            return (
+              <Pill tone="info">
+                Top level
+              </Pill>
+            );
+          }
+
+          if (status === "no_match") {
+            return (
+              <Pill tone="neutral">
+                No match
+              </Pill>
+            );
+          }
+
+          if (status === "ambiguous") {
+            return (
+              <Pill tone="danger">
+                Ambiguous
+              </Pill>
+            );
+          }
+
+          if (status === "invalid") {
+            return (
+              <Pill tone="danger">
+                Invalid rule
+              </Pill>
+            );
+          }
+
+          return (
+            <Pill tone="neutral">
+              Not configured
+            </Pill>
+          );
+        },
+      },
+      {
+        accessorKey: "directReportCount",
+        header: "Team",
+        cell: ({ row }) =>
+          row.original
+            .directReportCount ??
+          0,
+      },
+      {
         accessorKey: "directResponsibilityCount",
         header: "Direct Responsibilities",
         cell: ({ row }) => row.original.directResponsibilityCount ?? 0,
@@ -290,7 +524,16 @@ export default function EmployeesClient() {
     setMessage(null);
 
     const data = new FormData(event.currentTarget);
-    const managerRaw = String(data.get("reportsToId") ?? "");
+    if (
+      createReportingPolicy.mode === "unset"
+    ) {
+      setSaving(false);
+      setMessage(
+        "Choose a reporting method: Specific employee, Role + scope, or Top level.",
+      );
+      return;
+    }
+
     const areaValue = String(data.get("area") ?? "").trim();
     const zoneValue = String(data.get("zone") ?? "").trim();
 
@@ -310,7 +553,8 @@ export default function EmployeesClient() {
       role: createDesignation.trim() || null,
       area: areaValue || "area",
       zone: zoneValue || "zone",
-      reportsToId: managerRaw ? Number(managerRaw) : null,
+      reportingPolicy:
+        createReportingPolicy,
       responsibilityIds: [],
       roleIds: [],
     };
@@ -323,6 +567,10 @@ export default function EmployeesClient() {
       setShowCreate(false);
       setCreateDepartments([]);
       setCreateDesignation("");
+      setCreateReportingPolicy({
+        version: 1,
+        mode: "unset",
+      });
       setMessage(`${payload.name} was added.`);
       await load();
     } catch (error) {
@@ -364,7 +612,8 @@ export default function EmployeesClient() {
             role: editDesignation.trim() || null,
             area: areaValue || "area",
             zone: zoneValue || "zone",
-            reportsToId: managerRaw ? Number(managerRaw) : null,
+            reportingPolicy:
+              editReportingPolicy,
           }),
         },
       );
@@ -382,6 +631,32 @@ export default function EmployeesClient() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function previewReporting() {
+    if (!selectedId) return;
+
+    try {
+      const body =
+        await apiJson<ReportingSnapshot>(
+          `/api/appliance/employees/${selectedId}/reporting-policy/preview`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              reportingPolicy:
+                editReportingPolicy,
+            }),
+          },
+        );
+
+      setReportingSnapshot(body);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to preview reporting rule.",
+      );
     }
   }
 
@@ -484,6 +759,10 @@ export default function EmployeesClient() {
               onClick={() => {
                 setCreateDepartments([]);
                 setCreateDesignation("");
+                setCreateReportingPolicy({
+                  version: 1,
+                  mode: "unset",
+                });
                 setShowCreate(true);
               }}
             >
@@ -615,16 +894,14 @@ export default function EmployeesClient() {
                 }}
               />
             </Field>
-            <Field label="Reports to">
-              <select name="reportsToId" className={inputClass} defaultValue="">
-                <option value="">No manager</option>
-                {employees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name ?? employee.employeeCode ?? employee.id}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <div className="md:col-span-2">
+              <ReportingPolicyEditor
+                value={createReportingPolicy}
+                onChange={setCreateReportingPolicy}
+                employees={employees}
+                roles={roles}
+              />
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <SecondaryButton type="button" onClick={() => setShowCreate(false)}>
@@ -645,6 +922,7 @@ export default function EmployeesClient() {
         onClose={() => {
           setSelectedId(null);
           setDetail(null);
+          setReportingSnapshot(null);
         }}
         wide
       >
@@ -718,22 +996,22 @@ export default function EmployeesClient() {
                     }}
                   />
                 </Field>
-                <Field label="Reports to">
-                  <select
-                    name="reportsToId"
-                    defaultValue={detail.employee.reportsToId ? String(detail.employee.reportsToId) : ""}
-                    className={inputClass}
-                  >
-                    <option value="">No manager</option>
-                    {employees
-                      .filter((employee) => employee.id !== selectedId)
-                      .map((employee) => (
-                        <option key={employee.id} value={employee.id}>
-                          {employee.name ?? employee.employeeCode ?? employee.id}
-                        </option>
-                      ))}
-                  </select>
-                </Field>
+                <div className="md:col-span-2">
+                  <ReportingPolicyEditor
+                    value={editReportingPolicy}
+                    onChange={(next) => {
+                      setEditReportingPolicy(next);
+                      setReportingSnapshot(null);
+                    }}
+                    employees={employees}
+                    roles={roles}
+                    subjectId={selectedId}
+                    snapshot={reportingSnapshot}
+                    onPreview={() =>
+                      void previewReporting()
+                    }
+                  />
+                </div>
               </div>
               <div className="flex justify-end">
                 <PrimaryButton type="submit" disabled={saving}>Save profile</PrimaryButton>

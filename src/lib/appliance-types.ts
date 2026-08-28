@@ -77,6 +77,41 @@ export type ResponsibilityAppDefinition = {
   config: Record<string, unknown>;
 };
 
+export type ResponsibilitySurfaceRenderer =
+  | "detail"
+  | "card"
+  | "list"
+  | "table"
+  | "timeline"
+  | "calendar"
+  | "gallery"
+  | "map"
+  | "route"
+  | "metric"
+  | "chart"
+  | "document"
+  | "receipt"
+  | "dashboard"
+  | "notification";
+
+export type ResponsibilitySurfaceDefinition = {
+  id: string;
+  label: string;
+  renderer: ResponsibilitySurfaceRenderer;
+  surface: "app" | "dashboard";
+  actorIds: string[];
+  stateIds: string[];
+  visibleKeys: string[];
+  actionIds: string[];
+  config: Record<string, unknown>;
+};
+
+export type ResponsibilitySurfaceManifest = {
+  version: 1;
+  app: ResponsibilitySurfaceDefinition[];
+  dashboard: ResponsibilitySurfaceDefinition[];
+};
+
 export type ResponsibilityDefinition = {
   schemaVersion: number;
   input: {
@@ -90,6 +125,7 @@ export type ResponsibilityDefinition = {
     config: Record<string, unknown>;
   };
   crud: Record<CrudOperation, boolean>;
+  surfaces?: ResponsibilitySurfaceManifest;
   raw?: Record<string, unknown>;
 };
 
@@ -136,6 +172,88 @@ export type Role = {
   label: string;
 };
 
+export type ReportingPolicyMode =
+  | "unset"
+  | "specific_user"
+  | "role"
+  | "top_level";
+
+export type ReportingScope =
+  | "same_department"
+  | "same_area"
+  | "same_zone"
+  | "same_department_area"
+  | "same_department_zone"
+  | "organization";
+
+export type ReportingPolicy = {
+  version: 1;
+  mode: ReportingPolicyMode;
+  userId?: number;
+  roleId?: number;
+  scope?: ReportingScope;
+};
+
+export type ReportingPerson = {
+  id: number;
+  employeeCode?: string | null;
+  name?: string | null;
+  department?: string | null;
+  designation?: string | null;
+  area?: string | null;
+  zone?: string | null;
+  status?: string | null;
+};
+
+export type ReportingSnapshot = {
+  success?: boolean;
+
+  policy: ReportingPolicy;
+
+  resolution: {
+    status:
+      | "resolved"
+      | "top_level"
+      | "unset"
+      | "no_match"
+      | "ambiguous"
+      | "invalid";
+
+    managerId?: number | null;
+    candidateIds?: number[];
+    reason?: string;
+  };
+
+  manager?: ReportingPerson | null;
+  candidates?: ReportingPerson[];
+  path?: ReportingPerson[];
+  pathStatus?: string;
+};
+
+export type DepartmentAuthority =
+  | {
+      kind: "none";
+    }
+  | {
+      kind: "employee";
+      userId: number;
+    }
+  | {
+      kind: "role";
+      roleId: number;
+    };
+
+export type Department = {
+  id: string;
+  key: string;
+  name: string;
+  defaultAuthority: DepartmentAuthority;
+  memberCount?: number;
+  resolvedUserIds?: number[];
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type Employee = {
   id: number;
   employeeCode?: string | null;
@@ -150,6 +268,21 @@ export type Employee = {
   zone?: string | null;
   status?: string | null;
   reportsToId?: number | null;
+
+  reportingPolicy?: ReportingPolicy;
+  reportingMode?: ReportingPolicyMode;
+  reportingStatus?:
+    | "resolved"
+    | "top_level"
+    | "unset"
+    | "no_match"
+    | "ambiguous"
+    | "invalid";
+
+  reportingManagerName?: string | null;
+  reportingCandidateCount?: number;
+  directReportCount?: number;
+
   mobileAccess?: boolean;
   lastSeenAt?: string | null;
   lastLoginAt?: string | null;
@@ -162,6 +295,8 @@ export type EmployeeDetail = {
   responsibilities: Responsibility[];
   directResponsibilityIds: number[];
   directRoleIds: number[];
+  reporting?: ReportingSnapshot;
+
   runtime?: {
     lastLoginAt?: string | null;
     lastBootstrapAt?: string | null;
