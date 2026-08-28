@@ -10,6 +10,16 @@ import {
 } from "@/lib/responsibility-compiler";
 import { sanitizeResponsibilityExtensionKernel } from "@/lib/responsibility-kernel-normalizer";
 import { compileKernelToBaseDefinition } from "@/lib/responsibility-kernel-compiler";
+
+import {
+  applyPixelRealityToKernel,
+} from "@/lib/pixel-reality-compiler";
+
+import {
+  PIXEL_REALITY_METADATA_KEY,
+  normalizePixelReality,
+} from "@/lib/pixel-reality-types";
+
 import { compileResponsibilitySemantics } from "@/lib/responsibility-semantic-compiler";
 import {
   RESPONSIBILITY_KERNEL_METADATA_KEY,
@@ -124,22 +134,81 @@ export const POST = withTenantDb<Context>(
       normalizeResponsibilityExtension(extension?.draftConfig ?? {}),
     ).config;
 
-    // IMPORTANT: Draft Kernel metadata is the source of truth. The employee app
-    // base definition is generated only at Publish, so Save Draft never leaks
-    // unfinished UI/behavior to company devices.
-    const kernel = kernelFromMetadata(normalized.metadata);
-    const publishedKernel = kernel
-      ? compileResponsibilitySemantics(kernel)
-      : null;
-    const publishedNormalized = publishedKernel
-      ? {
-          ...normalized,
-          metadata: {
-            ...(normalized.metadata ?? {}),
-            [RESPONSIBILITY_KERNEL_METADATA_KEY]: publishedKernel,
-          },
-        }
-      : normalized;
+    /*
+     * RESPONSIBILITY SOURCE-OF-TRUTH PIPELINE
+     *
+     * Draft Kernel
+     *     +
+     * stored Pixel Reality declarations
+     *     ↓
+     * canonical Responsibility Kernel
+     *     ↓
+     * semantic compiler
+     *     ↓
+     * published runtime manifest
+     *
+     * Pixel Reality is intentionally reapplied here so a stale editor
+     * cannot publish a graph whose business actions exist only as Pixel
+     * event names.
+     */
+    const storedKernel =
+      kernelFromMetadata(
+        normalized.metadata,
+      );
+
+    const rawReality =
+      normalized.metadata
+        ?.[PIXEL_REALITY_METADATA_KEY];
+
+    const reality =
+      rawReality
+        ? normalizePixelReality(
+            rawReality,
+          )
+        : null;
+
+    const kernel =
+      storedKernel && reality
+        ? applyPixelRealityToKernel(
+            storedKernel,
+            reality,
+          )
+        : storedKernel;
+
+    const normalizedWithReality =
+      kernel
+        ? {
+            ...normalized,
+
+            metadata: {
+              ...(normalized.metadata ?? {}),
+
+              [RESPONSIBILITY_KERNEL_METADATA_KEY]:
+                kernel,
+            },
+          }
+        : normalized;
+
+    const publishedKernel =
+      kernel
+        ? compileResponsibilitySemantics(
+            kernel,
+          )
+        : null;
+
+    const publishedNormalized =
+      publishedKernel
+        ? {
+            ...normalizedWithReality,
+
+            metadata: {
+              ...(normalizedWithReality.metadata ?? {}),
+
+              [RESPONSIBILITY_KERNEL_METADATA_KEY]:
+                publishedKernel,
+            },
+          }
+        : normalizedWithReality;
     const publishedBaseDefinition = publishedKernel
       ? compileKernelToBaseDefinition(publishedKernel)
       : (responsibility.config ?? {});
@@ -180,7 +249,7 @@ export const POST = withTenantDb<Context>(
       .insert(responsibilityExtensions)
       .values({
         responsibilityId,
-        draftConfig: normalized,
+        draftConfig: normalizedWithReality,
         publishedConfig: publishedNormalized,
         publishedVersion: nextVersion,
         compiledHash: manifestHash,
@@ -190,7 +259,7 @@ export const POST = withTenantDb<Context>(
       .onConflictDoUpdate({
         target: responsibilityExtensions.responsibilityId,
         set: {
-          draftConfig: normalized,
+          draftConfig: normalizedWithReality,
           publishedConfig: publishedNormalized,
           publishedVersion: nextVersion,
           compiledHash: manifestHash,
@@ -240,7 +309,7 @@ export const POST = withTenantDb<Context>(
     const knownRoleIds = new Set(roleRows.map((role) => role.id));
 
     const publishedTargetRoleIds = builderTargetRoleIds(
-      normalized.metadata,
+      normalizedWithReality.metadata,
     ).filter((roleId) => knownRoleIds.has(roleId));
 
     // Remove only rules owned by this Builder bridge. Other explicit

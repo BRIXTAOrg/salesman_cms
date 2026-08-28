@@ -45,6 +45,17 @@ import {
   type PixelLogicValidationIssue,
 } from "@/lib/pixel-logic-validation";
 import { validatePixelLogicAgainstResponsibility } from "@/lib/pixel-logic-context-validation";
+
+import {
+  applyPixelRealityToKernel,
+} from "@/lib/pixel-reality-compiler";
+
+import {
+  PIXEL_REALITY_METADATA_KEY,
+  normalizePixelReality,
+  type PixelRealityProposal,
+} from "@/lib/pixel-reality-types";
+
 import {
   RESPONSIBILITY_KERNEL_METADATA_KEY,
   type ResponsibilityKernel,
@@ -109,6 +120,49 @@ function withProgram(
           updatedAt: new Date().toISOString(),
         },
       },
+    },
+  };
+}
+
+/*
+ * PIXEL REALITY IS NOT VALIDATION METADATA.
+ *
+ * It is the business declaration layer that must be compiled into the
+ * canonical Responsibility Kernel.
+ *
+ * Pixel Program:
+ *   "when approve_leave happens..."
+ *
+ * Pixel Reality:
+ *   "approve_leave exists, belongs to reporting_manager, and is available
+ *    in pending_manager."
+ *
+ * Both halves must survive import/save/publish.
+ */
+function withReality(
+  extension: ResponsibilityExtensionConfig,
+  reality: PixelRealityProposal,
+): ResponsibilityExtensionConfig {
+  const currentKernel =
+    asKernel(extension);
+
+  const nextKernel =
+    applyPixelRealityToKernel(
+      currentKernel,
+      reality,
+    );
+
+  return {
+    ...extension,
+
+    metadata: {
+      ...(extension.metadata ?? {}),
+
+      [PIXEL_REALITY_METADATA_KEY]:
+        reality,
+
+      [RESPONSIBILITY_KERNEL_METADATA_KEY]:
+        nextKernel,
     },
   };
 }
@@ -373,9 +427,32 @@ export default function PixelLogicStudioClient() {
         aiImportText,
         `${selectedResponsibility.title} Logic`,
       );
+      /*
+       * AI may declare brand-new business actors/actions/states.
+       *
+       * Validate the Pixel graph against:
+       *
+       *   EXISTING RESPONSIBILITY
+       *            +
+       *   PROPOSED PIXEL REALITY
+       *
+       * rather than against the stale Kernel that existed before import.
+       */
+      const proposedKernel =
+        applyPixelRealityToKernel(
+          kernel,
+          result.reality,
+        );
+
       const issues: PixelLogicValidationIssue[] = [
-        ...validatePixelLogicProgram(result.program),
-        ...validatePixelLogicAgainstResponsibility(result.program, kernel),
+        ...validatePixelLogicProgram(
+          result.program,
+        ),
+
+        ...validatePixelLogicAgainstResponsibility(
+          result.program,
+          proposedKernel,
+        ),
       ];
 
       const currentFingerprint = pixelLogicRegistryFingerprint();
@@ -436,13 +513,48 @@ export default function PixelLogicStudioClient() {
       return;
     }
 
-    const next = autoLayoutPixelLogicProgram(aiImportResult.program);
+    if (!extension) {
+      setMessage(
+        "Responsibility extension is not loaded.",
+      );
+      return;
+    }
+
+    const next =
+      autoLayoutPixelLogicProgram(
+        aiImportResult.program,
+      );
+
+    /*
+     * THIS WAS THE MISSING BRIDGE.
+     *
+     * Previously we imported only `program`.
+     * The AI's `reality` declarations were thrown away, so events could
+     * reference approve_leave while the actual Responsibility Kernel had
+     * no approve_leave action at all.
+     */
+    const nextExtension =
+      withReality(
+        extension,
+        aiImportResult.reality,
+      );
+
+    setExtension(
+      nextExtension,
+    );
+
     setProgram({
       ...next,
+
       metadata: {
         ...next.metadata,
-        generatedBy: next.metadata.generatedBy ?? "external-ai",
-        updatedAt: new Date().toISOString(),
+
+        generatedBy:
+          next.metadata.generatedBy ??
+          "external-ai",
+
+        updatedAt:
+          new Date().toISOString(),
       },
     });
     setSelectedNodeId(null);
@@ -465,7 +577,34 @@ export default function PixelLogicStudioClient() {
     setSaving(true);
     setMessage(null);
     try {
-      const nextExtension = withProgram(extension, program);
+      /*
+       * Defensive repair:
+       *
+       * If this Responsibility already carries Pixel Reality, always
+       * rematerialize it into the Kernel before Save + Publish.
+       *
+       * This makes stale-Kernel publication much harder to reintroduce.
+       */
+      const storedRealityRaw =
+        extension.metadata
+          ?.[PIXEL_REALITY_METADATA_KEY];
+
+      const extensionWithReality =
+        storedRealityRaw
+          ? withReality(
+              extension,
+              normalizePixelReality(
+                storedRealityRaw,
+              ),
+            )
+          : extension;
+
+      const nextExtension =
+        withProgram(
+          extensionWithReality,
+          program,
+        );
+
       await apiJson(
         `/api/platform/responsibility-extensions/${responsibilityId}`,
         {
