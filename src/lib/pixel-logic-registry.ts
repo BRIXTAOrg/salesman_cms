@@ -1,7 +1,5 @@
 // BRIXTA_PIXEL_LOGIC_KERNEL_V1
-import type {
-  PixelLogicNodeSpec,
-} from "@/lib/pixel-logic-types";
+import type { PixelLogicNodeSpec } from "@/lib/pixel-logic-types";
 
 /**
  * Runtime-extensible node registry.
@@ -181,7 +179,12 @@ const specs: PixelLogicNodeSpec[] = [
         ],
       },
       { key: "key", label: "Key", kind: "text", placeholder: "current_time" },
-      { key: "path", label: "Nested path", kind: "text", placeholder: "profile.hourlyRate" },
+      {
+        key: "path",
+        label: "Nested path",
+        kind: "text",
+        placeholder: "profile.hourlyRate",
+      },
     ],
   },
 
@@ -264,7 +267,13 @@ const specs: PixelLogicNodeSpec[] = [
     category: "Logic",
     kind: "operation",
     inputs: [
-      { key: "left", label: "Left", kind: "data", valueType: "any", required: true },
+      {
+        key: "left",
+        label: "Left",
+        kind: "data",
+        valueType: "any",
+        required: true,
+      },
       { key: "right", label: "Right", kind: "data", valueType: "any" },
     ],
     outputs: [{ ...valueOut, valueType: "boolean" }],
@@ -294,8 +303,20 @@ const specs: PixelLogicNodeSpec[] = [
     category: "Logic",
     kind: "operation",
     inputs: [
-      { key: "a", label: "A", kind: "data", valueType: "boolean", required: true },
-      { key: "b", label: "B", kind: "data", valueType: "boolean", required: true },
+      {
+        key: "a",
+        label: "A",
+        kind: "data",
+        valueType: "boolean",
+        required: true,
+      },
+      {
+        key: "b",
+        label: "B",
+        kind: "data",
+        valueType: "boolean",
+        required: true,
+      },
     ],
     outputs: [{ ...valueOut, valueType: "boolean" }],
   },
@@ -306,8 +327,20 @@ const specs: PixelLogicNodeSpec[] = [
     category: "Logic",
     kind: "operation",
     inputs: [
-      { key: "a", label: "A", kind: "data", valueType: "boolean", required: true },
-      { key: "b", label: "B", kind: "data", valueType: "boolean", required: true },
+      {
+        key: "a",
+        label: "A",
+        kind: "data",
+        valueType: "boolean",
+        required: true,
+      },
+      {
+        key: "b",
+        label: "B",
+        kind: "data",
+        valueType: "boolean",
+        required: true,
+      },
     ],
     outputs: [{ ...valueOut, valueType: "boolean" }],
   },
@@ -318,7 +351,13 @@ const specs: PixelLogicNodeSpec[] = [
     category: "Logic",
     kind: "operation",
     inputs: [
-      { key: "value", label: "Value", kind: "data", valueType: "boolean", required: true },
+      {
+        key: "value",
+        label: "Value",
+        kind: "data",
+        valueType: "boolean",
+        required: true,
+      },
     ],
     outputs: [{ ...valueOut, valueType: "boolean" }],
   },
@@ -330,7 +369,13 @@ const specs: PixelLogicNodeSpec[] = [
     kind: "control",
     inputs: [
       flowIn,
-      { key: "condition", label: "Condition", kind: "data", valueType: "boolean", required: true },
+      {
+        key: "condition",
+        label: "Condition",
+        kind: "data",
+        valueType: "boolean",
+        required: true,
+      },
     ],
     outputs: [
       { key: "true", label: "True", kind: "flow" },
@@ -345,8 +390,20 @@ const specs: PixelLogicNodeSpec[] = [
     category: "Time",
     kind: "operation",
     inputs: [
-      { key: "start", label: "Start", kind: "data", valueType: "datetime", required: true },
-      { key: "end", label: "End", kind: "data", valueType: "datetime", required: true },
+      {
+        key: "start",
+        label: "Start",
+        kind: "data",
+        valueType: "datetime",
+        required: true,
+      },
+      {
+        key: "end",
+        label: "End",
+        kind: "data",
+        valueType: "datetime",
+        required: true,
+      },
     ],
     outputs: [{ ...valueOut, valueType: "number" }],
   },
@@ -357,8 +414,20 @@ const specs: PixelLogicNodeSpec[] = [
     category: "Time",
     kind: "operation",
     inputs: [
-      { key: "time", label: "Time", kind: "data", valueType: "datetime", required: true },
-      { key: "minutes", label: "Minutes", kind: "data", valueType: "number", required: true },
+      {
+        key: "time",
+        label: "Time",
+        kind: "data",
+        valueType: "datetime",
+        required: true,
+      },
+      {
+        key: "minutes",
+        label: "Minutes",
+        kind: "data",
+        valueType: "number",
+        required: true,
+      },
     ],
     outputs: [{ ...valueOut, valueType: "datetime" }],
   },
@@ -376,6 +445,119 @@ const specs: PixelLogicNodeSpec[] = [
     outputs: [valueOut],
   },
 
+  // BRIXTA_PRESENTATION_EFFECTS_V2
+  {
+    type: "effect.ui_animate",
+    label: "Animate UI block",
+    description:
+      "Replay an installed animation on an existing App Builder UI block.",
+    category: "Presentation",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+    configFields: [
+      {
+        key: "targetBlockId",
+        label: "UI block ID",
+        kind: "text",
+        placeholder: "counter",
+      },
+      {
+        key: "preset",
+        label: "Animation",
+        kind: "select",
+        options: [
+          { value: "fade", label: "Fade" },
+          { value: "scale", label: "Scale" },
+          { value: "fade_scale", label: "Fade + scale" },
+          { value: "slide_up", label: "Slide up" },
+          { value: "pulse", label: "Pulse" },
+          { value: "shake", label: "Shake" },
+        ],
+      },
+      {
+        key: "durationMs",
+        label: "Duration ms",
+        kind: "number",
+        placeholder: "400",
+      },
+    ],
+  },
+  {
+    type: "effect.ui_show",
+    label: "Show UI block",
+    description:
+      "Temporarily force an existing App Builder UI block visible on the current screen.",
+    category: "Presentation",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+    configFields: [
+      {
+        key: "targetBlockId",
+        label: "UI block ID",
+        kind: "text",
+      },
+    ],
+  },
+  {
+    type: "effect.ui_hide",
+    label: "Hide UI block",
+    description:
+      "Temporarily force an existing App Builder UI block hidden on the current screen.",
+    category: "Presentation",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+    configFields: [
+      {
+        key: "targetBlockId",
+        label: "UI block ID",
+        kind: "text",
+      },
+    ],
+  },
+  {
+    type: "effect.ui_play",
+    label: "Play UI animation",
+    description: "Replay an existing Lottie/animation UI block.",
+    category: "Presentation",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+    configFields: [
+      {
+        key: "targetBlockId",
+        label: "UI block ID",
+        kind: "text",
+      },
+    ],
+  },
+  {
+    type: "effect.haptic",
+    label: "Haptic feedback",
+    description: "Emit a permitted device haptic response.",
+    category: "Presentation",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+    configFields: [
+      {
+        key: "preset",
+        label: "Haptic",
+        kind: "select",
+        options: [
+          { value: "light", label: "Light" },
+          { value: "medium", label: "Medium" },
+          { value: "heavy", label: "Heavy" },
+          { value: "success", label: "Success" },
+          { value: "warning", label: "Warning" },
+          { value: "error", label: "Error" },
+        ],
+      },
+    ],
+  },
+
   {
     type: "effect.set_computed",
     label: "Set computed value",
@@ -384,11 +566,22 @@ const specs: PixelLogicNodeSpec[] = [
     kind: "effect",
     inputs: [
       flowIn,
-      { key: "value", label: "Value", kind: "data", valueType: "any", required: true },
+      {
+        key: "value",
+        label: "Value",
+        kind: "data",
+        valueType: "any",
+        required: true,
+      },
     ],
     outputs: [flowOut],
     configFields: [
-      { key: "targetKey", label: "Target key", kind: "text", placeholder: "salary_deduction" },
+      {
+        key: "targetKey",
+        label: "Target key",
+        kind: "text",
+        placeholder: "salary_deduction",
+      },
     ],
   },
   {
@@ -399,11 +592,22 @@ const specs: PixelLogicNodeSpec[] = [
     kind: "effect",
     inputs: [
       flowIn,
-      { key: "value", label: "Value", kind: "data", valueType: "any", required: true },
+      {
+        key: "value",
+        label: "Value",
+        kind: "data",
+        valueType: "any",
+        required: true,
+      },
     ],
     outputs: [flowOut],
     configFields: [
-      { key: "targetKey", label: "Context key", kind: "text", placeholder: "late_minutes" },
+      {
+        key: "targetKey",
+        label: "Context key",
+        kind: "text",
+        placeholder: "late_minutes",
+      },
     ],
   },
   {
@@ -415,7 +619,12 @@ const specs: PixelLogicNodeSpec[] = [
     inputs: [flowIn],
     outputs: [flowOut],
     configFields: [
-      { key: "state", label: "State ID", kind: "text", placeholder: "completed" },
+      {
+        key: "state",
+        label: "State ID",
+        kind: "text",
+        placeholder: "completed",
+      },
     ],
   },
   {
@@ -427,8 +636,18 @@ const specs: PixelLogicNodeSpec[] = [
     inputs: [flowIn],
     outputs: [flowOut],
     configFields: [
-      { key: "actorId", label: "Actor ID", kind: "text", placeholder: "reporting_manager" },
-      { key: "message", label: "Message", kind: "text", placeholder: "Needs attention" },
+      {
+        key: "actorId",
+        label: "Actor ID",
+        kind: "text",
+        placeholder: "reporting_manager",
+      },
+      {
+        key: "message",
+        label: "Message",
+        kind: "text",
+        placeholder: "Needs attention",
+      },
     ],
   },
   {
@@ -440,7 +659,12 @@ const specs: PixelLogicNodeSpec[] = [
     inputs: [flowIn],
     outputs: [flowOut],
     configFields: [
-      { key: "actionId", label: "Action ID", kind: "text", placeholder: "approve" },
+      {
+        key: "actionId",
+        label: "Action ID",
+        kind: "text",
+        placeholder: "approve",
+      },
     ],
   },
   {
@@ -487,7 +711,8 @@ const specs: PixelLogicNodeSpec[] = [
   {
     type: "effect.create_record",
     label: "Create record",
-    description: "Create/start another Responsibility record through the host runtime.",
+    description:
+      "Create/start another Responsibility record through the host runtime.",
     category: "Effects",
     kind: "effect",
     inputs: [flowIn],
@@ -508,7 +733,8 @@ const specs: PixelLogicNodeSpec[] = [
   {
     type: "effect.update_record",
     label: "Update record",
-    description: "Apply a structured value/patch to the current Responsibility record.",
+    description:
+      "Apply a structured value/patch to the current Responsibility record.",
     category: "Effects",
     kind: "effect",
     inputs: [
@@ -525,7 +751,8 @@ const specs: PixelLogicNodeSpec[] = [
   {
     type: "effect.delete_record",
     label: "Delete record",
-    description: "Mark the current Responsibility record deleted through the Kernel host.",
+    description:
+      "Mark the current Responsibility record deleted through the Kernel host.",
     category: "Effects",
     kind: "effect",
     inputs: [flowIn],
@@ -593,9 +820,7 @@ const specs: PixelLogicNodeSpec[] = [
     kind: "effect",
     inputs: [flowIn],
     outputs: [flowOut],
-    configFields: [
-      { key: "label", label: "History label", kind: "text" },
-    ],
+    configFields: [{ key: "label", label: "History label", kind: "text" }],
   },
 ];
 

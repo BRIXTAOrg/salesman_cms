@@ -70,6 +70,47 @@ export type ResponsibilityUiAnimation = {
   repeat?: number;
 };
 
+export type ResponsibilityUiThemeScope =
+  | "inherit"
+  | "responsibility"
+  | "immersive";
+
+export type ResponsibilityUiTheme = {
+  /**
+   * inherit:
+   *   Use the existing BRIXTA/tenant application design unchanged.
+   *
+   * responsibility:
+   *   Inherit the host design, then apply approved Responsibility tokens.
+   *
+   * immersive:
+   *   Same scoped theme capability, but the Responsibility may occupy the
+   *   entire employee screen without the normal Responsibility AppBar.
+   */
+  scope: ResponsibilityUiThemeScope;
+
+  base?: "brixta_editorial_v1";
+
+  tokens?: {
+    colors?: {
+      primary?: string;
+      background?: string;
+      surface?: string;
+      foreground?: string;
+      muted?: string;
+      border?: string;
+    };
+
+    typography?: {
+      /**
+       * Scales the inherited BRIXTA typography.
+       * Flutter/system accessibility text scaling still applies afterward.
+       */
+      scale?: number;
+    };
+  };
+};
+
 export type ResponsibilityUiBlockType =
   | "layout.column"
   | "layout.row"
@@ -131,13 +172,19 @@ export type ResponsibilityUiDocument = {
   engine: "brixta_stac_v1";
 
   /**
+   * BRIXTA_PRESENTATION_THEME_V2
+   *
+   * Presentation inherits the host Flutter app by default.
+   */
+  theme?: ResponsibilityUiTheme;
+
+  /**
    * Ordered top-level UI blocks.
    */
   rootIds: string[];
 
   blocks: ResponsibilityUiBlock[];
 };
-
 
 export type ResponsibilityUiBlockDefinition = {
   type: ResponsibilityUiBlockType;
@@ -168,11 +215,8 @@ export type ResponsibilityUiBlockDefinition = {
 
   supportedAnimations?: ResponsibilityUiAnimationPreset[];
 
-  runtime:
-    | "brixta"
-    | "stac";
+  runtime: "brixta" | "stac";
 };
-
 
 /**
  * ---------------------------------------------------------------------
@@ -186,8 +230,8 @@ export type ResponsibilityUiBlockDefinition = {
  *
  * BRIXTA-specific dynamic behavior should use an installed renderer adapter.
  */
-export const RESPONSIBILITY_UI_BLOCK_REGISTRY:
-  ResponsibilityUiBlockDefinition[] = [
+export const RESPONSIBILITY_UI_BLOCK_REGISTRY: ResponsibilityUiBlockDefinition[] =
+  [
     {
       type: "layout.column",
       label: "Column",
@@ -237,12 +281,7 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY:
         size: "body",
         alignment: "left",
       },
-      supportedAnimations: [
-        "fade",
-        "scale",
-        "fade_scale",
-        "slide_up",
-      ],
+      supportedAnimations: ["fade", "scale", "fade_scale", "slide_up"],
       runtime: "brixta",
     },
 
@@ -265,11 +304,7 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY:
         size: "body",
         alignment: "left",
       },
-      supportedAnimations: [
-        "fade",
-        "scale",
-        "fade_scale",
-      ],
+      supportedAnimations: ["fade", "scale", "fade_scale"],
       runtime: "brixta",
     },
 
@@ -279,24 +314,14 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY:
       category: "Display",
       description:
         "Large read-only counter bound to computed/capture/context data.",
-      keywords: [
-        "counter",
-        "click count",
-        "number display",
-        "score",
-        "tally",
-      ],
+      keywords: ["counter", "click count", "number display", "score", "tally"],
       allowsBinding: true,
       defaultConfig: {
         size: "hero",
         alignment: "center",
         suffix: "",
       },
-      supportedAnimations: [
-        "scale",
-        "fade_scale",
-        "pulse",
-      ],
+      supportedAnimations: ["scale", "fade_scale", "pulse"],
       runtime: "brixta",
     },
 
@@ -305,23 +330,13 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY:
       label: "Metric",
       category: "Display",
       description: "Prominent KPI/metric display.",
-      keywords: [
-        "metric",
-        "kpi",
-        "distance",
-        "amount",
-        "score",
-        "dashboard",
-      ],
+      keywords: ["metric", "kpi", "distance", "amount", "score", "dashboard"],
       allowsBinding: true,
       defaultConfig: {
         size: "large",
         alignment: "left",
       },
-      supportedAnimations: [
-        "fade",
-        "scale",
-      ],
+      supportedAnimations: ["fade", "scale"],
       runtime: "brixta",
     },
 
@@ -356,25 +371,14 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY:
       category: "Interaction",
       description:
         "A real app button bound to a Responsibility action. It does not create a form field.",
-      keywords: [
-        "button",
-        "click",
-        "tap",
-        "action",
-        "start",
-        "stop",
-      ],
+      keywords: ["button", "click", "tap", "action", "start", "stop"],
       allowsAction: true,
       defaultConfig: {
         label: "Continue",
         style: "primary",
         size: "large",
       },
-      supportedAnimations: [
-        "fade",
-        "scale",
-        "fade_scale",
-      ],
+      supportedAnimations: ["fade", "scale", "fade_scale"],
       runtime: "brixta",
     },
 
@@ -417,13 +421,7 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY:
         background: "#111111",
         foreground: "#FFFFFF",
       },
-      supportedAnimations: [
-        "fade",
-        "scale",
-        "fade_scale",
-        "pulse",
-        "shake",
-      ],
+      supportedAnimations: ["fade", "scale", "fade_scale", "pulse", "shake"],
       runtime: "brixta",
     },
 
@@ -446,12 +444,7 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY:
       category: "Animation",
       description:
         "Display a packaged or permitted remote Lottie animation asset.",
-      keywords: [
-        "lottie",
-        "animation",
-        "celebration",
-        "motion",
-      ],
+      keywords: ["lottie", "animation", "celebration", "motion"],
       defaultConfig: {
         repeat: true,
       },
@@ -486,12 +479,7 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY:
       category: "Advanced",
       description:
         "Render whitelisted declarative Stac JSON. No executable source code is accepted.",
-      keywords: [
-        "stac",
-        "advanced",
-        "widget",
-        "server driven ui",
-      ],
+      keywords: ["stac", "advanced", "widget", "server driven ui"],
       defaultConfig: {
         json: {
           type: "text",
@@ -502,230 +490,174 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY:
     },
   ];
 
-
-function rawObject(
-  value: unknown,
-  path: string,
-): Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    Array.isArray(value)
-  ) {
-    throw new Error(
-      `${path} must be a JSON object.`,
-    );
+function rawObject(value: unknown, path: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${path} must be a JSON object.`);
   }
 
   return value as Record<string, unknown>;
 }
 
-
-function rawArray(
-  value: unknown,
-  path: string,
-): unknown[] {
+function rawArray(value: unknown, path: string): unknown[] {
   if (!Array.isArray(value)) {
-    throw new Error(
-      `${path} must be an array.`,
-    );
+    throw new Error(`${path} must be an array.`);
   }
 
   return value;
 }
 
-
-function rawString(
-  value: unknown,
-  path: string,
-) {
-  if (
-    typeof value !== "string" ||
-    !value.trim()
-  ) {
-    throw new Error(
-      `${path} must be a non-empty string.`,
-    );
+function rawString(value: unknown, path: string) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${path} must be a non-empty string.`);
   }
 
   return value.trim();
 }
 
-
-const allowedTypes =
-  new Set(
-    RESPONSIBILITY_UI_BLOCK_REGISTRY.map(
-      (block) =>
-        block.type,
-    ),
-  );
-
+const allowedTypes = new Set(
+  RESPONSIBILITY_UI_BLOCK_REGISTRY.map((block) => block.type),
+);
 
 export function parseResponsibilityUiDocument(
   value: unknown,
 ): ResponsibilityUiDocument {
-  const raw =
-    rawObject(
-      value,
-      "app.uiDocument",
-    );
+  const raw = rawObject(value, "app.uiDocument");
 
-  if (
-    Number(
-      raw.version,
-    ) !==
-    1
-  ) {
-    throw new Error(
-      "app.uiDocument.version must be 1.",
-    );
+  if (Number(raw.version) !== 1) {
+    throw new Error("app.uiDocument.version must be 1.");
   }
 
-  if (
-    raw.engine !==
-    "brixta_stac_v1"
-  ) {
-    throw new Error(
-      'app.uiDocument.engine must be "brixta_stac_v1".',
-    );
+  if (raw.engine !== "brixta_stac_v1") {
+    throw new Error('app.uiDocument.engine must be "brixta_stac_v1".');
   }
 
-  const rootIds =
-    rawArray(
-      raw.rootIds,
-      "app.uiDocument.rootIds",
-    ).map(
-      (item, index) =>
-        rawString(
-          item,
-          `app.uiDocument.rootIds[${index}]`,
-        ),
-    );
+  let theme: ResponsibilityUiTheme | undefined;
 
-  const blockRaw =
-    rawArray(
-      raw.blocks,
-      "app.uiDocument.blocks",
-    );
+  if (raw.theme !== undefined) {
+    const rawTheme = rawObject(raw.theme, "app.uiDocument.theme");
 
-  const ids =
-    new Set<string>();
+    const scope = rawTheme.scope;
 
-  const blocks:
-    ResponsibilityUiBlock[] =
-    blockRaw.map(
-      (item, index) => {
-        const block =
-          rawObject(
-            item,
-            `app.uiDocument.blocks[${index}]`,
+    if (
+      scope !== "inherit" &&
+      scope !== "responsibility" &&
+      scope !== "immersive"
+    ) {
+      throw new Error(
+        'app.uiDocument.theme.scope must be "inherit", "responsibility", or "immersive".',
+      );
+    }
+
+    if (
+      rawTheme.base !== undefined &&
+      rawTheme.base !== "brixta_editorial_v1"
+    ) {
+      throw new Error(
+        'app.uiDocument.theme.base must be "brixta_editorial_v1".',
+      );
+    }
+
+    const tokens =
+      rawTheme.tokens === undefined
+        ? undefined
+        : (rawObject(
+            rawTheme.tokens,
+            "app.uiDocument.theme.tokens",
+          ) as ResponsibilityUiTheme["tokens"]);
+
+    theme = {
+      scope,
+      base:
+        rawTheme.base === "brixta_editorial_v1"
+          ? "brixta_editorial_v1"
+          : undefined,
+      tokens,
+    };
+  }
+
+  const rootIds = rawArray(raw.rootIds, "app.uiDocument.rootIds").map(
+    (item, index) => rawString(item, `app.uiDocument.rootIds[${index}]`),
+  );
+
+  const blockRaw = rawArray(raw.blocks, "app.uiDocument.blocks");
+
+  const ids = new Set<string>();
+
+  const blocks: ResponsibilityUiBlock[] = blockRaw.map((item, index) => {
+    const block = rawObject(item, `app.uiDocument.blocks[${index}]`);
+
+    const id = rawString(block.id, `app.uiDocument.blocks[${index}].id`);
+
+    if (ids.has(id)) {
+      throw new Error(`Duplicate UI block id "${id}".`);
+    }
+
+    ids.add(id);
+
+    const type = rawString(
+      block.type,
+      `app.uiDocument.blocks[${index}].type`,
+    ) as ResponsibilityUiBlockType;
+
+    if (!allowedTypes.has(type)) {
+      throw new Error(`Unsupported UI block type "${type}".`);
+    }
+
+    const children =
+      block.children === undefined
+        ? undefined
+        : rawArray(
+            block.children,
+            `app.uiDocument.blocks[${index}].children`,
+          ).map((child, childIndex) =>
+            rawString(
+              child,
+              `app.uiDocument.blocks[${index}].children[${childIndex}]`,
+            ),
           );
 
-        const id =
-          rawString(
-            block.id,
-            `app.uiDocument.blocks[${index}].id`,
-          );
+    const config =
+      block.config === undefined
+        ? {}
+        : rawObject(block.config, `app.uiDocument.blocks[${index}].config`);
 
-        if (ids.has(id)) {
-          throw new Error(
-            `Duplicate UI block id "${id}".`,
-          );
-        }
+    const binding =
+      block.binding === undefined
+        ? undefined
+        : (rawObject(
+            block.binding,
+            `app.uiDocument.blocks[${index}].binding`,
+          ) as ResponsibilityUiBinding);
 
-        ids.add(id);
+    const visibility =
+      block.visibility === undefined
+        ? undefined
+        : (rawObject(
+            block.visibility,
+            `app.uiDocument.blocks[${index}].visibility`,
+          ) as unknown as ResponsibilityUiVisibility);
 
-        const type =
-          rawString(
-            block.type,
-            `app.uiDocument.blocks[${index}].type`,
-          ) as ResponsibilityUiBlockType;
+    const animation =
+      block.animation === undefined
+        ? undefined
+        : (rawObject(
+            block.animation,
+            `app.uiDocument.blocks[${index}].animation`,
+          ) as unknown as ResponsibilityUiAnimation);
 
-        if (
-          !allowedTypes.has(
-            type,
-          )
-        ) {
-          throw new Error(
-            `Unsupported UI block type "${type}".`,
-          );
-        }
+    return {
+      id,
+      type,
+      children,
+      binding,
+      actionId: typeof block.actionId === "string" ? block.actionId : undefined,
+      visibility,
+      animation,
+      config,
+    };
+  });
 
-        const children =
-          block.children ===
-          undefined
-            ? undefined
-            : rawArray(
-                block.children,
-                `app.uiDocument.blocks[${index}].children`,
-              ).map(
-                (
-                  child,
-                  childIndex,
-                ) =>
-                  rawString(
-                    child,
-                    `app.uiDocument.blocks[${index}].children[${childIndex}]`,
-                  ),
-              );
-
-        const config =
-          block.config ===
-          undefined
-            ? {}
-            : rawObject(
-                block.config,
-                `app.uiDocument.blocks[${index}].config`,
-              );
-
-        const binding =
-          block.binding ===
-          undefined
-            ? undefined
-            : rawObject(
-                block.binding,
-                `app.uiDocument.blocks[${index}].binding`,
-              ) as ResponsibilityUiBinding;
-
-        const visibility =
-          block.visibility ===
-          undefined
-            ? undefined
-            : rawObject(
-                block.visibility,
-                `app.uiDocument.blocks[${index}].visibility`,
-              ) as unknown as ResponsibilityUiVisibility;
-
-        const animation =
-          block.animation ===
-          undefined
-            ? undefined
-            : rawObject(
-                block.animation,
-                `app.uiDocument.blocks[${index}].animation`,
-              ) as unknown as ResponsibilityUiAnimation;
-
-        return {
-          id,
-          type,
-          children,
-          binding,
-          actionId:
-            typeof block.actionId ===
-            "string"
-              ? block.actionId
-              : undefined,
-          visibility,
-          animation,
-          config,
-        };
-      },
-    );
-
-  for (
-    const rootId
-    of rootIds
-  ) {
+  for (const rootId of rootIds) {
     if (!ids.has(rootId)) {
       throw new Error(
         `app.uiDocument.rootIds references missing UI block "${rootId}".`,
@@ -733,14 +665,8 @@ export function parseResponsibilityUiDocument(
     }
   }
 
-  for (
-    const block
-    of blocks
-  ) {
-    for (
-      const child
-      of block.children ?? []
-    ) {
+  for (const block of blocks) {
+    for (const child of block.children ?? []) {
       if (!ids.has(child)) {
         throw new Error(
           `UI block "${block.id}" references missing child "${child}".`,
@@ -751,8 +677,8 @@ export function parseResponsibilityUiDocument(
 
   return {
     version: 1,
-    engine:
-      "brixta_stac_v1",
+    engine: "brixta_stac_v1",
+    theme,
     rootIds,
     blocks,
   };

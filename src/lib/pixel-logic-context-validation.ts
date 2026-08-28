@@ -10,11 +10,9 @@ function text(value: unknown) {
 
 // BRIXTA_PIXEL_REALITY_VALIDATION_V2
 function objectValue(value: unknown): Record<string, unknown> {
-  return value &&
-    typeof value === "object" &&
-    !Array.isArray(value)
-      ? value as Record<string, unknown>
-      : {};
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function stringArray(value: unknown): string[] {
@@ -67,7 +65,9 @@ export function validatePixelLogicAgainstResponsibility(
   const actions = new Set(
     kernel.possibilities
       .filter(
-        (item): item is Extract<
+        (
+          item,
+        ): item is Extract<
           ResponsibilityKernel["possibilities"][number],
           { type: "action" }
         > => item.type === "action",
@@ -77,7 +77,9 @@ export function validatePixelLogicAgainstResponsibility(
   const captures = new Set(
     kernel.possibilities
       .filter(
-        (item): item is Extract<
+        (
+          item,
+        ): item is Extract<
           ResponsibilityKernel["possibilities"][number],
           { type: "capture" }
         > => item.type === "capture",
@@ -91,6 +93,10 @@ export function validatePixelLogicAgainstResponsibility(
   const actors = new Set(kernel.runtimeWorld.actors.map((item) => item.id));
   const objects = new Set(kernel.runtimeWorld.objects.map((item) => item.id));
 
+  const uiBlocks = new Set(
+    kernel.metadata.ui?.uiDocument?.blocks.map((item) => item.id) ?? [],
+  );
+
   /*
    * Pixel Reality V2 may declare business concepts that do not exist in the
    * currently-published Kernel yet.
@@ -98,15 +104,9 @@ export function validatePixelLogicAgainstResponsibility(
    * The graph MUST be allowed to reference those declarations during the
    * pre-import human review.
    */
-  const programMetadata =
-    objectValue(
-      program.metadata,
-    );
+  const programMetadata = objectValue(program.metadata);
 
-  const declared =
-    objectValue(
-      programMetadata.pixelRealityDeclared,
-    );
+  const declared = objectValue(programMetadata.pixelRealityDeclared);
 
   for (const id of stringArray(declared.actionIds)) {
     actions.add(id);
@@ -118,19 +118,15 @@ export function validatePixelLogicAgainstResponsibility(
 
   for (const id of stringArray(declared.contextIds)) {
     if (!contexts.has(id)) {
-      contexts.set(
+      contexts.set(id, {
         id,
-        {
-          id,
-          label: id,
-          source: "literal",
-          mutable: true,
-          config: {
-            declaredBy:
-              "pixel_reality_v2",
-          },
+        label: id,
+        source: "literal",
+        mutable: true,
+        config: {
+          declaredBy: "pixel_reality_v2",
         },
-      );
+      });
     }
   }
 
@@ -203,7 +199,12 @@ export function validatePixelLogicAgainstResponsibility(
         continue;
       }
 
-      if (["context", "capture", "actor", "state", "object", "variable"].includes(scope) && !key) {
+      if (
+        ["context", "capture", "actor", "state", "object", "variable"].includes(
+          scope,
+        ) &&
+        !key
+      ) {
         issues.push({
           severity: "error",
           nodeId: node.id,
@@ -264,6 +265,26 @@ export function validatePixelLogicAgainstResponsibility(
           severity: "error",
           nodeId: node.id,
           message: `${node.label ?? node.type}: unknown actor \"${actorId}\".`,
+        });
+      }
+    }
+
+    // BRIXTA_PIXEL_UI_TARGET_VALIDATION_V2
+    if (
+      node.type === "effect.ui_animate" ||
+      node.type === "effect.ui_show" ||
+      node.type === "effect.ui_hide" ||
+      node.type === "effect.ui_play"
+    ) {
+      const targetBlockId = text(node.config.targetBlockId);
+
+      if (!targetBlockId || !uiBlocks.has(targetBlockId)) {
+        issues.push({
+          severity: "error",
+
+          nodeId: node.id,
+
+          message: `${node.label ?? node.type}: targetBlockId must reference an existing App Builder UI block.`,
         });
       }
     }

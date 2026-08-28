@@ -292,7 +292,12 @@ export type KernelEffectKind =
   | "freeze_data"
   | "trigger_action"
   | "trigger_responsibility"
-  | "append_history";
+  | "append_history"
+  | "ui_animate"
+  | "ui_show"
+  | "ui_hide"
+  | "ui_play"
+  | "haptic";
 
 export type KernelEffect = {
   id: KernelId;

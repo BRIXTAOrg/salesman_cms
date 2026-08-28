@@ -7,6 +7,10 @@ import type {
   ResponsibilitySurfaceManifest,
 } from "@/lib/appliance-types";
 import { compileResponsibilitySemantics } from "@/lib/responsibility-semantic-compiler";
+import {
+  BRIXTA_PRESENTATION_CONTRACT_ID,
+  BRIXTA_PRESENTATION_RUNTIME_VERSION,
+} from "@/lib/responsibility-presentation-runtime";
 import type {
   KernelAction,
   KernelCapture,
@@ -196,9 +200,7 @@ function actionToBaseAction(
   };
 }
 
-function compatibilityRenderer(
-  kind: KernelOutput["kind"] | undefined,
-) {
+function compatibilityRenderer(kind: KernelOutput["kind"] | undefined) {
   switch (kind) {
     case "card":
       return "cards";
@@ -221,11 +223,8 @@ function compatibilityRenderer(
   }
 }
 
-function outputSurfaceKinds(
-  output: KernelOutput,
-): Array<"app" | "dashboard"> {
-  const raw =
-    output.config.surfaceKinds;
+function outputSurfaceKinds(output: KernelOutput): Array<"app" | "dashboard"> {
+  const raw = output.config.surfaceKinds;
 
   if (Array.isArray(raw)) {
     const values = [
@@ -233,13 +232,8 @@ function outputSurfaceKinds(
         raw
           .map(String)
           .filter(
-            (
-              item,
-            ): item is
-              | "app"
-              | "dashboard" =>
-              item === "app" ||
-              item === "dashboard",
+            (item): item is "app" | "dashboard" =>
+              item === "app" || item === "dashboard",
           ),
       ),
     ];
@@ -254,79 +248,44 @@ function outputSurfaceKinds(
 }
 
 function compileSurfaceManifest(
-  outputs: Array<
-    Extract<
-      KernelPossibility,
-      { type: "output" }
-    >
-  >,
-  actions: Array<
-    Extract<
-      KernelPossibility,
-      { type: "action" }
-    >
-  >,
+  outputs: Array<Extract<KernelPossibility, { type: "output" }>>,
+  actions: Array<Extract<KernelPossibility, { type: "action" }>>,
 ): ResponsibilitySurfaceManifest {
-  const manifest:
-    ResponsibilitySurfaceManifest = {
-      version: 1,
-      app: [],
-      dashboard: [],
-    };
+  const manifest: ResponsibilitySurfaceManifest = {
+    version: 1,
+    app: [],
+    dashboard: [],
+  };
 
   for (const item of outputs) {
-    const output =
-      item.output;
+    const output = item.output;
 
-    const actionIds =
-      actions
-        .filter(
-          (action) =>
-            !action.action.actorId ||
-            output.actorIds.length === 0 ||
-            output.actorIds.includes(
-              action.action.actorId,
-            ),
-        )
-        .map(
-          (action) =>
-            action.action.id,
-        );
-
-    for (
-      const surface of
-      outputSurfaceKinds(
-        output,
+    const actionIds = actions
+      .filter(
+        (action) =>
+          !action.action.actorId ||
+          output.actorIds.length === 0 ||
+          output.actorIds.includes(action.action.actorId),
       )
-    ) {
-      const definition:
-        ResponsibilitySurfaceDefinition = {
-          id:
-            output.id,
-          label:
-            output.label,
-          renderer:
-            output.kind,
-          surface,
-          actorIds:
-            output.actorIds,
-          stateIds:
-            output.stateIds,
-          visibleKeys:
-            output.visibleKeys,
-          actionIds,
-          config: {
-            ...output.config,
-            kernelOutputId:
-              output.id,
-          },
-        };
+      .map((action) => action.action.id);
 
-      manifest[
-        surface
-      ].push(
-        definition,
-      );
+    for (const surface of outputSurfaceKinds(output)) {
+      const definition: ResponsibilitySurfaceDefinition = {
+        id: output.id,
+        label: output.label,
+        renderer: output.kind,
+        surface,
+        actorIds: output.actorIds,
+        stateIds: output.stateIds,
+        visibleKeys: output.visibleKeys,
+        actionIds,
+        config: {
+          ...output.config,
+          kernelOutputId: output.id,
+        },
+      };
+
+      manifest[surface].push(definition);
     }
   }
 
@@ -341,24 +300,15 @@ function primaryEmployeeAction(
     return true;
   }
 
-  if (
-    action.actorId ===
-    "current_employee"
-  ) {
+  if (action.actorId === "current_employee") {
     return true;
   }
 
-  const actor =
-    kernel.runtimeWorld.actors.find(
-      (candidate) =>
-        candidate.id ===
-        action.actorId,
-    );
-
-  return (
-    actor?.resolver.kind ===
-    "current_user"
+  const actor = kernel.runtimeWorld.actors.find(
+    (candidate) => candidate.id === action.actorId,
   );
+
+  return actor?.resolver.kind === "current_user";
 }
 
 /**
@@ -438,39 +388,16 @@ function __brixta_compileKernelToBaseDefinition_unvalidated(
    * Static app actions are only the primary employee's offline/legacy
    * fallback. Online App and Dashboard surfaces use Kernel actor projection.
    */
-  const appActions =
-    publishedActions
-      .filter(
-        (item) =>
-          primaryEmployeeAction(
-            kernel,
-            item.action,
-          ),
-      )
-      .map((item) =>
-        actionToBaseAction(
-          kernel,
-          item.action,
-          captureFields,
-        ),
-      );
+  const appActions = publishedActions
+    .filter((item) => primaryEmployeeAction(kernel, item.action))
+    .map((item) => actionToBaseAction(kernel, item.action, captureFields));
 
-  const surfaces =
-    compileSurfaceManifest(
-      outputs,
-      actions,
-    );
+  const surfaces = compileSurfaceManifest(outputs, actions);
 
   const output =
-    outputs.find(
-      (item) =>
-        outputSurfaceKinds(
-          item.output,
-        ).includes(
-          "dashboard",
-        ),
-    )?.output ??
-    outputs[0]?.output;
+    outputs.find((item) =>
+      outputSurfaceKinds(item.output).includes("dashboard"),
+    )?.output ?? outputs[0]?.output;
 
   /*
    * BRIXTA_RESPONSIBILITY_INSTANCE_MODE_V1
@@ -492,21 +419,15 @@ function __brixta_compileKernelToBaseDefinition_unvalidated(
    *
    * Default remains "continuing" for backward compatibility.
    */
-  const instanceMode =
-    actions.some(
-      (item) =>
-        primaryEmployeeAction(
-          kernel,
-          item.action,
-        ) &&
-        item.action.config.instanceMode ===
-          "repeatable",
-    )
-      ? "repeatable"
-      : "continuing";
+  const instanceMode = actions.some(
+    (item) =>
+      primaryEmployeeAction(kernel, item.action) &&
+      item.action.config.instanceMode === "repeatable",
+  )
+    ? "repeatable"
+    : "continuing";
 
-  const uiDocument =
-    kernel.metadata.ui?.uiDocument;
+  const uiDocument = kernel.metadata.ui?.uiDocument;
 
   return {
     schemaVersion: 2,
@@ -522,10 +443,7 @@ function __brixta_compileKernelToBaseDefinition_unvalidated(
        * Only Responsibilities that explicitly contain a visual UI document
        * switch to the new renderer.
        */
-      renderer:
-        uiDocument
-          ? "brixta_ui_v1"
-          : "action_form_v1",
+      renderer: uiDocument ? "brixta_ui_v1" : "action_form_v1",
       actions: appActions,
       config: {
         generatedBy: "responsibility_unified_studio_v4",
@@ -536,8 +454,20 @@ function __brixta_compileKernelToBaseDefinition_unvalidated(
          * Declarative only. Flutter already contains the renderer/adapters.
          * No executable source code is downloaded from CMS.
          */
-        uiDocument:
-          uiDocument ?? null,
+        uiDocument: uiDocument ?? null,
+
+        /*
+         * BRIXTA_PRESENTATION_RUNTIME_CONTRACT_V2
+         *
+         * Flutter fails visibly instead of silently degrading when a newer
+         * Responsibility requires presentation capabilities unavailable in
+         * the installed binary.
+         */
+        presentationContract: {
+          id: BRIXTA_PRESENTATION_CONTRACT_ID,
+
+          requiredRuntimeVersion: BRIXTA_PRESENTATION_RUNTIME_VERSION,
+        },
 
         /*
          * Generic record lifecycle contract consumed by Flutter.
@@ -579,9 +509,7 @@ function __brixta_compileKernelToBaseDefinition_unvalidated(
       },
     },
     output: {
-      renderer: compatibilityRenderer(
-        output?.kind,
-      ),
+      renderer: compatibilityRenderer(output?.kind),
       config: {
         kernelOutputId: output?.id ?? null,
         actorIds: output?.actorIds ?? [],
@@ -817,6 +745,10 @@ export function hydrateKernelFromBaseDefinition(
 export function compileKernelToBaseDefinition(
   ...args: Parameters<typeof __brixta_compileKernelToBaseDefinition_unvalidated>
 ): ReturnType<typeof __brixta_compileKernelToBaseDefinition_unvalidated> {
-  const definition = __brixta_compileKernelToBaseDefinition_unvalidated(...args);
-  return enforceRuntimeContract(definition) as ReturnType<typeof __brixta_compileKernelToBaseDefinition_unvalidated>;
+  const definition = __brixta_compileKernelToBaseDefinition_unvalidated(
+    ...args,
+  );
+  return enforceRuntimeContract(definition) as ReturnType<
+    typeof __brixta_compileKernelToBaseDefinition_unvalidated
+  >;
 }

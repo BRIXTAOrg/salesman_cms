@@ -17,9 +17,7 @@ import type {
   ResponsibilityKernel,
 } from "@/lib/responsibility-kernel-types";
 
-import {
-  validateResponsibilityKernel,
-} from "@/lib/responsibility-kernel-validation";
+import { validateResponsibilityKernel } from "@/lib/responsibility-kernel-validation";
 
 import {
   RESPONSIBILITY_UI_BLOCK_REGISTRY,
@@ -27,11 +25,12 @@ import {
   type ResponsibilityUiDocument,
 } from "@/lib/responsibility-ui-document";
 
+import { BRIXTA_PRESENTATION_RUNTIME_CAPABILITIES } from "@/lib/responsibility-presentation-runtime";
+
 export const RESPONSIBILITY_APP_BUILDER_AI_FORMAT =
   "brixta.app-builder" as const;
 
-export const RESPONSIBILITY_APP_BUILDER_AI_FORMAT_VERSION =
-  1 as const;
+export const RESPONSIBILITY_APP_BUILDER_AI_FORMAT_VERSION = 1 as const;
 
 export type AppBuilderNativeBlockContext = {
   key: string;
@@ -99,129 +98,64 @@ type BuildContextInput = {
   nativeBlocks: AppBuilderNativeBlockContext[];
 };
 
-
-function objectValue(
-  value: unknown,
-  path: string,
-): Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    Array.isArray(value)
-  ) {
-    throw new Error(
-      `${path} must be a JSON object.`,
-    );
+function objectValue(value: unknown, path: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${path} must be a JSON object.`);
   }
 
   return value as Record<string, unknown>;
 }
 
-
-function arrayValue(
-  value: unknown,
-  path: string,
-): unknown[] {
+function arrayValue(value: unknown, path: string): unknown[] {
   if (!Array.isArray(value)) {
-    throw new Error(
-      `${path} must be a JSON array.`,
-    );
+    throw new Error(`${path} must be a JSON array.`);
   }
 
   return value;
 }
 
-
-function stringValue(
-  value: unknown,
-  path: string,
-) {
-  if (
-    typeof value !== "string" ||
-    !value.trim()
-  ) {
-    throw new Error(
-      `${path} must be a non-empty string.`,
-    );
+function stringValue(value: unknown, path: string) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${path} must be a non-empty string.`);
   }
 
   return value.trim();
 }
 
-
-function optionalString(
-  value: unknown,
-) {
-  return typeof value === "string"
-    ? value
-    : "";
+function optionalString(value: unknown) {
+  return typeof value === "string" ? value : "";
 }
 
+function stringArray(value: unknown, path: string) {
+  return arrayValue(value, path).map((item, index) => {
+    if (typeof item !== "string") {
+      throw new Error(`${path}[${index}] must be a string.`);
+    }
 
-function stringArray(
-  value: unknown,
-  path: string,
-) {
-  return arrayValue(
-    value,
-    path,
-  ).map(
-    (item, index) => {
-      if (typeof item !== "string") {
-        throw new Error(
-          `${path}[${index}] must be a string.`,
-        );
-      }
-
-      return item;
-    },
-  );
+    return item;
+  });
 }
 
+function uniqueIds(values: unknown[], path: string) {
+  const seen = new Set<string>();
 
-function uniqueIds(
-  values: unknown[],
-  path: string,
-) {
-  const seen =
-    new Set<string>();
+  values.forEach((raw, index) => {
+    const item = objectValue(raw, `${path}[${index}]`);
 
-  values.forEach(
-    (raw, index) => {
-      const item =
-        objectValue(
-          raw,
-          `${path}[${index}]`,
-        );
+    const id = stringValue(item.id, `${path}[${index}].id`);
 
-      const id =
-        stringValue(
-          item.id,
-          `${path}[${index}].id`,
-        );
+    if (seen.has(id)) {
+      throw new Error(`Duplicate ID "${id}" in ${path}.`);
+    }
 
-      if (seen.has(id)) {
-        throw new Error(
-          `Duplicate ID "${id}" in ${path}.`,
-        );
-      }
-
-      seen.add(id);
-    },
-  );
+    seen.add(id);
+  });
 }
 
+function parseStrictJsonObject(text: string) {
+  const cleaned = text.trim();
 
-function parseStrictJsonObject(
-  text: string,
-) {
-  const cleaned =
-    text.trim();
-
-  if (
-    !cleaned.startsWith("{") ||
-    !cleaned.endsWith("}")
-  ) {
+  if (!cleaned.startsWith("{") || !cleaned.endsWith("}")) {
     throw new Error(
       "AI response must contain exactly one JSON object with no Markdown fences or prose before/after it.",
     );
@@ -230,10 +164,7 @@ function parseStrictJsonObject(
   let parsed: unknown;
 
   try {
-    parsed =
-      JSON.parse(
-        cleaned,
-      );
+    parsed = JSON.parse(cleaned);
   } catch (error) {
     throw new Error(
       error instanceof Error
@@ -242,79 +173,43 @@ function parseStrictJsonObject(
     );
   }
 
-  return objectValue(
-    parsed,
-    "root",
-  );
+  return objectValue(parsed, "root");
 }
 
-
-function stableRegistryValue(
-  nativeBlocks: AppBuilderNativeBlockContext[],
-) {
+function stableRegistryValue(nativeBlocks: AppBuilderNativeBlockContext[]) {
   return JSON.stringify({
-    captures:
-      CAPTURE_CATALOG.map(
-        (item) => ({
-          kind:
-            item.kind,
-          label:
-            item.label,
-        }),
-      ),
+    captures: CAPTURE_CATALOG.map((item) => ({
+      kind: item.kind,
+      label: item.label,
+    })),
 
-    actions:
-      ACTION_CATALOG.map(
-        (item) => ({
-          kind:
-            item.kind,
-          label:
-            item.label,
-        }),
-      ),
+    actions: ACTION_CATALOG.map((item) => ({
+      kind: item.kind,
+      label: item.label,
+    })),
 
-    outputs:
-      OUTPUT_CATALOG.map(
-        (item) => ({
-          kind:
-            item.kind,
-          label:
-            item.label,
-        }),
-      ),
+    outputs: OUTPUT_CATALOG.map((item) => ({
+      kind: item.kind,
+      label: item.label,
+    })),
 
-    visualUiBlocks:
-      RESPONSIBILITY_UI_BLOCK_REGISTRY,
+    visualUiBlocks: RESPONSIBILITY_UI_BLOCK_REGISTRY,
 
-    nativeBlocks:
-      nativeBlocks
-        .map(
-          (item) => ({
-            key:
-              item.key,
-            label:
-              item.label,
-            kind:
-              item.kind,
-            config:
-              item.config,
-            runtime:
-              item.runtime ?? null,
-            compliance:
-              item.compliance ?? null,
-            resources:
-              item.resources ?? null,
-          }),
-        )
-        .sort(
-          (a, b) =>
-            a.key.localeCompare(
-              b.key,
-            ),
-        ),
+    presentationRuntime: BRIXTA_PRESENTATION_RUNTIME_CAPABILITIES,
+
+    nativeBlocks: nativeBlocks
+      .map((item) => ({
+        key: item.key,
+        label: item.label,
+        kind: item.kind,
+        config: item.config,
+        runtime: item.runtime ?? null,
+        compliance: item.compliance ?? null,
+        resources: item.resources ?? null,
+      }))
+      .sort((a, b) => a.key.localeCompare(b.key)),
   });
 }
-
 
 /**
  * Tiny deterministic FNV-like fingerprint.
@@ -325,190 +220,133 @@ function stableRegistryValue(
 export function responsibilityAppBuilderRegistryFingerprint(
   nativeBlocks: AppBuilderNativeBlockContext[],
 ) {
-  const source =
-    stableRegistryValue(
-      nativeBlocks,
-    );
+  const source = stableRegistryValue(nativeBlocks);
 
-  let hash =
-    2166136261;
+  let hash = 2166136261;
 
-  for (
-    let index = 0;
-    index < source.length;
-    index += 1
-  ) {
-    hash ^=
-      source.charCodeAt(
-        index,
-      );
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
 
-    hash =
-      Math.imul(
-        hash,
-        16777619,
-      );
+    hash = Math.imul(hash, 16777619);
   }
 
-  return `ab1-${(
-    hash >>> 0
-  ).toString(16)}`;
+  return `ab1-${(hash >>> 0).toString(16)}`;
 }
-
 
 export function buildResponsibilityAppBuilderAIContext(
   input: BuildContextInput,
 ) {
-  const fingerprint =
-    responsibilityAppBuilderRegistryFingerprint(
-      input.nativeBlocks,
-    );
+  const fingerprint = responsibilityAppBuilderRegistryFingerprint(
+    input.nativeBlocks,
+  );
 
   const example = {
-    format:
-      RESPONSIBILITY_APP_BUILDER_AI_FORMAT,
+    format: RESPONSIBILITY_APP_BUILDER_AI_FORMAT,
 
-    formatVersion:
-      RESPONSIBILITY_APP_BUILDER_AI_FORMAT_VERSION,
+    formatVersion: RESPONSIBILITY_APP_BUILDER_AI_FORMAT_VERSION,
 
-    blockRegistryFingerprint:
-      fingerprint,
+    blockRegistryFingerprint: fingerprint,
 
     responsibility: {
-      id:
-        input.responsibilityId,
+      id: input.responsibilityId,
 
-      title:
-        input.responsibilityTitle,
+      title: input.responsibilityTitle,
     },
 
     app: {
-      title:
-        input.responsibilityTitle,
+      title: input.responsibilityTitle,
 
-      description:
-        "Example App Builder structure.",
+      description: "Example App Builder structure.",
 
-      employeeOwnHistoryVisible:
-        true,
+      employeeOwnHistoryVisible: true,
 
       actors: [
         {
-          id:
-            "current_employee",
+          id: "current_employee",
 
-          label:
-            "Current employee",
+          label: "Current employee",
 
           resolver: {
-            kind:
-              "current_user",
+            kind: "current_user",
           },
         },
 
         {
-          id:
-            "system",
+          id: "system",
 
-          label:
-            "System",
+          label: "System",
 
           resolver: {
-            kind:
-              "system",
+            kind: "system",
           },
         },
       ],
 
       objects: [
         {
-          id:
-            "current_record",
+          id: "current_record",
 
-          label:
-            "This Responsibility record",
+          label: "This Responsibility record",
 
-          kind:
-            "current_record",
+          kind: "current_record",
         },
       ],
 
       contexts: [
         {
-          id:
-            "current_employee",
+          id: "current_employee",
 
-          label:
-            "Current employee",
+          label: "Current employee",
 
-          source:
-            "current_user",
+          source: "current_user",
 
-          mutable:
-            false,
+          mutable: false,
         },
 
         {
-          id:
-            "current_time",
+          id: "current_time",
 
-          label:
-            "Current date / time",
+          label: "Current date / time",
 
-          source:
-            "current_time",
+          source: "current_time",
 
-          mutable:
-            false,
+          mutable: false,
         },
       ],
 
       states: [
         {
-          id:
-            "draft",
+          id: "draft",
 
-          label:
-            "Draft",
+          label: "Draft",
 
-          dimension:
-            "process",
+          dimension: "process",
 
-          initial:
-            true,
+          initial: true,
         },
 
         {
-          id:
-            "completed",
+          id: "completed",
 
-          label:
-            "Completed",
+          label: "Completed",
 
-          dimension:
-            "process",
+          dimension: "process",
 
-          terminal:
-            true,
+          terminal: true,
         },
       ],
 
       captures: [
         {
-          id:
-            "note",
+          id: "note",
 
-          label:
-            "Note",
+          label: "Note",
 
-          kind:
-            "short_text",
+          kind: "short_text",
 
-          required:
-            true,
+          required: true,
 
-          storeAs:
-            "note",
+          storeAs: "note",
 
           config: {},
         },
@@ -516,65 +354,44 @@ export function buildResponsibilityAppBuilderAIContext(
 
       actions: [
         {
-          id:
-            "submit",
+          id: "submit",
 
-          label:
-            "Submit",
+          label: "Submit",
 
-          kind:
-            "submit",
+          kind: "submit",
 
-          actorId:
-            "current_employee",
+          actorId: "current_employee",
 
-          objectId:
-            "current_record",
+          objectId: "current_record",
 
-          captureIds: [
-            "note",
-          ],
+          captureIds: ["note"],
 
           config: {
-            availableState:
-              "draft",
+            availableState: "draft",
 
-            resultingState:
-              "completed",
+            resultingState: "completed",
 
-            successMessage:
-              "Recorded.",
+            successMessage: "Recorded.",
           },
         },
       ],
 
       outputs: [
         {
-          id:
-            "result",
+          id: "result",
 
-          label:
-            "Result",
+          label: "Result",
 
-          kind:
-            "detail",
+          kind: "detail",
 
-          actorIds: [
-            "current_employee",
-          ],
+          actorIds: ["current_employee"],
 
-          stateIds: [
-            "completed",
-          ],
+          stateIds: ["completed"],
 
-          visibleKeys: [
-            "note",
-          ],
+          visibleKeys: ["note"],
 
           config: {
-            surfaceKinds: [
-              "app",
-            ],
+            surfaceKinds: ["app"],
           },
         },
       ],
@@ -582,49 +399,40 @@ export function buildResponsibilityAppBuilderAIContext(
       uiDocument: {
         version: 1,
 
-        engine:
-          "brixta_stac_v1",
+        engine: "brixta_stac_v1",
 
-        rootIds: [
-          "example_heading",
-          "example_action_button",
-        ],
+        theme: {
+          scope: "inherit",
+
+          base: "brixta_editorial_v1",
+        },
+
+        rootIds: ["example_heading", "example_action_button"],
 
         blocks: [
           {
-            id:
-              "example_heading",
+            id: "example_heading",
 
-            type:
-              "display.text",
+            type: "display.text",
 
             config: {
-              text:
-                "Example app",
-              size:
-                "hero",
-              alignment:
-                "center",
+              text: "Example app",
+              size: "hero",
+              alignment: "center",
             },
           },
 
           {
-            id:
-              "example_action_button",
+            id: "example_action_button",
 
-            type:
-              "interaction.action_button",
+            type: "interaction.action_button",
 
-            actionId:
-              "submit",
+            actionId: "submit",
 
             config: {
-              label:
-                "Submit",
-              style:
-                "primary",
-              size:
-                "large",
+              label: "Submit",
+              style: "primary",
+              size: "large",
             },
           },
         ],
@@ -632,27 +440,21 @@ export function buildResponsibilityAppBuilderAIContext(
 
       layout: [
         {
-          type:
-            "capture",
+          type: "capture",
 
-          id:
-            "note",
+          id: "note",
         },
 
         {
-          type:
-            "action",
+          type: "action",
 
-          id:
-            "submit",
+          id: "submit",
         },
 
         {
-          type:
-            "output",
+          type: "output",
 
-          id:
-            "result",
+          id: "result",
         },
       ],
     },
@@ -663,52 +465,41 @@ export function buildResponsibilityAppBuilderAIContext(
   };
 
   const packet = {
-    contract:
-      "BRIXTA RESPONSIBILITY APP BUILDER AI CONTRACT V1",
+    contract: "BRIXTA RESPONSIBILITY APP BUILDER AI CONTRACT V1",
 
     responsibility: {
-      id:
-        input.responsibilityId,
+      id: input.responsibilityId,
 
-      title:
-        input.responsibilityTitle,
+      title: input.responsibilityTitle,
     },
 
     currentApp: {
-      kernel:
-        input.kernel,
+      kernel: input.kernel,
     },
 
     organization: {
-      roles:
-        input.roles,
+      roles: input.roles,
 
-      employees:
-        input.employees,
+      employees: input.employees,
 
-      departments:
-        input.departments,
+      departments: input.departments,
 
-      dataSources:
-        input.dataSources,
+      dataSources: input.dataSources,
     },
 
     availableBlocks: {
-      captures:
-        CAPTURE_CATALOG,
+      captures: CAPTURE_CATALOG,
 
-      actions:
-        ACTION_CATALOG,
+      actions: ACTION_CATALOG,
 
-      outputs:
-        OUTPUT_CATALOG,
+      outputs: OUTPUT_CATALOG,
 
-      visualUiBlocks:
-        RESPONSIBILITY_UI_BLOCK_REGISTRY,
+      visualUiBlocks: RESPONSIBILITY_UI_BLOCK_REGISTRY,
 
-      phoneAndNativeBlocks:
-        input.nativeBlocks,
+      phoneAndNativeBlocks: input.nativeBlocks,
     },
+
+    presentationRuntime: BRIXTA_PRESENTATION_RUNTIME_CAPABILITIES,
 
     platformRules: {
       general: [
@@ -744,6 +535,12 @@ export function buildResponsibilityAppBuilderAIContext(
 
     visualFirstRules: [
       "BRIXTA VISUAL-FIRST RULES",
+      "The Flutter host application's current BRIXTA theme is the base design system.",
+      "Use theme.scope=inherit when the Responsibility should look native to the existing BRIXTA app.",
+      "Use theme.scope=responsibility only when the user explicitly wants this Responsibility to have its own scoped visual identity.",
+      "Use theme.scope=immersive only for experiences that genuinely need to own the full Responsibility screen.",
+      "Do not invent theme tokens outside presentationRuntime.designSystem.supportedThemeTokens.",
+      "System accessibility and reduced-motion preferences outrank authored animation.",
       "A capture is DATA COLLECTION. It is not a generic display widget.",
       "NEVER create a number capture merely to display a counter, score, KPI or calculated value.",
       "NEVER create a short_text capture merely to display a banner, heading, success message or animation text.",
@@ -792,8 +589,7 @@ export function buildResponsibilityAppBuilderAIContext(
       "unsupportedCapabilities must be string[].",
     ],
 
-    acceptedJsonExample:
-      example,
+    acceptedJsonExample: example,
 
     visualOnlyExample: {
       purpose:
@@ -804,148 +600,109 @@ export function buildResponsibilityAppBuilderAIContext(
 
         actions: [
           {
-            id:
-              "increment",
+            id: "increment",
 
-            label:
-              "CLICK ME",
+            label: "CLICK ME",
 
-            kind:
-              "submit",
+            kind: "submit",
 
-            actorId:
-              "current_employee",
+            actorId: "current_employee",
 
-            objectId:
-              "current_record",
+            objectId: "current_record",
 
             captureIds: [],
 
             config: {
-              availableState:
-                "draft",
+              availableState: "draft",
 
-              resultingState:
-                "draft",
+              resultingState: "draft",
 
-              successMessage:
-                "Clicked.",
+              successMessage: "Clicked.",
             },
           },
         ],
 
         layout: [
           {
-            type:
-              "action",
+            type: "action",
 
-            id:
-              "increment",
+            id: "increment",
           },
         ],
 
         uiDocument: {
-          version:
-            1,
+          version: 1,
 
-          engine:
-            "brixta_stac_v1",
+          engine: "brixta_stac_v1",
 
-          rootIds: [
-            "counter",
-            "button",
-            "celebration",
-          ],
+          rootIds: ["counter", "button", "celebration"],
 
           blocks: [
             {
-              id:
-                "counter",
+              id: "counter",
 
-              type:
-                "display.counter",
+              type: "display.counter",
 
               binding: {
-                scope:
-                  "computed",
+                scope: "computed",
 
-                key:
-                  "click_count",
+                key: "click_count",
               },
 
               animation: {
-                preset:
-                  "scale",
+                preset: "scale",
 
-                durationMs:
-                  180,
+                durationMs: 180,
               },
 
               config: {
-                size:
-                  "hero",
+                size: "hero",
 
-                alignment:
-                  "center",
+                alignment: "center",
               },
             },
 
             {
-              id:
-                "button",
+              id: "button",
 
-              type:
-                "interaction.action_button",
+              type: "interaction.action_button",
 
-              actionId:
-                "increment",
+              actionId: "increment",
 
               config: {
-                label:
-                  "CLICK ME",
+                label: "CLICK ME",
 
-                style:
-                  "primary",
+                style: "primary",
 
-                size:
-                  "large",
+                size: "large",
               },
             },
 
             {
-              id:
-                "celebration",
+              id: "celebration",
 
-              type:
-                "overlay.fullscreen",
+              type: "overlay.fullscreen",
 
               visibility: {
                 binding: {
-                  scope:
-                    "state",
+                  scope: "state",
 
-                  key:
-                    "process",
+                  key: "process",
                 },
 
-                operator:
-                  "eq",
+                operator: "eq",
 
-                value:
-                  "completed",
+                value: "completed",
               },
 
               animation: {
-                preset:
-                  "fade_scale",
+                preset: "fade_scale",
 
-                durationMs:
-                  500,
+                durationMs: 500,
               },
 
               config: {
-                text:
-                  "MEOW!",
+                text: "MEOW!",
               },
             },
           ],
@@ -955,8 +712,7 @@ export function buildResponsibilityAppBuilderAIContext(
 
     rejectedExamples: [
       {
-        reason:
-          "Pixel Logic is not allowed in an App Builder response.",
+        reason: "Pixel Logic is not allowed in an App Builder response.",
 
         invalid: {
           program: {
@@ -971,29 +727,22 @@ export function buildResponsibilityAppBuilderAIContext(
           "A capability not present in availableBlocks may not be invented.",
 
         invalid: {
-          nativeCapability:
-            "magic_background_tracker",
+          nativeCapability: "magic_background_tracker",
         },
       },
 
       {
-        reason:
-          "Do not return partial block patches.",
+        reason: "Do not return partial block patches.",
 
         invalid: {
-          add:
-            "one field",
+          add: "one field",
         },
       },
     ],
   };
 
   return [
-    JSON.stringify(
-      packet,
-      null,
-      2,
-    ),
+    JSON.stringify(packet, null, 2),
 
     "",
     "USER INSTRUCTIONS",
@@ -1001,19 +750,13 @@ export function buildResponsibilityAppBuilderAIContext(
     "Use the packet above as the authoritative BRIXTA App Builder contract.",
     "Then follow the user's natural-language requirement.",
     "Return ONLY the final JSON object described by acceptedJsonExample.",
-  ].join(
-    "\n",
-  );
+  ].join("\n");
 }
-
 
 export function parseResponsibilityAppBuilderAIImport(
   text: string,
 ): ResponsibilityAppBuilderAIImportResult {
-  const root =
-    parseStrictJsonObject(
-      text,
-    );
+  const root = parseStrictJsonObject(text);
 
   if (
     root.program !== undefined ||
@@ -1026,581 +769,261 @@ export function parseResponsibilityAppBuilderAIImport(
     );
   }
 
-  if (
-    root.format !==
-    RESPONSIBILITY_APP_BUILDER_AI_FORMAT
-  ) {
+  if (root.format !== RESPONSIBILITY_APP_BUILDER_AI_FORMAT) {
     throw new Error(
       `format must be "${RESPONSIBILITY_APP_BUILDER_AI_FORMAT}".`,
     );
   }
 
   if (
-    Number(
-      root.formatVersion,
-    ) !==
-    RESPONSIBILITY_APP_BUILDER_AI_FORMAT_VERSION
+    Number(root.formatVersion) !== RESPONSIBILITY_APP_BUILDER_AI_FORMAT_VERSION
   ) {
     throw new Error(
       `formatVersion must be ${RESPONSIBILITY_APP_BUILDER_AI_FORMAT_VERSION}.`,
     );
   }
 
-  const fingerprint =
-    stringValue(
-      root.blockRegistryFingerprint,
-      "blockRegistryFingerprint",
-    );
+  const fingerprint = stringValue(
+    root.blockRegistryFingerprint,
+    "blockRegistryFingerprint",
+  );
 
-  const responsibility =
-    objectValue(
-      root.responsibility,
-      "responsibility",
-    );
+  const responsibility = objectValue(root.responsibility, "responsibility");
 
   if (
-    typeof responsibility.id !==
-      "string" &&
-    typeof responsibility.id !==
-      "number"
+    typeof responsibility.id !== "string" &&
+    typeof responsibility.id !== "number"
   ) {
-    throw new Error(
-      "responsibility.id must be a string or number.",
-    );
+    throw new Error("responsibility.id must be a string or number.");
   }
 
-  const responsibilityTitle =
-    stringValue(
-      responsibility.title,
-      "responsibility.title",
-    );
+  const responsibilityTitle = stringValue(
+    responsibility.title,
+    "responsibility.title",
+  );
 
-  const app =
-    objectValue(
-      root.app,
-      "app",
-    );
+  const app = objectValue(root.app, "app");
 
-  for (
-    const forbidden
-    of [
-      "program",
-      "events",
-      "rules",
-      "effects",
-      "pixelLogic",
-    ]
-  ) {
-    if (
-      app[
-        forbidden
-      ] !== undefined
-    ) {
+  for (const forbidden of [
+    "program",
+    "events",
+    "rules",
+    "effects",
+    "pixelLogic",
+  ]) {
+    if (app[forbidden] !== undefined) {
       throw new Error(
         `app.${forbidden} is forbidden. Logic belongs in Pixel Logic.`,
       );
     }
   }
 
-  const actorsRaw =
-    arrayValue(
-      app.actors,
-      "app.actors",
-    );
+  const actorsRaw = arrayValue(app.actors, "app.actors");
 
-  const objectsRaw =
-    arrayValue(
-      app.objects,
-      "app.objects",
-    );
+  const objectsRaw = arrayValue(app.objects, "app.objects");
 
-  const contextsRaw =
-    arrayValue(
-      app.contexts,
-      "app.contexts",
-    );
+  const contextsRaw = arrayValue(app.contexts, "app.contexts");
 
-  const statesRaw =
-    arrayValue(
-      app.states,
-      "app.states",
-    );
+  const statesRaw = arrayValue(app.states, "app.states");
 
-  const capturesRaw =
-    arrayValue(
-      app.captures,
-      "app.captures",
-    );
+  const capturesRaw = arrayValue(app.captures, "app.captures");
 
-  const actionsRaw =
-    arrayValue(
-      app.actions,
-      "app.actions",
-    );
+  const actionsRaw = arrayValue(app.actions, "app.actions");
 
-  const outputsRaw =
-    arrayValue(
-      app.outputs,
-      "app.outputs",
-    );
+  const outputsRaw = arrayValue(app.outputs, "app.outputs");
 
-  const layoutRaw =
-    arrayValue(
-      app.layout,
-      "app.layout",
-    );
+  const layoutRaw = arrayValue(app.layout, "app.layout");
 
-  for (
-    const [
-      values,
-      path,
-    ]
-    of [
-      [
-        actorsRaw,
-        "app.actors",
-      ],
-      [
-        objectsRaw,
-        "app.objects",
-      ],
-      [
-        contextsRaw,
-        "app.contexts",
-      ],
-      [
-        statesRaw,
-        "app.states",
-      ],
-      [
-        capturesRaw,
-        "app.captures",
-      ],
-      [
-        actionsRaw,
-        "app.actions",
-      ],
-      [
-        outputsRaw,
-        "app.outputs",
-      ],
-    ] as const
-  ) {
-    uniqueIds(
-      values,
-      path,
-    );
+  for (const [values, path] of [
+    [actorsRaw, "app.actors"],
+    [objectsRaw, "app.objects"],
+    [contextsRaw, "app.contexts"],
+    [statesRaw, "app.states"],
+    [capturesRaw, "app.captures"],
+    [actionsRaw, "app.actions"],
+    [outputsRaw, "app.outputs"],
+  ] as const) {
+    uniqueIds(values, path);
   }
 
+  const captureKinds = new Set(CAPTURE_CATALOG.map((item) => item.kind));
 
-  const captureKinds =
-    new Set(
-      CAPTURE_CATALOG.map(
-        (item) =>
-          item.kind,
-      ),
-    );
-
-  const actionKinds =
-    new Set(
-      ACTION_CATALOG.map(
-        (item) =>
-          item.kind,
-      ),
-    );
-
-  const outputKinds =
-    new Set(
-      OUTPUT_CATALOG.map(
-        (item) =>
-          item.kind,
-      ),
-    );
-
-
-  const actors =
-    actorsRaw.map(
-      (raw, index) => {
-        const item =
-          objectValue(
-            raw,
-            `app.actors[${index}]`,
-          );
-
-        stringValue(
-          item.id,
-          `app.actors[${index}].id`,
-        );
-
-        stringValue(
-          item.label,
-          `app.actors[${index}].label`,
-        );
-
-        objectValue(
-          item.resolver,
-          `app.actors[${index}].resolver`,
-        );
-
-        return item as unknown as KernelActor;
-      },
-    );
-
-
-  const objects =
-    objectsRaw.map(
-      (raw, index) => {
-        const item =
-          objectValue(
-            raw,
-            `app.objects[${index}]`,
-          );
-
-        stringValue(
-          item.id,
-          `app.objects[${index}].id`,
-        );
-
-        stringValue(
-          item.label,
-          `app.objects[${index}].label`,
-        );
-
-        stringValue(
-          item.kind,
-          `app.objects[${index}].kind`,
-        );
-
-        return item as unknown as KernelObject;
-      },
-    );
-
-
-  const contexts =
-    contextsRaw.map(
-      (raw, index) => {
-        const item =
-          objectValue(
-            raw,
-            `app.contexts[${index}]`,
-          );
-
-        stringValue(
-          item.id,
-          `app.contexts[${index}].id`,
-        );
-
-        stringValue(
-          item.label,
-          `app.contexts[${index}].label`,
-        );
-
-        stringValue(
-          item.source,
-          `app.contexts[${index}].source`,
-        );
-
-        if (
-          typeof item.mutable !==
-          "boolean"
-        ) {
-          throw new Error(
-            `app.contexts[${index}].mutable must be a boolean.`,
-          );
-        }
-
-        return item as unknown as KernelContext;
-      },
-    );
-
-
-  const states =
-    statesRaw.map(
-      (raw, index) => {
-        const item =
-          objectValue(
-            raw,
-            `app.states[${index}]`,
-          );
-
-        stringValue(
-          item.id,
-          `app.states[${index}].id`,
-        );
-
-        stringValue(
-          item.label,
-          `app.states[${index}].label`,
-        );
-
-        stringValue(
-          item.dimension,
-          `app.states[${index}].dimension`,
-        );
-
-        return item as unknown as KernelState;
-      },
-    );
-
-
-  const captures =
-    capturesRaw.map(
-      (raw, index) => {
-        const item =
-          objectValue(
-            raw,
-            `app.captures[${index}]`,
-          );
-
-        stringValue(
-          item.id,
-          `app.captures[${index}].id`,
-        );
-
-        stringValue(
-          item.label,
-          `app.captures[${index}].label`,
-        );
-
-        const kind =
-          stringValue(
-            item.kind,
-            `app.captures[${index}].kind`,
-          );
-
-        if (
-          !captureKinds.has(
-            kind as never,
-          )
-        ) {
-          throw new Error(
-            `Unsupported capture kind "${kind}" at app.captures[${index}].`,
-          );
-        }
-
-        objectValue(
-          item.config,
-          `app.captures[${index}].config`,
-        );
-
-        return item as unknown as KernelCapture;
-      },
-    );
-
-
-  const actions =
-    actionsRaw.map(
-      (raw, index) => {
-        const item =
-          objectValue(
-            raw,
-            `app.actions[${index}]`,
-          );
-
-        stringValue(
-          item.id,
-          `app.actions[${index}].id`,
-        );
-
-        stringValue(
-          item.label,
-          `app.actions[${index}].label`,
-        );
-
-        const kind =
-          stringValue(
-            item.kind,
-            `app.actions[${index}].kind`,
-          );
-
-        if (
-          !actionKinds.has(
-            kind as never,
-          )
-        ) {
-          throw new Error(
-            `Unsupported action kind "${kind}" at app.actions[${index}].`,
-          );
-        }
-
-        stringArray(
-          item.captureIds,
-          `app.actions[${index}].captureIds`,
-        );
-
-        objectValue(
-          item.config,
-          `app.actions[${index}].config`,
-        );
-
-        return item as unknown as KernelAction;
-      },
-    );
-
-
-  const outputs =
-    outputsRaw.map(
-      (raw, index) => {
-        const item =
-          objectValue(
-            raw,
-            `app.outputs[${index}]`,
-          );
-
-        stringValue(
-          item.id,
-          `app.outputs[${index}].id`,
-        );
-
-        stringValue(
-          item.label,
-          `app.outputs[${index}].label`,
-        );
-
-        const kind =
-          stringValue(
-            item.kind,
-            `app.outputs[${index}].kind`,
-          );
-
-        if (
-          !outputKinds.has(
-            kind as never,
-          )
-        ) {
-          throw new Error(
-            `Unsupported output kind "${kind}" at app.outputs[${index}].`,
-          );
-        }
-
-        stringArray(
-          item.actorIds,
-          `app.outputs[${index}].actorIds`,
-        );
-
-        stringArray(
-          item.stateIds,
-          `app.outputs[${index}].stateIds`,
-        );
-
-        stringArray(
-          item.visibleKeys,
-          `app.outputs[${index}].visibleKeys`,
-        );
-
-        objectValue(
-          item.config,
-          `app.outputs[${index}].config`,
-        );
-
-        return item as unknown as KernelOutput;
-      },
-    );
-
-
-  const declared =
-    new Set([
-      ...captures.map(
-        (item) =>
-          `capture:${item.id}`,
-      ),
-
-      ...actions.map(
-        (item) =>
-          `action:${item.id}`,
-      ),
-
-      ...outputs.map(
-        (item) =>
-          `output:${item.id}`,
-      ),
-    ]);
-
-
-  const layout =
-    layoutRaw.map(
-      (raw, index) => {
-        const item =
-          objectValue(
-            raw,
-            `app.layout[${index}]`,
-          );
-
-        const type =
-          stringValue(
-            item.type,
-            `app.layout[${index}].type`,
-          );
-
-        if (
-          type !== "capture" &&
-          type !== "action" &&
-          type !== "output"
-        ) {
-          throw new Error(
-            `app.layout[${index}].type must be capture, action or output.`,
-          );
-        }
-
-        const id =
-          stringValue(
-            item.id,
-            `app.layout[${index}].id`,
-          );
-
-        if (
-          !declared.has(
-            `${type}:${id}`,
-          )
-        ) {
-          throw new Error(
-            `app.layout[${index}] references undeclared ${type} "${id}".`,
-          );
-        }
-
-        return {
-          type: type as "capture" | "action" | "output",
-          id,
-        };
-      },
-    );
-
-
-  const uiDocument =
-    parseResponsibilityUiDocument(
-      app.uiDocument,
-    );
+  const actionKinds = new Set(ACTION_CATALOG.map((item) => item.kind));
+
+  const outputKinds = new Set(OUTPUT_CATALOG.map((item) => item.kind));
+
+  const actors = actorsRaw.map((raw, index) => {
+    const item = objectValue(raw, `app.actors[${index}]`);
+
+    stringValue(item.id, `app.actors[${index}].id`);
+
+    stringValue(item.label, `app.actors[${index}].label`);
+
+    objectValue(item.resolver, `app.actors[${index}].resolver`);
+
+    return item as unknown as KernelActor;
+  });
+
+  const objects = objectsRaw.map((raw, index) => {
+    const item = objectValue(raw, `app.objects[${index}]`);
+
+    stringValue(item.id, `app.objects[${index}].id`);
+
+    stringValue(item.label, `app.objects[${index}].label`);
+
+    stringValue(item.kind, `app.objects[${index}].kind`);
+
+    return item as unknown as KernelObject;
+  });
+
+  const contexts = contextsRaw.map((raw, index) => {
+    const item = objectValue(raw, `app.contexts[${index}]`);
+
+    stringValue(item.id, `app.contexts[${index}].id`);
+
+    stringValue(item.label, `app.contexts[${index}].label`);
+
+    stringValue(item.source, `app.contexts[${index}].source`);
+
+    if (typeof item.mutable !== "boolean") {
+      throw new Error(`app.contexts[${index}].mutable must be a boolean.`);
+    }
+
+    return item as unknown as KernelContext;
+  });
+
+  const states = statesRaw.map((raw, index) => {
+    const item = objectValue(raw, `app.states[${index}]`);
+
+    stringValue(item.id, `app.states[${index}].id`);
+
+    stringValue(item.label, `app.states[${index}].label`);
+
+    stringValue(item.dimension, `app.states[${index}].dimension`);
+
+    return item as unknown as KernelState;
+  });
+
+  const captures = capturesRaw.map((raw, index) => {
+    const item = objectValue(raw, `app.captures[${index}]`);
+
+    stringValue(item.id, `app.captures[${index}].id`);
+
+    stringValue(item.label, `app.captures[${index}].label`);
+
+    const kind = stringValue(item.kind, `app.captures[${index}].kind`);
+
+    if (!captureKinds.has(kind as never)) {
+      throw new Error(
+        `Unsupported capture kind "${kind}" at app.captures[${index}].`,
+      );
+    }
+
+    objectValue(item.config, `app.captures[${index}].config`);
+
+    return item as unknown as KernelCapture;
+  });
+
+  const actions = actionsRaw.map((raw, index) => {
+    const item = objectValue(raw, `app.actions[${index}]`);
+
+    stringValue(item.id, `app.actions[${index}].id`);
+
+    stringValue(item.label, `app.actions[${index}].label`);
+
+    const kind = stringValue(item.kind, `app.actions[${index}].kind`);
+
+    if (!actionKinds.has(kind as never)) {
+      throw new Error(
+        `Unsupported action kind "${kind}" at app.actions[${index}].`,
+      );
+    }
+
+    stringArray(item.captureIds, `app.actions[${index}].captureIds`);
+
+    objectValue(item.config, `app.actions[${index}].config`);
+
+    return item as unknown as KernelAction;
+  });
+
+  const outputs = outputsRaw.map((raw, index) => {
+    const item = objectValue(raw, `app.outputs[${index}]`);
+
+    stringValue(item.id, `app.outputs[${index}].id`);
+
+    stringValue(item.label, `app.outputs[${index}].label`);
+
+    const kind = stringValue(item.kind, `app.outputs[${index}].kind`);
+
+    if (!outputKinds.has(kind as never)) {
+      throw new Error(
+        `Unsupported output kind "${kind}" at app.outputs[${index}].`,
+      );
+    }
+
+    stringArray(item.actorIds, `app.outputs[${index}].actorIds`);
+
+    stringArray(item.stateIds, `app.outputs[${index}].stateIds`);
+
+    stringArray(item.visibleKeys, `app.outputs[${index}].visibleKeys`);
+
+    objectValue(item.config, `app.outputs[${index}].config`);
+
+    return item as unknown as KernelOutput;
+  });
+
+  const declared = new Set([
+    ...captures.map((item) => `capture:${item.id}`),
+
+    ...actions.map((item) => `action:${item.id}`),
+
+    ...outputs.map((item) => `output:${item.id}`),
+  ]);
+
+  const layout = layoutRaw.map((raw, index) => {
+    const item = objectValue(raw, `app.layout[${index}]`);
+
+    const type = stringValue(item.type, `app.layout[${index}].type`);
+
+    if (type !== "capture" && type !== "action" && type !== "output") {
+      throw new Error(
+        `app.layout[${index}].type must be capture, action or output.`,
+      );
+    }
+
+    const id = stringValue(item.id, `app.layout[${index}].id`);
+
+    if (!declared.has(`${type}:${id}`)) {
+      throw new Error(
+        `app.layout[${index}] references undeclared ${type} "${id}".`,
+      );
+    }
+
+    return {
+      type: type as "capture" | "action" | "output",
+      id,
+    };
+  });
+
+  const uiDocument = parseResponsibilityUiDocument(app.uiDocument);
 
   return {
-    format:
-      RESPONSIBILITY_APP_BUILDER_AI_FORMAT,
+    format: RESPONSIBILITY_APP_BUILDER_AI_FORMAT,
 
-    formatVersion:
-      RESPONSIBILITY_APP_BUILDER_AI_FORMAT_VERSION,
+    formatVersion: RESPONSIBILITY_APP_BUILDER_AI_FORMAT_VERSION,
 
-    blockRegistryFingerprint:
-      fingerprint,
+    blockRegistryFingerprint: fingerprint,
 
-    responsibilityId:
-      responsibility.id,
+    responsibilityId: responsibility.id,
 
     responsibilityTitle,
 
     app: {
-      title:
-        optionalString(
-          app.title,
-        ) ||
-        responsibilityTitle,
+      title: optionalString(app.title) || responsibilityTitle,
 
-      description:
-        optionalString(
-          app.description,
-        ),
+      description: optionalString(app.description),
 
-      employeeOwnHistoryVisible:
-        app.employeeOwnHistoryVisible ===
-        true,
+      employeeOwnHistoryVisible: app.employeeOwnHistoryVisible === true,
 
       actors,
 
@@ -1620,225 +1043,113 @@ export function parseResponsibilityAppBuilderAIImport(
       uiDocument,
     },
 
-    unsupportedCapabilities:
-      stringArray(
-        root.unsupportedCapabilities,
-        "unsupportedCapabilities",
-      ),
+    unsupportedCapabilities: stringArray(
+      root.unsupportedCapabilities,
+      "unsupportedCapabilities",
+    ),
 
-    notes:
-      stringArray(
-        root.notes,
-        "notes",
-      ),
+    notes: stringArray(root.notes, "notes"),
   };
 }
 
-
-function clone<T>(
-  value: T,
-): T {
-  return JSON.parse(
-    JSON.stringify(
-      value,
-    ),
-  ) as T;
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
-
-function possibilityKey(
-  type: "capture" | "action" | "output",
-  id: string,
-) {
+function possibilityKey(type: "capture" | "action" | "output", id: string) {
   return `${type}_${id}`;
 }
-
 
 export function applyResponsibilityAppBuilderAIImport(
   current: ResponsibilityKernel,
   result: ResponsibilityAppBuilderAIImportResult,
 ): ResponsibilityKernel {
-  const next =
-    clone(
-      current,
-    );
+  const next = clone(current);
 
   next.runtimeWorld = {
-    actors:
-      clone(
-        result.app.actors,
-      ),
+    actors: clone(result.app.actors),
 
-    objects:
-      clone(
-        result.app.objects,
-      ),
+    objects: clone(result.app.objects),
 
-    contexts:
-      clone(
-        result.app.contexts,
-      ),
+    contexts: clone(result.app.contexts),
 
-    states:
-      clone(
-        result.app.states,
-      ),
+    states: clone(result.app.states),
   };
 
+  const currentIds = new Map<string, string>();
 
-  const currentIds =
-    new Map<string, string>();
-
-  for (
-    const possibility
-    of current.possibilities
-  ) {
-    if (
-      possibility.type ===
-      "capture"
-    ) {
-      currentIds.set(
-        `capture:${possibility.capture.id}`,
-        possibility.id,
-      );
+  for (const possibility of current.possibilities) {
+    if (possibility.type === "capture") {
+      currentIds.set(`capture:${possibility.capture.id}`, possibility.id);
     }
 
-    if (
-      possibility.type ===
-      "action"
-    ) {
-      currentIds.set(
-        `action:${possibility.action.id}`,
-        possibility.id,
-      );
+    if (possibility.type === "action") {
+      currentIds.set(`action:${possibility.action.id}`, possibility.id);
     }
 
-    if (
-      possibility.type ===
-      "output"
-    ) {
-      currentIds.set(
-        `output:${possibility.output.id}`,
-        possibility.id,
-      );
+    if (possibility.type === "output") {
+      currentIds.set(`output:${possibility.output.id}`, possibility.id);
     }
   }
 
+  const possibilities: KernelPossibility[] = [
+    ...result.app.captures.map((capture) => ({
+      id:
+        currentIds.get(`capture:${capture.id}`) ??
+        possibilityKey("capture", capture.id),
 
-  const possibilities:
-    KernelPossibility[] = [
-      ...result.app.captures.map(
-        (
-          capture,
-        ) => ({
-          id:
-            currentIds.get(
-              `capture:${capture.id}`,
-            ) ??
-            possibilityKey(
-              "capture",
-              capture.id,
-            ),
+      type: "capture" as const,
 
-          type:
-            "capture" as const,
+      capture: clone(capture),
+    })),
 
-          capture:
-            clone(
-              capture,
-            ),
-        }),
-      ),
+    ...result.app.actions.map((action) => ({
+      id:
+        currentIds.get(`action:${action.id}`) ??
+        possibilityKey("action", action.id),
 
-      ...result.app.actions.map(
-        (
-          action,
-        ) => ({
-          id:
-            currentIds.get(
-              `action:${action.id}`,
-            ) ??
-            possibilityKey(
-              "action",
-              action.id,
-            ),
+      type: "action" as const,
 
-          type:
-            "action" as const,
+      action: clone(action),
+    })),
 
-          action:
-            clone(
-              action,
-            ),
-        }),
-      ),
+    ...result.app.outputs.map((output) => ({
+      id:
+        currentIds.get(`output:${output.id}`) ??
+        possibilityKey("output", output.id),
 
-      ...result.app.outputs.map(
-        (
-          output,
-        ) => ({
-          id:
-            currentIds.get(
-              `output:${output.id}`,
-            ) ??
-            possibilityKey(
-              "output",
-              output.id,
-            ),
+      type: "output" as const,
 
-          type:
-            "output" as const,
+      output: clone(output),
+    })),
+  ];
 
-          output:
-            clone(
-              output,
-            ),
-        }),
-      ),
-    ];
+  next.possibilities = possibilities;
 
-  next.possibilities =
-    possibilities;
+  const possibilityBySemanticId = new Map<string, string>();
 
-
-  const possibilityBySemanticId =
-    new Map<string, string>();
-
-  for (
-    const possibility
-    of possibilities
-  ) {
-    if (
-      possibility.type ===
-      "capture"
-    ) {
+  for (const possibility of possibilities) {
+    if (possibility.type === "capture") {
       possibilityBySemanticId.set(
         `capture:${possibility.capture.id}`,
         possibility.id,
       );
     }
 
-    if (
-      possibility.type ===
-      "action"
-    ) {
+    if (possibility.type === "action") {
       possibilityBySemanticId.set(
         `action:${possibility.action.id}`,
         possibility.id,
       );
     }
 
-    if (
-      possibility.type ===
-      "output"
-    ) {
+    if (possibility.type === "output") {
       possibilityBySemanticId.set(
         `output:${possibility.output.id}`,
         possibility.id,
       );
     }
   }
-
 
   next.metadata = {
     ...next.metadata,
@@ -1848,39 +1159,19 @@ export function applyResponsibilityAppBuilderAIImport(
         layout: [],
       }),
 
-      title:
-        result.app.title,
+      title: result.app.title,
 
-      description:
-        result.app.description,
+      description: result.app.description,
 
-      employeeOwnHistoryVisible:
-        result.app.employeeOwnHistoryVisible,
+      employeeOwnHistoryVisible: result.app.employeeOwnHistoryVisible,
 
-      uiDocument:
-        clone(
-          result.app.uiDocument,
-        ),
+      uiDocument: clone(result.app.uiDocument),
 
-      layout:
-        result.app.layout
-          .map(
-            (item) =>
-              possibilityBySemanticId.get(
-                `${item.type}:${item.id}`,
-              ),
-          )
-          .filter(
-            (
-              id,
-            ): id is string =>
-              Boolean(
-                id,
-              ),
-          ),
+      layout: result.app.layout
+        .map((item) => possibilityBySemanticId.get(`${item.type}:${item.id}`))
+        .filter((id): id is string => Boolean(id)),
     },
   };
-
 
   /*
    * APP BUILDER / PIXEL LOGIC SEPARATION
@@ -1894,81 +1185,50 @@ export function applyResponsibilityAppBuilderAIImport(
    * We mirror that behavior here, but only when the action has no action
    * event/rule yet.
    */
-  for (
-    const action
-    of result.app.actions
-  ) {
-    let event =
-      next.events.find(
-        (item) =>
-          item.kind ===
-            "action" &&
-          item.actionId ===
-            action.id,
-      );
+  for (const action of result.app.actions) {
+    let event = next.events.find(
+      (item) => item.kind === "action" && item.actionId === action.id,
+    );
 
     if (!event) {
       event = {
-        id:
-          `app_event_${action.id}`,
+        id: `app_event_${action.id}`,
 
-        label:
-          `${action.label} happens`,
+        label: `${action.label} happens`,
 
-        kind:
-          "action",
+        kind: "action",
 
-        actionId:
-          action.id,
+        actionId: action.id,
       };
 
-      next.events.push(
-        event,
-      );
+      next.events.push(event);
     }
 
-
-    const hasRule =
-      next.rules.some(
-        (rule) =>
-          rule.eventId ===
-          event?.id,
-      );
+    const hasRule = next.rules.some((rule) => rule.eventId === event?.id);
 
     if (hasRule) {
       continue;
     }
 
-
-    const effects:
-      KernelRule["effects"] = [];
+    const effects: KernelRule["effects"] = [];
 
     const resultingState =
-      typeof action.config
-        .resultingState ===
-      "string"
-        ? action.config
-            .resultingState
-            .trim()
+      typeof action.config.resultingState === "string"
+        ? action.config.resultingState.trim()
         : "";
 
     if (resultingState) {
       effects.push({
-        id:
-          `app_effect_${action.id}_state`,
+        id: `app_effect_${action.id}_state`,
 
-        kind:
-          "change_state",
+        kind: "change_state",
 
-        targetKey:
-          "process",
+        targetKey: "process",
 
         value: {
-          kind:
-            "literal",
+          kind: "literal",
 
-          value:
-            resultingState,
+          value: resultingState,
         },
 
         config: {},
@@ -1976,111 +1236,71 @@ export function applyResponsibilityAppBuilderAIImport(
     }
 
     effects.push({
-      id:
-        `app_effect_${action.id}_history`,
+      id: `app_effect_${action.id}_history`,
 
-      kind:
-        "append_history",
+      kind: "append_history",
 
       config: {
-        label:
-          action.label,
+        label: action.label,
       },
     });
 
-
     next.rules.push({
-      id:
-        `app_rule_${action.id}`,
+      id: `app_rule_${action.id}`,
 
-      label:
-        `${action.label} behavior`,
+      label: `${action.label} behavior`,
 
-      eventId:
-        event.id,
+      eventId: event.id,
 
       when: {
-        mode:
-          "all",
+        mode: "all",
 
         conditions: [],
       },
 
       effects,
 
-      priority:
-        100,
+      priority: 100,
 
-      enabled:
-        true,
+      enabled: true,
     });
   }
 
-
   return next;
 }
-
 
 export function validateResponsibilityAppBuilderAIImport(
   current: ResponsibilityKernel,
   result: ResponsibilityAppBuilderAIImportResult,
   nativeBlocks: AppBuilderNativeBlockContext[],
 ) {
-  const issues:
-    string[] = [];
+  const issues: string[] = [];
 
-
-  if (
-    result.unsupportedCapabilities.length >
-    0
-  ) {
+  if (result.unsupportedCapabilities.length > 0) {
     issues.push(
       `Unsupported capabilities: ${result.unsupportedCapabilities.join(", ")}`,
     );
   }
 
+  const availableNative = new Set<string>();
 
-  const availableNative =
-    new Set<string>();
+  for (const block of nativeBlocks) {
+    availableNative.add(block.key);
 
-  for (
-    const block
-    of nativeBlocks
-  ) {
-    availableNative.add(
-      block.key,
-    );
+    const capability = block.config.nativeCapability;
 
-    const capability =
-      block.config
-        .nativeCapability;
-
-    if (
-      typeof capability ===
-      "string"
-    ) {
-      availableNative.add(
-        capability,
-      );
+    if (typeof capability === "string") {
+      availableNative.add(capability);
     }
   }
 
-
-  for (
-    const capture
-    of result.app.captures
-  ) {
-    const capability =
-      capture.config
-        .nativeCapability;
+  for (const capture of result.app.captures) {
+    const capability = capture.config.nativeCapability;
 
     if (
-      typeof capability ===
-        "string" &&
+      typeof capability === "string" &&
       capability.trim() &&
-      !availableNative.has(
-        capability,
-      )
+      !availableNative.has(capability)
     ) {
       issues.push(
         `Capture "${capture.id}" requests unregistered native capability "${capability}".`,
@@ -2088,54 +1308,25 @@ export function validateResponsibilityAppBuilderAIImport(
     }
   }
 
+  const declaredActionIds = new Set(
+    result.app.actions.map((action) => action.id),
+  );
 
-  const declaredActionIds =
-    new Set(
-      result.app.actions.map(
-        (action) =>
-          action.id,
-      ),
-    );
-
-  for (
-    const block
-    of result.app.uiDocument.blocks
-  ) {
-    if (
-      block.actionId &&
-      !declaredActionIds.has(
-        block.actionId,
-      )
-    ) {
+  for (const block of result.app.uiDocument.blocks) {
+    if (block.actionId && !declaredActionIds.has(block.actionId)) {
       issues.push(
         `UI block "${block.id}" references unknown action "${block.actionId}".`,
       );
     }
   }
 
+  const next = applyResponsibilityAppBuilderAIImport(current, result);
 
-  const next =
-    applyResponsibilityAppBuilderAIImport(
-      current,
-      result,
-    );
+  const kernelIssues = validateResponsibilityKernel(next);
 
-  const kernelIssues =
-    validateResponsibilityKernel(
-      next,
-    );
-
-  for (
-    const issue
-    of kernelIssues
-  ) {
-    if (
-      issue.severity ===
-      "error"
-    ) {
-      issues.push(
-        issue.message,
-      );
+  for (const issue of kernelIssues) {
+    if (issue.severity === "error") {
+      issues.push(issue.message);
     }
   }
 

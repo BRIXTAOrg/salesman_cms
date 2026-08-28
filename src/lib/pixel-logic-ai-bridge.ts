@@ -16,6 +16,8 @@ import type {
   ResponsibilityKernel,
 } from "@/lib/responsibility-kernel-types";
 
+import { buildPixelPresentationContext } from "@/lib/responsibility-presentation-runtime";
+
 export const PIXEL_LOGIC_AI_FORMAT = "brixta.pixel-logic" as const;
 export const PIXEL_LOGIC_AI_FORMAT_VERSION = 2 as const;
 
@@ -65,7 +67,6 @@ function asStringArray(value: unknown) {
     : [];
 }
 
-
 /*
  * BRIXTA_CONTEXT_AI_STRICT_IMPORT_V1
  *
@@ -79,132 +80,76 @@ function requireRawObject(
   value: unknown,
   path: string,
 ): Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    Array.isArray(value)
-  ) {
-    throw new Error(
-      `${path} must be a JSON object.`,
-    );
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${path} must be a JSON object.`);
   }
 
   return value as Record<string, unknown>;
 }
 
-function requireRawArray(
-  value: unknown,
-  path: string,
-): unknown[] {
+function requireRawArray(value: unknown, path: string): unknown[] {
   if (!Array.isArray(value)) {
-    throw new Error(
-      `${path} must be a JSON array.`,
-    );
+    throw new Error(`${path} must be a JSON array.`);
   }
 
   return value;
 }
 
-function requireRawString(
-  value: unknown,
-  path: string,
-) {
-  if (
-    typeof value !== "string" ||
-    !value.trim()
-  ) {
-    throw new Error(
-      `${path} must be a non-empty JSON string.`,
-    );
+function requireRawString(value: unknown, path: string) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${path} must be a non-empty JSON string.`);
   }
 
   return value.trim();
 }
 
-function validateRawStringArray(
-  value: unknown,
-  path: string,
-) {
-  const values =
-    requireRawArray(
-      value,
-      path,
-    );
+function validateRawStringArray(value: unknown, path: string) {
+  const values = requireRawArray(value, path);
 
-  values.forEach(
-    (item, index) => {
-      if (typeof item !== "string") {
-        throw new Error(
-          `${path}[${index}] must be a string. Objects are NOT accepted here.`,
-        );
-      }
-    },
-  );
+  values.forEach((item, index) => {
+    if (typeof item !== "string") {
+      throw new Error(
+        `${path}[${index}] must be a string. Objects are NOT accepted here.`,
+      );
+    }
+  });
 }
 
-function validateUniqueRawIds(
-  values: unknown[],
-  path: string,
-) {
-  const seen =
-    new Set<string>();
+function validateUniqueRawIds(values: unknown[], path: string) {
+  const seen = new Set<string>();
 
-  values.forEach(
-    (raw, index) => {
-      const value =
-        requireRawObject(
-          raw,
-          `${path}[${index}]`,
-        );
+  values.forEach((raw, index) => {
+    const value = requireRawObject(raw, `${path}[${index}]`);
 
-      const id =
-        requireRawString(
-          value.id,
-          `${path}[${index}].id`,
-        );
+    const id = requireRawString(value.id, `${path}[${index}].id`);
 
-      if (seen.has(id)) {
-        throw new Error(
-          `Duplicate ID "${id}" in ${path}.`,
-        );
-      }
+    if (seen.has(id)) {
+      throw new Error(`Duplicate ID "${id}" in ${path}.`);
+    }
 
-      seen.add(id);
-    },
-  );
+    seen.add(id);
+  });
 }
 
-function validateRawPixelLogicAIEnvelope(
-  value: Record<string, unknown>,
-) {
+function validateRawPixelLogicAIEnvelope(value: Record<string, unknown>) {
   /*
    * TOP LEVEL
    */
-  requireRawString(
-    value.registryFingerprint,
-    "registryFingerprint",
-  );
+  requireRawString(value.registryFingerprint, "registryFingerprint");
 
-  const responsibility =
-    requireRawObject(
-      value.responsibility,
-      "responsibility",
-    );
+  const responsibility = requireRawObject(
+    value.responsibility,
+    "responsibility",
+  );
 
   if (
     typeof responsibility.id !== "string" &&
     typeof responsibility.id !== "number"
   ) {
-    throw new Error(
-      "responsibility.id must be a string or number.",
-    );
+    throw new Error("responsibility.id must be a string or number.");
   }
 
-  requireRawString(
-    responsibility.title,
-    "responsibility.title",
-  );
-
+  requireRawString(responsibility.title, "responsibility.title");
 
   /*
    * UNSUPPORTED CAPABILITIES
@@ -227,479 +172,229 @@ function validateRawPixelLogicAIEnvelope(
     "unsupportedCapabilities",
   );
 
-  validateRawStringArray(
-    value.notes,
-    "notes",
-  );
-
+  validateRawStringArray(value.notes, "notes");
 
   /*
    * PIXEL REALITY
    */
-  const reality =
-    requireRawObject(
-      value.reality,
-      "reality",
-    );
+  const reality = requireRawObject(value.reality, "reality");
 
   if (Number(reality.version) !== 1) {
-    throw new Error(
-      "reality.version must be exactly 1.",
-    );
+    throw new Error("reality.version must be exactly 1.");
   }
 
-  const actors =
-    requireRawArray(
-      reality.actors,
-      "reality.actors",
+  const actors = requireRawArray(reality.actors, "reality.actors");
+
+  const contexts = requireRawArray(reality.contexts, "reality.contexts");
+
+  const objects = requireRawArray(reality.objects, "reality.objects");
+
+  const states = requireRawArray(reality.states, "reality.states");
+
+  const captures = requireRawArray(reality.captures, "reality.captures");
+
+  const actions = requireRawArray(reality.actions, "reality.actions");
+
+  const outputs = requireRawArray(reality.outputs, "reality.outputs");
+
+  validateRawStringArray(reality.warnings, "reality.warnings");
+
+  validateRawStringArray(reality.notes, "reality.notes");
+
+  validateUniqueRawIds(actors, "reality.actors");
+
+  validateUniqueRawIds(contexts, "reality.contexts");
+
+  validateUniqueRawIds(objects, "reality.objects");
+
+  validateUniqueRawIds(states, "reality.states");
+
+  validateUniqueRawIds(captures, "reality.captures");
+
+  validateUniqueRawIds(actions, "reality.actions");
+
+  validateUniqueRawIds(outputs, "reality.outputs");
+
+  actors.forEach((raw, index) => {
+    const actor = requireRawObject(raw, `reality.actors[${index}]`);
+
+    requireRawString(actor.id, `reality.actors[${index}].id`);
+
+    requireRawString(actor.label, `reality.actors[${index}].label`);
+
+    const resolver = requireRawObject(
+      actor.resolver,
+      `reality.actors[${index}].resolver`,
     );
 
-  const contexts =
-    requireRawArray(
-      reality.contexts,
-      "reality.contexts",
-    );
+    requireRawString(resolver.kind, `reality.actors[${index}].resolver.kind`);
 
-  const objects =
-    requireRawArray(
-      reality.objects,
-      "reality.objects",
-    );
+    validateRawStringArray(actor.surfaces, `reality.actors[${index}].surfaces`);
 
-  const states =
-    requireRawArray(
-      reality.states,
-      "reality.states",
-    );
-
-  const captures =
-    requireRawArray(
-      reality.captures,
-      "reality.captures",
-    );
-
-  const actions =
-    requireRawArray(
-      reality.actions,
-      "reality.actions",
-    );
-
-  const outputs =
-    requireRawArray(
-      reality.outputs,
-      "reality.outputs",
-    );
-
-  validateRawStringArray(
-    reality.warnings,
-    "reality.warnings",
-  );
-
-  validateRawStringArray(
-    reality.notes,
-    "reality.notes",
-  );
-
-  validateUniqueRawIds(
-    actors,
-    "reality.actors",
-  );
-
-  validateUniqueRawIds(
-    contexts,
-    "reality.contexts",
-  );
-
-  validateUniqueRawIds(
-    objects,
-    "reality.objects",
-  );
-
-  validateUniqueRawIds(
-    states,
-    "reality.states",
-  );
-
-  validateUniqueRawIds(
-    captures,
-    "reality.captures",
-  );
-
-  validateUniqueRawIds(
-    actions,
-    "reality.actions",
-  );
-
-  validateUniqueRawIds(
-    outputs,
-    "reality.outputs",
-  );
-
-
-  actors.forEach(
-    (raw, index) => {
-      const actor =
-        requireRawObject(
-          raw,
-          `reality.actors[${index}]`,
-        );
-
-      requireRawString(
-        actor.id,
-        `reality.actors[${index}].id`,
+    if (
+      actor.recordScope !== undefined &&
+      actor.recordScope !== "own" &&
+      actor.recordScope !== "related" &&
+      actor.recordScope !== "organization"
+    ) {
+      throw new Error(
+        `reality.actors[${index}].recordScope must be "own", "related", or "organization".`,
       );
+    }
+  });
 
-      requireRawString(
-        actor.label,
-        `reality.actors[${index}].label`,
-      );
+  contexts.forEach((raw, index) => {
+    const item = requireRawObject(raw, `reality.contexts[${index}]`);
 
-      const resolver =
-        requireRawObject(
-          actor.resolver,
-          `reality.actors[${index}].resolver`,
-        );
+    requireRawString(item.id, `reality.contexts[${index}].id`);
 
-      requireRawString(
-        resolver.kind,
-        `reality.actors[${index}].resolver.kind`,
-      );
+    requireRawString(item.label, `reality.contexts[${index}].label`);
 
+    requireRawString(item.source, `reality.contexts[${index}].source`);
+  });
+
+  objects.forEach((raw, index) => {
+    const item = requireRawObject(raw, `reality.objects[${index}]`);
+
+    requireRawString(item.id, `reality.objects[${index}].id`);
+
+    requireRawString(item.label, `reality.objects[${index}].label`);
+
+    requireRawString(item.kind, `reality.objects[${index}].kind`);
+  });
+
+  states.forEach((raw, index) => {
+    const item = requireRawObject(raw, `reality.states[${index}]`);
+
+    requireRawString(item.id, `reality.states[${index}].id`);
+
+    requireRawString(item.label, `reality.states[${index}].label`);
+  });
+
+  captures.forEach((raw, index) => {
+    const item = requireRawObject(raw, `reality.captures[${index}]`);
+
+    requireRawString(item.id, `reality.captures[${index}].id`);
+
+    requireRawString(item.label, `reality.captures[${index}].label`);
+
+    requireRawString(item.kind, `reality.captures[${index}].kind`);
+
+    if (item.config !== undefined) {
+      requireRawObject(item.config, `reality.captures[${index}].config`);
+    }
+  });
+
+  actions.forEach((raw, index) => {
+    const item = requireRawObject(raw, `reality.actions[${index}]`);
+
+    requireRawString(item.id, `reality.actions[${index}].id`);
+
+    requireRawString(item.label, `reality.actions[${index}].label`);
+
+    requireRawString(item.kind, `reality.actions[${index}].kind`);
+
+    if (item.captureIds !== undefined) {
       validateRawStringArray(
-        actor.surfaces,
-        `reality.actors[${index}].surfaces`,
+        item.captureIds,
+        `reality.actions[${index}].captureIds`,
       );
+    }
 
-      if (
-        actor.recordScope !== undefined &&
-        actor.recordScope !== "own" &&
-        actor.recordScope !== "related" &&
-        actor.recordScope !== "organization"
-      ) {
-        throw new Error(
-          `reality.actors[${index}].recordScope must be "own", "related", or "organization".`,
-        );
-      }
-    },
-  );
+    if (item.config !== undefined) {
+      requireRawObject(item.config, `reality.actions[${index}].config`);
+    }
+  });
 
+  outputs.forEach((raw, index) => {
+    const item = requireRawObject(raw, `reality.outputs[${index}]`);
 
-  contexts.forEach(
-    (raw, index) => {
-      const item =
-        requireRawObject(
-          raw,
-          `reality.contexts[${index}]`,
-        );
+    requireRawString(item.id, `reality.outputs[${index}].id`);
 
-      requireRawString(
-        item.id,
-        `reality.contexts[${index}].id`,
-      );
+    requireRawString(item.label, `reality.outputs[${index}].label`);
 
-      requireRawString(
-        item.label,
-        `reality.contexts[${index}].label`,
-      );
+    requireRawString(item.kind, `reality.outputs[${index}].kind`);
 
-      requireRawString(
-        item.source,
-        `reality.contexts[${index}].source`,
-      );
-    },
-  );
+    validateRawStringArray(item.actorIds, `reality.outputs[${index}].actorIds`);
 
-
-  objects.forEach(
-    (raw, index) => {
-      const item =
-        requireRawObject(
-          raw,
-          `reality.objects[${index}]`,
-        );
-
-      requireRawString(
-        item.id,
-        `reality.objects[${index}].id`,
-      );
-
-      requireRawString(
-        item.label,
-        `reality.objects[${index}].label`,
-      );
-
-      requireRawString(
-        item.kind,
-        `reality.objects[${index}].kind`,
-      );
-    },
-  );
-
-
-  states.forEach(
-    (raw, index) => {
-      const item =
-        requireRawObject(
-          raw,
-          `reality.states[${index}]`,
-        );
-
-      requireRawString(
-        item.id,
-        `reality.states[${index}].id`,
-      );
-
-      requireRawString(
-        item.label,
-        `reality.states[${index}].label`,
-      );
-    },
-  );
-
-
-  captures.forEach(
-    (raw, index) => {
-      const item =
-        requireRawObject(
-          raw,
-          `reality.captures[${index}]`,
-        );
-
-      requireRawString(
-        item.id,
-        `reality.captures[${index}].id`,
-      );
-
-      requireRawString(
-        item.label,
-        `reality.captures[${index}].label`,
-      );
-
-      requireRawString(
-        item.kind,
-        `reality.captures[${index}].kind`,
-      );
-
-      if (
-        item.config !== undefined
-      ) {
-        requireRawObject(
-          item.config,
-          `reality.captures[${index}].config`,
-        );
-      }
-    },
-  );
-
-
-  actions.forEach(
-    (raw, index) => {
-      const item =
-        requireRawObject(
-          raw,
-          `reality.actions[${index}]`,
-        );
-
-      requireRawString(
-        item.id,
-        `reality.actions[${index}].id`,
-      );
-
-      requireRawString(
-        item.label,
-        `reality.actions[${index}].label`,
-      );
-
-      requireRawString(
-        item.kind,
-        `reality.actions[${index}].kind`,
-      );
-
-      if (
-        item.captureIds !== undefined
-      ) {
-        validateRawStringArray(
-          item.captureIds,
-          `reality.actions[${index}].captureIds`,
-        );
-      }
-
-      if (
-        item.config !== undefined
-      ) {
-        requireRawObject(
-          item.config,
-          `reality.actions[${index}].config`,
-        );
-      }
-    },
-  );
-
-
-  outputs.forEach(
-    (raw, index) => {
-      const item =
-        requireRawObject(
-          raw,
-          `reality.outputs[${index}]`,
-        );
-
-      requireRawString(
-        item.id,
-        `reality.outputs[${index}].id`,
-      );
-
-      requireRawString(
-        item.label,
-        `reality.outputs[${index}].label`,
-      );
-
-      requireRawString(
-        item.kind,
-        `reality.outputs[${index}].kind`,
-      );
-
+    if (item.stateIds !== undefined) {
       validateRawStringArray(
-        item.actorIds,
-        `reality.outputs[${index}].actorIds`,
+        item.stateIds,
+        `reality.outputs[${index}].stateIds`,
       );
+    }
 
-      if (
-        item.stateIds !== undefined
-      ) {
-        validateRawStringArray(
-          item.stateIds,
-          `reality.outputs[${index}].stateIds`,
-        );
-      }
+    if (item.visibleKeys !== undefined) {
+      validateRawStringArray(
+        item.visibleKeys,
+        `reality.outputs[${index}].visibleKeys`,
+      );
+    }
 
-      if (
-        item.visibleKeys !== undefined
-      ) {
-        validateRawStringArray(
-          item.visibleKeys,
-          `reality.outputs[${index}].visibleKeys`,
-        );
-      }
-
-      if (
-        item.surfaces !== undefined
-      ) {
-        validateRawStringArray(
-          item.surfaces,
-          `reality.outputs[${index}].surfaces`,
-        );
-      }
-    },
-  );
-
+    if (item.surfaces !== undefined) {
+      validateRawStringArray(
+        item.surfaces,
+        `reality.outputs[${index}].surfaces`,
+      );
+    }
+  });
 
   /*
    * PIXEL PROGRAM
    */
-  const program =
-    requireRawObject(
-      value.program,
-      "program",
-    );
+  const program = requireRawObject(value.program, "program");
 
   if (Number(program.version) !== 1) {
-    throw new Error(
-      "program.version must be exactly 1.",
-    );
+    throw new Error("program.version must be exactly 1.");
   }
 
-  if (
-    typeof program.enabled !== "boolean"
-  ) {
-    throw new Error(
-      "program.enabled must be a JSON boolean.",
-    );
+  if (typeof program.enabled !== "boolean") {
+    throw new Error("program.enabled must be a JSON boolean.");
   }
 
-  requireRawString(
-    program.name,
-    "program.name",
-  );
+  requireRawString(program.name, "program.name");
 
-  const metadata =
-    requireRawObject(
-      program.metadata,
-      "program.metadata",
-    );
+  const metadata = requireRawObject(program.metadata, "program.metadata");
 
-  if (
-    metadata.generatedBy !==
-    "external-ai"
-  ) {
+  if (metadata.generatedBy !== "external-ai") {
     throw new Error(
       'program.metadata.generatedBy must be exactly "external-ai".',
     );
   }
 
+  const nodes = requireRawArray(program.nodes, "program.nodes");
 
-  const nodes =
-    requireRawArray(
-      program.nodes,
-      "program.nodes",
+  const nodeIds = new Set<string>();
+
+  nodes.forEach((raw, index) => {
+    const node = requireRawObject(raw, `program.nodes[${index}]`);
+
+    const id = requireRawString(node.id, `program.nodes[${index}].id`);
+
+    if (nodeIds.has(id)) {
+      throw new Error(`Duplicate Pixel node ID "${id}".`);
+    }
+
+    nodeIds.add(id);
+
+    requireRawString(node.type, `program.nodes[${index}].type`);
+
+    const position = requireRawObject(
+      node.position,
+      `program.nodes[${index}].position`,
     );
 
-  const nodeIds =
-    new Set<string>();
-
-  nodes.forEach(
-    (raw, index) => {
-      const node =
-        requireRawObject(
-          raw,
-          `program.nodes[${index}]`,
-        );
-
-      const id =
-        requireRawString(
-          node.id,
-          `program.nodes[${index}].id`,
-        );
-
-      if (nodeIds.has(id)) {
-        throw new Error(
-          `Duplicate Pixel node ID "${id}".`,
-        );
-      }
-
-      nodeIds.add(id);
-
-      requireRawString(
-        node.type,
-        `program.nodes[${index}].type`,
+    if (
+      !Number.isFinite(Number(position.x)) ||
+      !Number.isFinite(Number(position.y))
+    ) {
+      throw new Error(
+        `program.nodes[${index}].position requires numeric x and y.`,
       );
+    }
 
-      const position =
-        requireRawObject(
-          node.position,
-          `program.nodes[${index}].position`,
-        );
-
-      if (
-        !Number.isFinite(
-          Number(position.x),
-        ) ||
-        !Number.isFinite(
-          Number(position.y),
-        )
-      ) {
-        throw new Error(
-          `program.nodes[${index}].position requires numeric x and y.`,
-        );
-      }
-
-      requireRawObject(
-        node.config,
-        `program.nodes[${index}].config`,
-      );
-    },
-  );
-
+    requireRawObject(node.config, `program.nodes[${index}].config`);
+  });
 
   /*
    * EDGE FORMAT IS DELIBERATELY STRICT.
@@ -722,128 +417,74 @@ function validateRawPixelLogicAIEnvelope(
    *   "to": {"nodeId": "..."}
    * }
    */
-  const edges =
-    requireRawArray(
-      program.edges,
-      "program.edges",
+  const edges = requireRawArray(program.edges, "program.edges");
+
+  const edgeIds = new Set<string>();
+
+  edges.forEach((raw, index) => {
+    const edge = requireRawObject(raw, `program.edges[${index}]`);
+
+    if ("from" in edge || "to" in edge) {
+      throw new Error(
+        `program.edges[${index}] uses unsupported nested from/to syntax. Use flat fromNodeId/fromPort/toNodeId/toPort fields.`,
+      );
+    }
+
+    const id = requireRawString(edge.id, `program.edges[${index}].id`);
+
+    if (edgeIds.has(id)) {
+      throw new Error(`Duplicate Pixel edge ID "${id}".`);
+    }
+
+    edgeIds.add(id);
+
+    const kind = requireRawString(edge.kind, `program.edges[${index}].kind`);
+
+    if (kind !== "flow" && kind !== "data") {
+      throw new Error(`program.edges[${index}].kind must be "flow" or "data".`);
+    }
+
+    const fromNodeId = requireRawString(
+      edge.fromNodeId,
+      `program.edges[${index}].fromNodeId`,
     );
 
-  const edgeIds =
-    new Set<string>();
+    requireRawString(edge.fromPort, `program.edges[${index}].fromPort`);
 
-  edges.forEach(
-    (raw, index) => {
-      const edge =
-        requireRawObject(
-          raw,
-          `program.edges[${index}]`,
-        );
-
-      if (
-        "from" in edge ||
-        "to" in edge
-      ) {
-        throw new Error(
-          `program.edges[${index}] uses unsupported nested from/to syntax. Use flat fromNodeId/fromPort/toNodeId/toPort fields.`,
-        );
-      }
-
-      const id =
-        requireRawString(
-          edge.id,
-          `program.edges[${index}].id`,
-        );
-
-      if (edgeIds.has(id)) {
-        throw new Error(
-          `Duplicate Pixel edge ID "${id}".`,
-        );
-      }
-
-      edgeIds.add(id);
-
-      const kind =
-        requireRawString(
-          edge.kind,
-          `program.edges[${index}].kind`,
-        );
-
-      if (
-        kind !== "flow" &&
-        kind !== "data"
-      ) {
-        throw new Error(
-          `program.edges[${index}].kind must be "flow" or "data".`,
-        );
-      }
-
-      const fromNodeId =
-        requireRawString(
-          edge.fromNodeId,
-          `program.edges[${index}].fromNodeId`,
-        );
-
-      requireRawString(
-        edge.fromPort,
-        `program.edges[${index}].fromPort`,
-      );
-
-      const toNodeId =
-        requireRawString(
-          edge.toNodeId,
-          `program.edges[${index}].toNodeId`,
-        );
-
-      requireRawString(
-        edge.toPort,
-        `program.edges[${index}].toPort`,
-      );
-
-      if (!nodeIds.has(fromNodeId)) {
-        throw new Error(
-          `program.edges[${index}] references unknown fromNodeId "${fromNodeId}".`,
-        );
-      }
-
-      if (!nodeIds.has(toNodeId)) {
-        throw new Error(
-          `program.edges[${index}] references unknown toNodeId "${toNodeId}".`,
-        );
-      }
-    },
-  );
-
-
-  const variables =
-    requireRawArray(
-      program.variables,
-      "program.variables",
+    const toNodeId = requireRawString(
+      edge.toNodeId,
+      `program.edges[${index}].toNodeId`,
     );
 
-  variables.forEach(
-    (raw, index) => {
-      const variable =
-        requireRawObject(
-          raw,
-          `program.variables[${index}]`,
-        );
+    requireRawString(edge.toPort, `program.edges[${index}].toPort`);
 
-      requireRawString(
-        variable.key,
-        `program.variables[${index}].key`,
+    if (!nodeIds.has(fromNodeId)) {
+      throw new Error(
+        `program.edges[${index}] references unknown fromNodeId "${fromNodeId}".`,
       );
+    }
 
-      requireRawString(
-        variable.label,
-        `program.variables[${index}].label`,
+    if (!nodeIds.has(toNodeId)) {
+      throw new Error(
+        `program.edges[${index}] references unknown toNodeId "${toNodeId}".`,
       );
+    }
+  });
 
-      requireRawString(
-        variable.valueType,
-        `program.variables[${index}].valueType`,
-      );
-    },
-  );
+  const variables = requireRawArray(program.variables, "program.variables");
+
+  variables.forEach((raw, index) => {
+    const variable = requireRawObject(raw, `program.variables[${index}]`);
+
+    requireRawString(variable.key, `program.variables[${index}].key`);
+
+    requireRawString(variable.label, `program.variables[${index}].label`);
+
+    requireRawString(
+      variable.valueType,
+      `program.variables[${index}].valueType`,
+    );
+  });
 }
 
 function captureValueType(kind: KernelCaptureKind): PixelLogicValueType {
@@ -852,24 +493,23 @@ function captureValueType(kind: KernelCaptureKind): PixelLogicValueType {
     kind === "amount" ||
     kind === "rating" ||
     kind === "timer"
-  ) return "number";
+  )
+    return "number";
 
   if (kind === "date") return "date";
   if (kind === "datetime") return "datetime";
   if (kind === "boolean") return "boolean";
   if (kind === "gps") return "location";
 
-  if (
-    kind === "route" ||
-    kind === "checklist" ||
-    kind === "repeating_section"
-  ) return "array";
+  if (kind === "route" || kind === "checklist" || kind === "repeating_section")
+    return "array";
 
   if (
     kind === "person_reference" ||
     kind === "entity_reference" ||
     kind === "responsibility_reference"
-  ) return "reference";
+  )
+    return "reference";
 
   return "string";
 }
@@ -909,34 +549,26 @@ function compactRegistrySpec(spec: PixelLogicNodeSpec) {
     inputs: spec.inputs.map((port) => ({
       key: port.key,
       kind: port.kind,
-      valueType:
-        port.valueType ??
-        (port.kind === "flow" ? "void" : "any"),
+      valueType: port.valueType ?? (port.kind === "flow" ? "void" : "any"),
       required: port.required === true,
       many: port.many === true,
     })),
     outputs: spec.outputs.map((port) => ({
       key: port.key,
       kind: port.kind,
-      valueType:
-        port.valueType ??
-        (port.kind === "flow" ? "void" : "any"),
+      valueType: port.valueType ?? (port.kind === "flow" ? "void" : "any"),
     })),
     config: (spec.configFields ?? []).map((field) => ({
       key: field.key,
       kind: field.kind,
-      options:
-        field.options?.map((option) => option.value) ??
-        undefined,
+      options: field.options?.map((option) => option.value) ?? undefined,
     })),
   };
 }
 
 function stableRegistrySource(specs: PixelLogicNodeSpec[]) {
   return JSON.stringify(
-    specs
-      .map(compactRegistrySpec)
-      .sort((a, b) => a.type.localeCompare(b.type)),
+    specs.map(compactRegistrySpec).sort((a, b) => a.type.localeCompare(b.type)),
   );
 }
 
@@ -964,13 +596,14 @@ export function buildPixelLogicAIContext({
   employees = [],
 }: BuildPixelLogicAIContextInput) {
   const specs = listPixelLogicNodeSpecs();
-  const registryFingerprint =
-    pixelLogicRegistryFingerprint(specs);
+  const registryFingerprint = pixelLogicRegistryFingerprint(specs);
 
   const actions =
     kernel?.possibilities
       .filter(
-        (item): item is Extract<
+        (
+          item,
+        ): item is Extract<
           ResponsibilityKernel["possibilities"][number],
           { type: "action" }
         > => item.type === "action",
@@ -987,7 +620,9 @@ export function buildPixelLogicAIContext({
   const captures =
     kernel?.possibilities
       .filter(
-        (item): item is Extract<
+        (
+          item,
+        ): item is Extract<
           ResponsibilityKernel["possibilities"][number],
           { type: "capture" }
         > => item.type === "capture",
@@ -1035,7 +670,9 @@ export function buildPixelLogicAIContext({
   const outputs =
     kernel?.possibilities
       .filter(
-        (item): item is Extract<
+        (
+          item,
+        ): item is Extract<
           ResponsibilityKernel["possibilities"][number],
           { type: "output" }
         > => item.type === "output",
@@ -1060,6 +697,8 @@ export function buildPixelLogicAIContext({
         outputs,
       },
     },
+
+    presentationContext: buildPixelPresentationContext(kernel),
 
     organization: {
       availableRoles: roles.map((role) => ({
@@ -1168,52 +807,41 @@ export function buildPixelLogicAIContext({
        *
        * AI must distinguish these from mere Pixel node names.
        */
-      instanceModes: [
-        "continuing",
-        "repeatable",
-      ],
+      instanceModes: ["continuing", "repeatable"],
 
       submissionGuards: {
         date_range_no_overlap: {
           supported: true,
-          scope: [
-            "current_employee",
-          ],
+          scope: ["current_employee"],
           description:
             "Rejects an action when the submitted date range overlaps another matching record.",
         },
 
         calendar_day_unique: {
           supported: true,
-          scope: [
-            "current_employee",
-          ],
-          timezone:
-            "IANA timezone such as Asia/Kolkata",
+          scope: ["current_employee"],
+          timezone: "IANA timezone such as Asia/Kolkata",
           description:
             "Allows at most one matching record per employee per local calendar day. The day changes naturally at local midnight; no cron/reset mutation is required.",
         },
       },
 
       actionExecution: {
-      triggerActionEffect: {
-        recursiveExecution:
-          false,
+        triggerActionEffect: {
+          recursiveExecution: false,
 
-        behavior:
-          "effect.trigger_action currently emits a deterministic trigger instruction. It does NOT recursively execute the target action inside the same Kernel call.",
+          behavior:
+            "effect.trigger_action currently emits a deterministic trigger instruction. It does NOT recursively execute the target action inside the same Kernel call.",
 
-        guidance:
-          "When an action can perform the final state transition/persistence itself, prefer that instead of inventing a second automatic submit action.",
+          guidance:
+            "When an action can perform the final state transition/persistence itself, prefer that instead of inventing a second automatic submit action.",
+        },
       },
-    },
 
-    scheduling: {
-        recurringScheduleHost:
-          false,
+      scheduling: {
+        recurringScheduleHost: false,
 
-        timezoneAwareCron:
-          false,
+        timezoneAwareCron: false,
 
         important:
           "event.schedule is only an event matcher. It does NOT itself create a timer, cron job, recurrence, or midnight trigger. Never claim recurring timed execution unless recurringScheduleHost is explicitly true.",
@@ -1221,22 +849,15 @@ export function buildPixelLogicAIContext({
 
       edgeEncoding: {
         accepted: {
-          id:
-            "edge_example",
-          kind:
-            "flow",
-          fromNodeId:
-            "source_node",
-          fromPort:
-            "flow",
-          toNodeId:
-            "target_node",
-          toPort:
-            "flow",
+          id: "edge_example",
+          kind: "flow",
+          fromNodeId: "source_node",
+          fromPort: "flow",
+          toNodeId: "target_node",
+          toPort: "flow",
         },
 
-        rejected:
-          "Nested from/to objects are NOT part of PixelLogicEdge.",
+        rejected: "Nested from/to objects are NOT part of PixelLogicEdge.",
       },
     },
 
@@ -1247,45 +868,34 @@ export function buildPixelLogicAIContext({
      * It exists to demonstrate the exact JSON SHAPE accepted by BRIXTA.
      */
     acceptedJsonExample: {
-      format:
-        PIXEL_LOGIC_AI_FORMAT,
+      format: PIXEL_LOGIC_AI_FORMAT,
 
-      formatVersion:
-        PIXEL_LOGIC_AI_FORMAT_VERSION,
+      formatVersion: PIXEL_LOGIC_AI_FORMAT_VERSION,
 
       registryFingerprint,
 
       responsibility: {
-        id:
-          responsibilityId,
+        id: responsibilityId,
 
-        title:
-          responsibilityTitle,
+        title: responsibilityTitle,
       },
 
       reality: {
-        version:
-          1,
+        version: 1,
 
         actors: [
           {
-            id:
-              "current_employee",
+            id: "current_employee",
 
-            label:
-              "Current employee",
+            label: "Current employee",
 
             resolver: {
-              kind:
-                "current_user",
+              kind: "current_user",
             },
 
-            surfaces: [
-              "app",
-            ],
+            surfaces: ["app"],
 
-            recordScope:
-              "own",
+            recordScope: "own",
           },
         ],
 
@@ -1293,69 +903,51 @@ export function buildPixelLogicAIContext({
 
         objects: [
           {
-            id:
-              "current_record",
+            id: "current_record",
 
-            label:
-              "Current record",
+            label: "Current record",
 
-            kind:
-              "current_record",
+            kind: "current_record",
           },
         ],
 
         states: [
           {
-            id:
-              "ready",
+            id: "ready",
 
-            label:
-              "Ready",
+            label: "Ready",
 
-            dimension:
-              "process",
+            dimension: "process",
 
-            initial:
-              true,
+            initial: true,
 
-            terminal:
-              false,
+            terminal: false,
           },
 
           {
-            id:
-              "done",
+            id: "done",
 
-            label:
-              "Done",
+            label: "Done",
 
-            dimension:
-              "process",
+            dimension: "process",
 
-            initial:
-              false,
+            initial: false,
 
-            terminal:
-              true,
+            terminal: true,
           },
         ],
 
         captures: [
           {
-            id:
-              "occurred_at",
+            id: "occurred_at",
 
-            label:
-              "Occurred at",
+            label: "Occurred at",
 
-            kind:
-              "datetime",
+            kind: "datetime",
 
-            required:
-              true,
+            required: true,
 
-            storeAs:
-              "occurred_at",
+            storeAs: "occurred_at",
 
             config: {},
           },
@@ -1363,55 +955,38 @@ export function buildPixelLogicAIContext({
 
         actions: [
           {
-            id:
-              "example_submit",
+            id: "example_submit",
 
-            label:
-              "Submit",
+            label: "Submit",
 
-            kind:
-              "submit",
+            kind: "submit",
 
-            actorId:
-              "current_employee",
+            actorId: "current_employee",
 
-            objectId:
-              "current_record",
+            objectId: "current_record",
 
-            captureIds: [
-              "occurred_at",
-            ],
+            captureIds: ["occurred_at"],
 
-            availableState:
-              "ready",
+            availableState: "ready",
 
-            resultingState:
-              "done",
+            resultingState: "done",
 
             config: {
-              instanceMode:
-                "repeatable",
+              instanceMode: "repeatable",
 
               submissionGuards: [
                 {
-                  kind:
-                    "calendar_day_unique",
+                  kind: "calendar_day_unique",
 
-                  scope:
-                    "current_employee",
+                  scope: "current_employee",
 
-                  timezone:
-                    "Asia/Kolkata",
+                  timezone: "Asia/Kolkata",
 
-                  ignoreCurrentRecord:
-                    true,
+                  ignoreCurrentRecord: true,
 
-                  conflictStatuses: [
-                    "done",
-                  ],
+                  conflictStatuses: ["done"],
 
-                  message:
-                    "You have already completed this action for today.",
+                  message: "You have already completed this action for today.",
                 },
               ],
             },
@@ -1420,30 +995,19 @@ export function buildPixelLogicAIContext({
 
         outputs: [
           {
-            id:
-              "example_history",
+            id: "example_history",
 
-            label:
-              "History",
+            label: "History",
 
-            kind:
-              "timeline",
+            kind: "timeline",
 
-            actorIds: [
-              "current_employee",
-            ],
+            actorIds: ["current_employee"],
 
-            stateIds: [
-              "done",
-            ],
+            stateIds: ["done"],
 
-            visibleKeys: [
-              "occurred_at",
-            ],
+            visibleKeys: ["occurred_at"],
 
-            surfaces: [
-              "app",
-            ],
+            surfaces: ["app"],
 
             config: {},
           },
@@ -1455,25 +1019,19 @@ export function buildPixelLogicAIContext({
       },
 
       program: {
-        version:
-          1,
+        version: 1,
 
-        enabled:
-          true,
+        enabled: true,
 
-        name:
-          `${responsibilityTitle} Logic`,
+        name: `${responsibilityTitle} Logic`,
 
         nodes: [
           {
-            id:
-              "event_example_submit",
+            id: "event_example_submit",
 
-            type:
-              "event.responsibility.action",
+            type: "event.responsibility.action",
 
-            label:
-              "When submitted",
+            label: "When submitted",
 
             position: {
               x: 80,
@@ -1481,20 +1039,16 @@ export function buildPixelLogicAIContext({
             },
 
             config: {
-              actionId:
-                "example_submit",
+              actionId: "example_submit",
             },
           },
 
           {
-            id:
-              "history_example_submit",
+            id: "history_example_submit",
 
-            type:
-              "effect.append_history",
+            type: "effect.append_history",
 
-            label:
-              "Record submission",
+            label: "Record submission",
 
             position: {
               x: 560,
@@ -1502,39 +1056,31 @@ export function buildPixelLogicAIContext({
             },
 
             config: {
-              label:
-                "Submission completed.",
+              label: "Submission completed.",
             },
           },
         ],
 
         edges: [
           {
-            id:
-              "flow_example_submit_history",
+            id: "flow_example_submit_history",
 
-            kind:
-              "flow",
+            kind: "flow",
 
-            fromNodeId:
-              "event_example_submit",
+            fromNodeId: "event_example_submit",
 
-            fromPort:
-              "flow",
+            fromPort: "flow",
 
-            toNodeId:
-              "history_example_submit",
+            toNodeId: "history_example_submit",
 
-            toPort:
-              "flow",
+            toPort: "flow",
           },
         ],
 
         variables: [],
 
         metadata: {
-          generatedBy:
-            "external-ai",
+          generatedBy: "external-ai",
         },
       },
 
@@ -1628,6 +1174,16 @@ STRUCTURE — NON-NEGOTIABLE
 - Every referenced node, actor, action, state, capture and output must either already exist in packet.responsibility.existing or be declared in reality.
 - Every required property shown by the contract must be present even when its value is [] or {}.
 
+PRESENTATION CONTEXT — NON-NEGOTIABLE
+- packet.presentationContext is READ-ONLY App Builder / Flutter presentation truth.
+- Pixel Logic MUST NOT create, delete, restructure or restyle UI blocks.
+- effect.ui_animate, effect.ui_show, effect.ui_hide and effect.ui_play may target ONLY block IDs already present in packet.presentationContext.currentUi.blocks.
+- Prefer computed/state bindings for persistent UI behavior.
+- Use effect.ui_* for one-shot/transient presentation behavior.
+- Use only animation presets listed for the target UI block/runtime.
+- Accessibility/reduced-motion runtime policy always wins over authored animation.
+- App Builder and Pixel Logic remain separate editors and separate generated contracts.
+
 RUNTIME CAPABILITIES — NON-NEGOTIABLE
 - packet.runtimeCapabilities is authoritative.
 - A Pixel node existing in packet.registry does NOT prove the host can originate that event.
@@ -1669,16 +1225,10 @@ BUSINESS REQUIREMENT
 Describe the workflow after this line.`;
 }
 
-function parseJsonObject(
-  text: string,
-): Record<string, unknown> {
-  const cleaned =
-    text.trim();
+function parseJsonObject(text: string): Record<string, unknown> {
+  const cleaned = text.trim();
 
-  if (
-    !cleaned.startsWith("{") ||
-    !cleaned.endsWith("}")
-  ) {
+  if (!cleaned.startsWith("{") || !cleaned.endsWith("}")) {
     throw new Error(
       "AI response must contain exactly one JSON object with no Markdown fences or prose before/after it.",
     );
@@ -1687,10 +1237,7 @@ function parseJsonObject(
   let parsed: unknown;
 
   try {
-    parsed =
-      JSON.parse(
-        cleaned,
-      );
+    parsed = JSON.parse(cleaned);
   } catch (error) {
     throw new Error(
       error instanceof Error
@@ -1699,14 +1246,8 @@ function parseJsonObject(
     );
   }
 
-  if (
-    !parsed ||
-    typeof parsed !== "object" ||
-    Array.isArray(parsed)
-  ) {
-    throw new Error(
-      "AI response root must be one JSON object.",
-    );
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("AI response root must be one JSON object.");
   }
 
   return parsed as Record<string, unknown>;
@@ -1717,17 +1258,13 @@ export function parsePixelLogicAIImport(
   fallbackName = "AI Pixel Logic",
 ): PixelLogicAIImportResult {
   if (!text.trim()) {
-    throw new Error(
-      "Paste the AI-generated Pixel Reality JSON first.",
-    );
+    throw new Error("Paste the AI-generated Pixel Reality JSON first.");
   }
 
   const value = parseJsonObject(text);
 
   if (value.format !== PIXEL_LOGIC_AI_FORMAT) {
-    throw new Error(
-      `Expected format "${PIXEL_LOGIC_AI_FORMAT}".`,
-    );
+    throw new Error(`Expected format "${PIXEL_LOGIC_AI_FORMAT}".`);
   }
 
   const formatVersion = Number(value.formatVersion);
@@ -1745,9 +1282,7 @@ export function parsePixelLogicAIImport(
    * coerce malformed AI declarations.
    */
   if (formatVersion >= 2) {
-    validateRawPixelLogicAIEnvelope(
-      value,
-    );
+    validateRawPixelLogicAIEnvelope(value);
   }
 
   const responsibility = asObject(value.responsibility);
@@ -1758,15 +1293,10 @@ export function parsePixelLogicAIImport(
     typeof rawProgram !== "object" ||
     Array.isArray(rawProgram)
   ) {
-    throw new Error(
-      "AI envelope is missing a valid program object.",
-    );
+    throw new Error("AI envelope is missing a valid program object.");
   }
 
-  const program = normalizePixelLogicProgram(
-    rawProgram,
-    fallbackName,
-  );
+  const program = normalizePixelLogicProgram(rawProgram, fallbackName);
 
   const reality =
     formatVersion >= 2
@@ -1787,23 +1317,15 @@ export function parsePixelLogicAIImport(
    */
   program.metadata = {
     ...program.metadata,
-    generatedBy:
-      program.metadata.generatedBy ?? "external-ai",
+    generatedBy: program.metadata.generatedBy ?? "external-ai",
     pixelRealityDeclared: {
-      actorIds:
-        reality.actors.map((item) => item.id),
-      contextIds:
-        reality.contexts.map((item) => item.id),
-      objectIds:
-        reality.objects.map((item) => item.id),
-      stateIds:
-        reality.states.map((item) => item.id),
-      captureIds:
-        reality.captures.map((item) => item.id),
-      actionIds:
-        reality.actions.map((item) => item.id),
-      outputIds:
-        reality.outputs.map((item) => item.id),
+      actorIds: reality.actors.map((item) => item.id),
+      contextIds: reality.contexts.map((item) => item.id),
+      objectIds: reality.objects.map((item) => item.id),
+      stateIds: reality.states.map((item) => item.id),
+      captureIds: reality.captures.map((item) => item.id),
+      actionIds: reality.actions.map((item) => item.id),
+      outputIds: reality.outputs.map((item) => item.id),
     },
   };
 
@@ -1823,8 +1345,7 @@ export function parsePixelLogicAIImport(
       typeof responsibility.title === "string"
         ? responsibility.title
         : undefined,
-    unsupportedCapabilities:
-      asStringArray(value.unsupportedCapabilities),
+    unsupportedCapabilities: asStringArray(value.unsupportedCapabilities),
     notes: asStringArray(value.notes),
   };
 }
@@ -1843,7 +1364,8 @@ export function autoLayoutPixelLogicProgram(
       type.startsWith("time.") ||
       type.startsWith("data.") ||
       type.startsWith("logic.")
-    ) return 2;
+    )
+      return 2;
 
     if (type.startsWith("control.")) return 3;
     if (type.startsWith("effect.")) return 4;

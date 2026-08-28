@@ -104,7 +104,10 @@ import {
   suggestRecipeComposition,
 } from "@/lib/responsibility-intent-graph";
 
-import type { ResponsibilityUiBlockType } from "@/lib/responsibility-ui-document";
+import type {
+  ResponsibilityUiBlockType,
+  ResponsibilityUiTheme,
+} from "@/lib/responsibility-ui-document";
 
 import {
   VisualBlockInspector,
@@ -4738,6 +4741,65 @@ function AutomaticAppInspector({
   kernel: ResponsibilityKernel;
   onChange: (kernel: ResponsibilityKernel) => void;
 }) {
+  const visualDocument = kernel.metadata.ui?.uiDocument;
+
+  const visualTheme: ResponsibilityUiTheme = visualDocument?.theme ?? {
+    scope: "inherit",
+    base: "brixta_editorial_v1",
+    tokens: {},
+  };
+
+  function patchVisualTheme(patch: Partial<ResponsibilityUiTheme>) {
+    if (!visualDocument) {
+      return;
+    }
+
+    const nextTheme: ResponsibilityUiTheme = {
+      ...visualTheme,
+      ...patch,
+
+      tokens: patch.tokens
+        ? {
+            ...visualTheme.tokens,
+            ...patch.tokens,
+
+            colors: patch.tokens.colors
+              ? {
+                  ...visualTheme.tokens?.colors,
+                  ...patch.tokens.colors,
+                }
+              : visualTheme.tokens?.colors,
+
+            typography: patch.tokens.typography
+              ? {
+                  ...visualTheme.tokens?.typography,
+                  ...patch.tokens.typography,
+                }
+              : visualTheme.tokens?.typography,
+          }
+        : visualTheme.tokens,
+    };
+
+    onChange({
+      ...kernel,
+
+      metadata: {
+        ...kernel.metadata,
+
+        ui: {
+          ...(kernel.metadata.ui ?? {
+            layout: [],
+          }),
+
+          uiDocument: {
+            ...visualDocument,
+            theme: nextTheme,
+          },
+        },
+      },
+    });
+  }
+
   return (
     <div className="space-y-5">
       <div>
@@ -4783,6 +4845,139 @@ function AutomaticAppInspector({
           }
         />
       </Field>
+
+      {visualDocument && (
+        <div className="rounded-xl border p-4">
+          {/* BRIXTA RESPONSIBILITY VISUAL THEME */}
+          <div className="text-sm font-semibold">Visual style</div>
+
+          <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            The installed BRIXTA Flutter design remains the base. Override only
+            this Responsibility when needed.
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <Field label="Theme scope">
+              <select
+                className={inputClass}
+                value={visualTheme.scope}
+                onChange={(event) =>
+                  patchVisualTheme({
+                    scope: event.target.value as ResponsibilityUiTheme["scope"],
+                  })
+                }
+              >
+                <option value="inherit">Inherit BRIXTA app</option>
+
+                <option value="responsibility">Responsibility theme</option>
+
+                <option value="immersive">Immersive full screen</option>
+              </select>
+            </Field>
+
+            {visualTheme.scope !== "inherit" && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Primary">
+                    <input
+                      className={inputClass}
+                      type="color"
+                      value={visualTheme.tokens?.colors?.primary ?? "#3D7068"}
+                      onChange={(event) =>
+                        patchVisualTheme({
+                          tokens: {
+                            colors: {
+                              primary: event.target.value,
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </Field>
+
+                  <Field label="Background">
+                    <input
+                      className={inputClass}
+                      type="color"
+                      value={
+                        visualTheme.tokens?.colors?.background ?? "#F7F6F2"
+                      }
+                      onChange={(event) =>
+                        patchVisualTheme({
+                          tokens: {
+                            colors: {
+                              background: event.target.value,
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </Field>
+
+                  <Field label="Surface">
+                    <input
+                      className={inputClass}
+                      type="color"
+                      value={visualTheme.tokens?.colors?.surface ?? "#FBFAF6"}
+                      onChange={(event) =>
+                        patchVisualTheme({
+                          tokens: {
+                            colors: {
+                              surface: event.target.value,
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </Field>
+
+                  <Field label="Foreground">
+                    <input
+                      className={inputClass}
+                      type="color"
+                      value={
+                        visualTheme.tokens?.colors?.foreground ?? "#1C1C1C"
+                      }
+                      onChange={(event) =>
+                        patchVisualTheme({
+                          tokens: {
+                            colors: {
+                              foreground: event.target.value,
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Typography scale">
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min={0.75}
+                    max={1.6}
+                    step={0.05}
+                    value={visualTheme.tokens?.typography?.scale ?? 1}
+                    onChange={(event) =>
+                      patchVisualTheme({
+                        tokens: {
+                          typography: {
+                            scale: Math.max(
+                              0.75,
+                              Math.min(1.6, Number(event.target.value) || 1),
+                            ),
+                          },
+                        },
+                      })
+                    }
+                  />
+                </Field>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border p-4">
         <div className="text-sm font-semibold">Saved work</div>
