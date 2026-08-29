@@ -3,6 +3,15 @@
 "use client";
 
 import {
+  AiBuilderBrief,
+} from "./ai-builder-brief";
+
+import {
+  augmentBuilderAiContext,
+  type BuilderAiMode,
+} from "@/lib/builder-ai-intent-context";
+
+import {
   useCallback,
   useEffect,
   useMemo,
@@ -184,6 +193,18 @@ export default function PixelLogicStudioClient() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
+
+  // BRIXTA_AI_USER_BRIEF_V11
+  const [aiUserBrief, setAiUserBrief] =
+    useState("");
+
+  const [
+    aiGenerationMode,
+    setAiGenerationMode,
+  ] = useState<BuilderAiMode>(
+    "logic",
+  );
+
   const [aiImportText, setAiImportText] = useState("");
   const [aiImportResult, setAiImportResult] =
     useState<PixelLogicAIImportResult | null>(null);
@@ -407,9 +428,28 @@ export default function PixelLogicStudioClient() {
         kernel,
         currentProgram: program,
       });
-      await navigator.clipboard.writeText(context);
+      // BRIXTA_AI_INTENT_CLIPBOARD_V11
+      await navigator.clipboard.writeText(
+        augmentBuilderAiContext(
+          context,
+          {
+            kind: "logic",
+            mode: aiGenerationMode,
+            userRequest: aiUserBrief,
+            contextItems: [
+            "Current Responsibility",
+            "Canonical Responsibility Kernel",
+            "Existing Pixel Logic program",
+            "Existing actors",
+            "Existing actions",
+            "Existing states",
+            "Registered Pixel Logic nodes",
+          ],
+          },
+        ),
+      );
       setMessage(
-        "AI context copied. Paste it into ChatGPT, add your business requirement, then paste the returned JSON back here.",
+        "AI context + your Logic brief copied. Paste it into ChatGPT; the behaviour requirement is already included. Then paste the returned JSON back here.",
       );
     } catch (error) {
       setMessage(
@@ -1277,6 +1317,29 @@ export default function PixelLogicStudioClient() {
 
                     return (
                       <Field key={field.key} label={field.label}>
+      {/* BRIXTA_AI_BRIEF_UI_V11 */}
+      <AiBuilderBrief
+        kind="logic"
+        value={aiUserBrief}
+        onChange={setAiUserBrief}
+        mode={aiGenerationMode}
+        onModeChange={
+          setAiGenerationMode
+        }
+        inventory={[
+          `${nodeSpecs.length} registered logic blocks`,
+          `${categories.length} logic categories`,
+          `${program.nodes.length} current nodes`,
+          `${program.edges.length} current connections`,
+        ]}
+        contextItems={[
+          "Current Responsibility",
+          "Kernel",
+          "Existing logic",
+          "Registered nodes",
+        ]}
+      />
+
                         <input
                           className={inputClass}
                           type={field.kind === "number" ? "number" : "text"}

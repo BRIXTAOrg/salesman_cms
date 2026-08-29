@@ -1,6 +1,15 @@
 "use client";
 
 import {
+  AiBuilderBrief,
+} from "./ai-builder-brief";
+
+import {
+  augmentBuilderAiContext,
+  type BuilderAiMode,
+} from "@/lib/builder-ai-intent-context";
+
+import {
   DndContext,
   DragOverlay,
   PointerSensor,
@@ -5831,6 +5840,18 @@ export default function ResponsibilityAppBuilder({
    * Pixel Logic remains a separate editor / separate AI contract.
    */
   const [aiOpen, setAiOpen] = useState(false);
+
+  // BRIXTA_AI_USER_BRIEF_V11
+  const [aiUserBrief, setAiUserBrief] =
+    useState("");
+
+  const [
+    aiGenerationMode,
+    setAiGenerationMode,
+  ] = useState<BuilderAiMode>(
+    "create",
+  );
+
   const [aiImportText, setAiImportText] = useState("");
   const [aiImportResult, setAiImportResult] =
     useState<ResponsibilityAppBuilderAIImportResult | null>(null);
@@ -6023,7 +6044,30 @@ export default function ResponsibilityAppBuilder({
         nativeBlocks: aiNativeContext(),
       });
 
-      await navigator.clipboard.writeText(context);
+      // BRIXTA_AI_INTENT_CLIPBOARD_V11
+      await navigator.clipboard.writeText(
+        augmentBuilderAiContext(
+          context,
+          {
+            kind: "app",
+            mode: aiGenerationMode,
+            userRequest: aiUserBrief,
+            contextItems: [
+            "Current Responsibility App",
+            "Current UI document",
+            "Existing captures",
+            "Existing actions",
+            "Existing outputs",
+            "Existing roles",
+            "Existing employees",
+            "Existing departments",
+            "Existing Data Sources",
+            "Registered visual blocks",
+            "Registered native phone capabilities",
+          ],
+          },
+        ),
+      );
 
       setAiMessage(
         "App Builder AI context copied. Paste it into ChatGPT, describe the phone/app you want, then paste the returned JSON here.",
@@ -6523,6 +6567,34 @@ export default function ResponsibilityAppBuilder({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
+      {/* BRIXTA_AI_BRIEF_UI_V11 */}
+      <AiBuilderBrief
+        kind="app"
+        value={aiUserBrief}
+        onChange={setAiUserBrief}
+        mode={aiGenerationMode}
+        onModeChange={
+          setAiGenerationMode
+        }
+        inventory={[
+          `${CAPTURE_CATALOG.length} capture / input primitives`,
+          `${ACTION_CATALOG.length} action primitives`,
+          `${OUTPUT_CATALOG.length} output primitives`,
+          `${NATIVE_BLOCKS.length + RESPONSIBILITY_APP_BUILDER_BLOCKS.length} native / extension blocks`,
+          "Existing visual presentation registry",
+          "Existing interactive PlayPhone simulator",
+        ]}
+        contextItems={[
+          "Current app",
+          "Roles",
+          "Employees",
+          "Departments",
+          "Data Sources",
+          "Visual blocks",
+          "Phone capabilities",
+        ]}
+      />
+
       <div className="space-y-4">
         <Panel>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
