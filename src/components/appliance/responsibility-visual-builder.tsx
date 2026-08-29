@@ -102,6 +102,10 @@ function visualIcon(type: ResponsibilityUiBlockType): LucideIcon {
     return BadgeIcon;
   }
 
+  if (type === "interaction.capture") {
+    return Zap;
+  }
+
   if (type === "interaction.action_button") {
     return MousePointerClick;
   }
@@ -296,6 +300,648 @@ function defaultVisibility(kernel: ResponsibilityKernel) {
     value: terminal.id,
   };
 }
+
+
+/*
+ * BRIXTA_VISUAL_FUNCTIONAL_PLACEMENT_V11
+ *
+ * BUSINESS FUNCTIONALITY
+ * ----------------------
+ * Kernel capture/action.
+ *
+ * VISUAL PLACEMENT
+ * ----------------
+ * uiDocument block.
+ *
+ * There is deliberately NO second state system here.
+ */
+
+function visualCaptureKey(
+  capture: {
+    id: string;
+    storeAs?: string;
+  },
+) {
+  return (
+    capture.storeAs?.trim() ||
+    capture.id
+  );
+}
+
+
+function normalizeVisualCaptureToken(
+  value: unknown,
+) {
+  return String(
+    value ?? "",
+  )
+    .trim()
+    .toLowerCase()
+    .replace(
+      /^\d+\s*[/.:_-]*\s*/,
+      "",
+    )
+    .replace(
+      /\b(current|selected|value|field)\b/g,
+      " ",
+    )
+    .replace(
+      /[^a-z0-9]+/g,
+      "_",
+    )
+    .replace(
+      /^_+|_+$/g,
+      "",
+    );
+}
+
+
+function simplifiedCaptureToken(
+  value: unknown,
+) {
+  return normalizeVisualCaptureToken(
+    value,
+  )
+    .replace(
+      /_(id|value|field)$/,
+      "",
+    )
+    .replace(
+      /^(current|selected)_/,
+      "",
+    );
+}
+
+
+function visualCaptureBindingMatches(
+  block: ResponsibilityUiBlock,
+  capture: {
+    id: string;
+    label?: string;
+    storeAs?: string;
+  },
+) {
+  // BRIXTA_VISUAL_CAPTURE_RECONCILIATION_V12B
+  //
+  // First: canonical exact binding.
+  if (
+    block.binding?.scope ===
+      "capture"
+  ) {
+    const key =
+      block.binding.key ?? "";
+
+    if (
+      key === capture.id ||
+      key === capture.storeAs ||
+      key === visualCaptureKey(
+        capture,
+      )
+    ) {
+      return true;
+    }
+  }
+
+
+  /*
+   * Older AI-generated visual apps can contain read-only blocks like:
+   *
+   *   display.value
+   *   scope: record
+   *   key: dealer
+   *
+   * even though a REAL Dealer capture exists.
+   *
+   * Match using the semantic identity without changing the layout.
+   */
+  const captureTokens =
+    new Set(
+      [
+        capture.id,
+        capture.storeAs,
+        capture.label,
+        visualCaptureKey(
+          capture,
+        ),
+      ]
+        .map(
+          simplifiedCaptureToken,
+        )
+        .filter(Boolean),
+    );
+
+
+  const config =
+    block.config ?? {};
+
+
+  const blockTokens =
+    new Set(
+      [
+        block.binding?.key,
+        config.label,
+        config.title,
+        config.placeholder,
+        block.id,
+      ]
+        .map(
+          simplifiedCaptureToken,
+        )
+        .filter(Boolean),
+    );
+
+
+  for (
+    const token
+    of captureTokens
+  ) {
+    if (
+      blockTokens.has(
+        token,
+      )
+    ) {
+      return true;
+    }
+  }
+
+
+  /*
+   * Controlled suffix matching:
+   *
+   *   dealer_id       <-> dealer
+   *   visit_location  <-> location
+   *   order_qty_value <-> order_qty
+   */
+  for (
+    const captureToken
+    of captureTokens
+  ) {
+    if (
+      captureToken.length < 4
+    ) {
+      continue;
+    }
+
+    for (
+      const blockToken
+      of blockTokens
+    ) {
+      if (
+        blockToken.length < 4
+      ) {
+        continue;
+      }
+
+      if (
+        blockToken.endsWith(
+          `_${captureToken}`,
+        ) ||
+        captureToken.endsWith(
+          `_${blockToken}`,
+        )
+      ) {
+        return true;
+      }
+    }
+  }
+
+
+  return false;
+}
+
+
+function visualCaptureVariant(
+  kind: string,
+) {
+  if (
+    [
+      "entity_reference",
+      "person_reference",
+      "responsibility_reference",
+    ].includes(kind)
+  ) {
+    return "picker";
+  }
+
+  if (
+    [
+      "photo",
+      "video",
+      "audio",
+      "file",
+      "signature",
+    ].includes(kind)
+  ) {
+    return "evidence";
+  }
+
+  if (
+    [
+      "gps",
+      "route",
+    ].includes(kind)
+  ) {
+    return "location";
+  }
+
+  if (
+    [
+      "choice",
+      "checklist",
+    ].includes(kind)
+  ) {
+    return "choice";
+  }
+
+  return "field";
+}
+
+
+export function addVisualCaptureBlock(
+  kernel: ResponsibilityKernel,
+  captureId: string,
+  index?: number,
+): {
+  kernel: ResponsibilityKernel;
+  id: string;
+} {
+  const item =
+    kernel.possibilities.find(
+      (
+        possibility,
+      ): possibility is Extract<
+        (typeof kernel.possibilities)[number],
+        {
+          type: "capture";
+        }
+      > =>
+        possibility.type ===
+          "capture" &&
+        possibility.capture.id ===
+          captureId,
+    );
+
+  if (!item) {
+    throw new Error(
+      `Capture "${captureId}" does not exist.`,
+    );
+  }
+
+  const document =
+    ensureVisualDocument(
+      kernel,
+    );
+
+  /*
+   * Already functional.
+   */
+  const existing =
+    document.blocks.find(
+      (block) =>
+        block.type ===
+          "interaction.capture" &&
+        visualCaptureBindingMatches(
+          block,
+          item.capture,
+        ),
+    );
+
+  if (existing) {
+    return {
+      kernel,
+      id: existing.id,
+    };
+  }
+
+  /*
+   * IMPORTANT:
+   *
+   * Previous AI-generated visual apps often created:
+   *
+   *      display.value
+   *          ↓
+   *      Dealer / Location / Quantity
+   *
+   * That is WHY Flutter displayed read-only "0" / labels instead of
+   * controls.
+   *
+   * Convert the SAME block IN PLACE.
+   *
+   * We retain:
+   *
+   *   block ID
+   *   root position
+   *   parent layout
+   *   visibility
+   *   animation
+   *
+   * so the existing visual composition is not destroyed.
+   */
+  const legacyDisplay =
+    document.blocks.find(
+      (block) =>
+        block.type ===
+          "display.value" &&
+        visualCaptureBindingMatches(
+          block,
+          item.capture,
+        ),
+    );
+
+  if (legacyDisplay) {
+    legacyDisplay.type =
+      "interaction.capture";
+
+    legacyDisplay.config = {
+      ...legacyDisplay.config,
+
+      label:
+        item.capture.label,
+
+      captureKind:
+        item.capture.kind,
+
+      variant:
+        visualCaptureVariant(
+          item.capture.kind,
+        ),
+
+      // The existing designed app already owns the visible label.
+      showLabel: false,
+    };
+
+    return {
+      kernel:
+        withDocument(
+          kernel,
+          document,
+        ),
+
+      id:
+        legacyDisplay.id,
+    };
+  }
+
+  const id =
+    randomKey(
+      "interaction_capture",
+    );
+
+  document.blocks.push({
+    id,
+
+    type:
+      "interaction.capture",
+
+    binding: {
+      scope:
+        "capture",
+
+      key:
+        visualCaptureKey(
+          item.capture,
+        ),
+    },
+
+    config: {
+      label:
+        item.capture.label,
+
+      captureKind:
+        item.capture.kind,
+
+      variant:
+        visualCaptureVariant(
+          item.capture.kind,
+        ),
+
+      showLabel: true,
+    },
+  });
+
+  const position =
+    Math.max(
+      0,
+      Math.min(
+        index ??
+          document.rootIds.length,
+
+        document.rootIds.length,
+      ),
+    );
+
+  document.rootIds.splice(
+    position,
+    0,
+    id,
+  );
+
+  return {
+    kernel:
+      withDocument(
+        kernel,
+        document,
+      ),
+
+    id,
+  };
+}
+
+
+export function addVisualActionBlock(
+  kernel: ResponsibilityKernel,
+  actionId: string,
+  index?: number,
+): {
+  kernel: ResponsibilityKernel;
+  id: string;
+} {
+  const item =
+    kernel.possibilities.find(
+      (
+        possibility,
+      ): possibility is Extract<
+        (typeof kernel.possibilities)[number],
+        {
+          type: "action";
+        }
+      > =>
+        possibility.type ===
+          "action" &&
+        possibility.action.id ===
+          actionId,
+    );
+
+  if (!item) {
+    throw new Error(
+      `Action "${actionId}" does not exist.`,
+    );
+  }
+
+  const document =
+    ensureVisualDocument(
+      kernel,
+    );
+
+  const existing =
+    document.blocks.find(
+      (block) =>
+        block.type ===
+          "interaction.action_button" &&
+        block.actionId ===
+          actionId,
+    );
+
+  if (existing) {
+    return {
+      kernel,
+      id: existing.id,
+    };
+  }
+
+  const id =
+    randomKey(
+      "interaction_action",
+    );
+
+  const dangerous =
+    [
+      "reject",
+      "cancel",
+      "delete",
+    ].includes(
+      item.action.kind,
+    );
+
+  document.blocks.push({
+    id,
+
+    type:
+      "interaction.action_button",
+
+    actionId,
+
+    config: {
+      label:
+        item.action.label,
+
+      style:
+        dangerous
+          ? "danger"
+          : "primary",
+
+      size:
+        "large",
+    },
+  });
+
+  const position =
+    Math.max(
+      0,
+      Math.min(
+        index ??
+          document.rootIds.length,
+
+        document.rootIds.length,
+      ),
+    );
+
+  document.rootIds.splice(
+    position,
+    0,
+    id,
+  );
+
+  return {
+    kernel:
+      withDocument(
+        kernel,
+        document,
+      ),
+
+    id,
+  };
+}
+
+
+/*
+ * One-click migration for an existing visual app.
+ *
+ * Captures:
+ *   converts old display.value bindings in-place or adds missing input.
+ *
+ * Actions:
+ *   keeps existing action button or adds the missing real button.
+ */
+export function wireVisualFunctionality(
+  kernel: ResponsibilityKernel,
+) {
+  let next =
+    kernel;
+
+  const captureIds =
+    kernel.possibilities
+      .filter(
+        (
+          item,
+        ): item is Extract<
+          (typeof kernel.possibilities)[number],
+          {
+            type: "capture";
+          }
+        > =>
+          item.type ===
+          "capture",
+      )
+      .map(
+        (item) =>
+          item.capture.id,
+      );
+
+  for (
+    const captureId
+    of captureIds
+  ) {
+    next =
+      addVisualCaptureBlock(
+        next,
+        captureId,
+      ).kernel;
+  }
+
+  const actionIds =
+    kernel.possibilities
+      .filter(
+        (
+          item,
+        ): item is Extract<
+          (typeof kernel.possibilities)[number],
+          {
+            type: "action";
+          }
+        > =>
+          item.type ===
+          "action",
+      )
+      .map(
+        (item) =>
+          item.action.id,
+      );
+
+  for (
+    const actionId
+    of actionIds
+  ) {
+    next =
+      addVisualActionBlock(
+        next,
+        actionId,
+      ).kernel;
+  }
+
+  return next;
+}
+
 
 export function addVisualBlock(
   kernel: ResponsibilityKernel,
@@ -582,6 +1228,320 @@ function PaletteVisualBlock({
   );
 }
 
+
+export function VisualFunctionalPlacementSection({
+  kernel,
+  query,
+  onPlaceCapture,
+  onPlaceAction,
+  onWireAll,
+}: {
+  kernel: ResponsibilityKernel;
+
+  query: string;
+
+  onPlaceCapture:
+    (captureId: string) =>
+      void;
+
+  onPlaceAction:
+    (actionId: string) =>
+      void;
+
+  onWireAll:
+    () =>
+      void;
+}) {
+  const document =
+    ensureVisualDocument(
+      kernel,
+    );
+
+  const q =
+    query
+      .trim()
+      .toLowerCase();
+
+  const captures =
+    kernel.possibilities
+      .filter(
+        (
+          item,
+        ): item is Extract<
+          (typeof kernel.possibilities)[number],
+          {
+            type: "capture";
+          }
+        > =>
+          item.type ===
+          "capture",
+      )
+      .filter(
+        (item) => {
+          if (!q) {
+            return true;
+          }
+
+          const source =
+            typeof item.capture
+              .config.source ===
+              "string"
+              ? item.capture
+                  .config.source
+              : "";
+
+          return [
+            item.capture.label,
+            item.capture.kind,
+            source,
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(q);
+        },
+      );
+
+  const actions =
+    kernel.possibilities
+      .filter(
+        (
+          item,
+        ): item is Extract<
+          (typeof kernel.possibilities)[number],
+          {
+            type: "action";
+          }
+        > =>
+          item.type ===
+          "action",
+      )
+      .filter(
+        (item) => {
+          if (!q) {
+            return true;
+          }
+
+          return [
+            item.action.label,
+            item.action.kind,
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(q);
+        },
+      );
+
+  if (
+    !captures.length &&
+    !actions.length
+  ) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border bg-muted/[0.08] p-3">
+        <div className="text-xs font-semibold">
+          Make the designed app functional
+        </div>
+
+        <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+          Keeps the current visual composition. Existing read-only capture
+          displays become real inputs and missing action buttons are connected.
+        </div>
+
+        <button
+          type="button"
+          onClick={
+            onWireAll
+          }
+          className="mt-3 w-full rounded-lg border bg-background px-3 py-2 text-xs font-medium hover:bg-muted/30"
+        >
+          Make current app functional
+        </button>
+      </div>
+
+      {captures.length > 0 && (
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <Zap className="h-3 w-3" />
+            Functional inputs
+          </div>
+
+          <div className="space-y-2">
+            {captures.map(
+              (item) => {
+                const live =
+                  document.blocks.some(
+                    (block) =>
+                      block.type ===
+                        "interaction.capture" &&
+                      visualCaptureBindingMatches(
+                        block,
+                        item.capture,
+                      ),
+                  );
+
+                const legacy =
+                  !live &&
+                  document.blocks.some(
+                    (block) =>
+                      block.type ===
+                        "display.value" &&
+                      visualCaptureBindingMatches(
+                        block,
+                        item.capture,
+                      ),
+                  );
+
+                const source =
+                  typeof item.capture
+                    .config.source ===
+                    "string"
+                    ? item.capture
+                        .config.source
+                    : "";
+
+                return (
+                  <div
+                    key={
+                      item.capture.id
+                    }
+                    className="rounded-xl border bg-background p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium">
+                          {
+                            item.capture
+                              .label
+                          }
+                        </div>
+
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {humanize(
+                            item.capture
+                              .kind,
+                          )}
+
+                          {source
+                            ? ` · ${source}`
+                            : ""}
+                        </div>
+                      </div>
+
+                      <span
+                        className={cx(
+                          "shrink-0 rounded-md border px-2 py-1 text-[10px]",
+                          live
+                            ? "border-emerald-500/20 bg-emerald-500/10"
+                            : legacy
+                              ? "border-amber-500/20 bg-amber-500/10"
+                              : "text-muted-foreground",
+                        )}
+                      >
+                        {live
+                          ? "Live"
+                          : legacy
+                            ? "Display only"
+                            : "Not placed"}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={
+                        live
+                      }
+                      className="mt-2 text-xs font-medium text-primary disabled:cursor-default disabled:text-muted-foreground"
+                      onClick={() =>
+                        onPlaceCapture(
+                          item.capture.id,
+                        )
+                      }
+                    >
+                      {live
+                        ? "✓ On app"
+                        : legacy
+                          ? "Make interactive"
+                          : "+ Place on app"}
+                    </button>
+                  </div>
+                );
+              },
+            )}
+          </div>
+        </div>
+      )}
+
+      {actions.length > 0 && (
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <MousePointerClick className="h-3 w-3" />
+            Functional actions
+          </div>
+
+          <div className="space-y-2">
+            {actions.map(
+              (item) => {
+                const placed =
+                  document.blocks.some(
+                    (block) =>
+                      block.type ===
+                        "interaction.action_button" &&
+                      block.actionId ===
+                        item.action.id,
+                  );
+
+                return (
+                  <div
+                    key={
+                      item.action.id
+                    }
+                    className="rounded-xl border bg-background p-3"
+                  >
+                    <div className="text-sm font-medium">
+                      {
+                        item.action
+                          .label
+                      }
+                    </div>
+
+                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+                      {humanize(
+                        item.action
+                          .kind,
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={
+                        placed
+                      }
+                      className="mt-2 text-xs font-medium text-primary disabled:cursor-default disabled:text-muted-foreground"
+                      onClick={() =>
+                        onPlaceAction(
+                          item.action.id,
+                        )
+                      }
+                    >
+                      {placed
+                        ? "✓ Connected"
+                        : "+ Place button"}
+                    </button>
+                  </div>
+                );
+              },
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export function VisualPaletteSection({
   query,
   onAdd,
@@ -589,8 +1549,14 @@ export function VisualPaletteSection({
   query: string;
   onAdd: (type: ResponsibilityUiBlockType) => void;
 }) {
-  const matches = RESPONSIBILITY_UI_BLOCK_REGISTRY.filter((definition) =>
-    paletteMatches(definition, query),
+  const matches = RESPONSIBILITY_UI_BLOCK_REGISTRY.filter(
+    (definition) =>
+      definition.type !==
+        "interaction.capture" &&
+      paletteMatches(
+        definition,
+        query,
+      ),
   );
 
   if (matches.length === 0) {
@@ -838,6 +1804,85 @@ function VisualPreviewBlock({
       <span className="inline-flex rounded-full border bg-muted/30 px-3 py-1 text-xs font-semibold">
         {previewBinding(block.binding)}
       </span>
+    );
+  }
+
+  if (block.type === "interaction.capture") {
+    const label =
+      String(
+        config.label ??
+        previewBinding(
+          block.binding,
+        ),
+      );
+
+    const kind =
+      String(
+        config.captureKind ??
+        "",
+      );
+
+    const variant =
+      String(
+        config.variant ??
+        "auto",
+      );
+
+    const evidence =
+      variant ===
+        "evidence" ||
+      [
+        "photo",
+        "video",
+        "audio",
+        "file",
+        "signature",
+      ].includes(kind);
+
+    const location =
+      variant ===
+        "location" ||
+      [
+        "gps",
+        "route",
+      ].includes(kind);
+
+    const picker =
+      variant ===
+        "picker" ||
+      [
+        "entity_reference",
+        "person_reference",
+        "responsibility_reference",
+      ].includes(kind);
+
+    return (
+      <div
+        className={cx(
+          "space-y-2",
+          animationClass,
+        )}
+      >
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </div>
+
+        <div
+          className={cx(
+            "flex min-h-12 w-full items-center rounded-xl border bg-background px-4 py-3 text-sm",
+            evidence &&
+              "min-h-28 justify-center border-dashed text-center",
+          )}
+        >
+          {evidence
+            ? "+ Capture evidence"
+            : location
+              ? "Use current location"
+              : picker
+                ? "Search / choose..."
+                : "Enter value..."}
+        </div>
+      </div>
     );
   }
 
@@ -1144,8 +2189,10 @@ export function VisualBlockInspector({
       </div>
 
       <div className="rounded-xl border bg-primary/[0.025] p-3 text-xs leading-relaxed text-muted-foreground">
-        This controls presentation only. Business calculations and workflow
-        remain in Pixel Logic.
+        {block.type ===
+        "interaction.capture"
+          ? "This places an existing functional capture inside the designed app. It uses the same Kernel capture and the same phone state as the normal Responsibility runtime."
+          : "This controls presentation only. Business calculations and workflow remain in Pixel Logic."}
       </div>
 
       <div className="space-y-3">
@@ -1167,6 +2214,48 @@ export function VisualBlockInspector({
                 })
               }
             />
+          </Field>
+        )}
+
+        {block.type === "interaction.capture" && (
+          <Field label="Input appearance">
+            <select
+              className={inputClass}
+              value={String(
+                block.config.variant ??
+                  "auto",
+              )}
+              onChange={(event) =>
+                config({
+                  variant:
+                    event.target.value,
+                })
+              }
+            >
+              <option value="auto">
+                Automatic
+              </option>
+
+              <option value="field">
+                Field
+              </option>
+
+              <option value="picker">
+                Search / picker
+              </option>
+
+              <option value="evidence">
+                Evidence tile
+              </option>
+
+              <option value="location">
+                Location control
+              </option>
+
+              <option value="choice">
+                Choice
+              </option>
+            </select>
           </Field>
         )}
 
@@ -1304,7 +2393,14 @@ export function VisualBlockInspector({
             Data
           </div>
 
-          <Field label="Display value from">
+          <Field
+            label={
+              block.type ===
+              "interaction.capture"
+                ? "Edit this capture"
+                : "Display value from"
+            }
+          >
             <select
               className={inputClass}
               value={encodeBinding(block.binding)}

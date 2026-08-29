@@ -75,7 +75,10 @@ export type ResponsibilityAppBuilderAIImportResult = {
     /**
      * Real visual app document.
      *
-     * Captures are NOT presentation blocks.
+     * Captures remain canonical DATA COLLECTION primitives.
+     *
+     * interaction.capture is the visual placement of an existing capture.
+     * It does NOT create another capture system.
      */
     uiDocument: ResponsibilityUiDocument;
   };
@@ -407,7 +410,11 @@ export function buildResponsibilityAppBuilderAIContext(
           base: "brixta_editorial_v1",
         },
 
-        rootIds: ["example_heading", "example_action_button"],
+        rootIds: [
+          "example_heading",
+          "example_note_input",
+          "example_action_button",
+        ],
 
         blocks: [
           {
@@ -419,6 +426,26 @@ export function buildResponsibilityAppBuilderAIContext(
               text: "Example app",
               size: "hero",
               alignment: "center",
+            },
+          },
+
+          {
+            id: "example_note_input",
+
+            type: "interaction.capture",
+
+            binding: {
+              scope: "capture",
+
+              key: "note",
+            },
+
+            config: {
+              label: "Note",
+
+              captureKind: "short_text",
+
+              variant: "field",
             },
           },
 
@@ -541,7 +568,13 @@ export function buildResponsibilityAppBuilderAIContext(
       "Use theme.scope=immersive only for experiences that genuinely need to own the full Responsibility screen.",
       "Do not invent theme tokens outside presentationRuntime.designSystem.supportedThemeTokens.",
       "System accessibility and reduced-motion preferences outrank authored animation.",
-      "A capture is DATA COLLECTION. It is not a generic display widget.",
+      "A capture is DATA COLLECTION. It is not a generic read-only display widget.",
+      "BRIXTA_AI_VISUAL_INPUT_RULE_V11",
+      "When the employee must ENTER, SELECT, PICK or CAPTURE a value inside a visual app, create interaction.capture bound to that EXISTING capture.",
+      "Do NOT use display.value for editable Dealer selection, Business Record selection, Photo, File, Signature, GPS, Quantity, Choice, Notes or other employee input.",
+      "display.value remains read-only presentation.",
+      "For entity_reference and other business references, reuse an existing Data Source by setting capture.config.source to the Data Source key.",
+      "Preserve the requested visual composition around interaction.capture blocks. Never fall back to a generic enterprise form merely because the app contains captures.",
       "NEVER create a number capture merely to display a counter, score, KPI or calculated value.",
       "NEVER create a short_text capture merely to display a banner, heading, success message or animation text.",
       "Use app.uiDocument display.* blocks for read-only presentation.",
@@ -1006,6 +1039,79 @@ export function parseResponsibilityAppBuilderAIImport(
   });
 
   const uiDocument = parseResponsibilityUiDocument(app.uiDocument);
+
+  // BRIXTA_AI_VISUAL_FUNCTION_REFERENCE_VALIDATION_V11
+  //
+  // Prevent AI from producing beautiful-but-dead controls.
+  const captureBindingKeys =
+    new Set<string>();
+
+  for (const capture of captures) {
+    captureBindingKeys.add(
+      capture.id,
+    );
+
+    if (
+      typeof capture.storeAs ===
+        "string" &&
+      capture.storeAs.trim()
+    ) {
+      captureBindingKeys.add(
+        capture.storeAs,
+      );
+    }
+  }
+
+  const declaredActionIds =
+    new Set(
+      actions.map(
+        (action) =>
+          action.id,
+      ),
+    );
+
+  for (const block of uiDocument.blocks) {
+    if (
+      block.type ===
+      "interaction.capture"
+    ) {
+      if (
+        block.binding?.scope !==
+          "capture" ||
+        !block.binding.key
+      ) {
+        throw new Error(
+          `UI input "${block.id}" must bind to an existing capture.`,
+        );
+      }
+
+      if (
+        !captureBindingKeys.has(
+          block.binding.key,
+        )
+      ) {
+        throw new Error(
+          `UI input "${block.id}" references unknown capture "${block.binding.key}".`,
+        );
+      }
+    }
+
+    if (
+      block.type ===
+      "interaction.action_button"
+    ) {
+      if (
+        !block.actionId ||
+        !declaredActionIds.has(
+          block.actionId,
+        )
+      ) {
+        throw new Error(
+          `UI action button "${block.id}" must reference an existing app action.`,
+        );
+      }
+    }
+  }
 
   return {
     format: RESPONSIBILITY_APP_BUILDER_AI_FORMAT,

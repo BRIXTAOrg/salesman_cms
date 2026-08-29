@@ -121,6 +121,7 @@ export type ResponsibilityUiBlockType =
   | "display.metric"
   | "display.progress"
   | "display.badge"
+  | "interaction.capture"
   | "interaction.action_button"
   | "overlay.banner"
   | "overlay.fullscreen"
@@ -362,6 +363,45 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY: ResponsibilityUiBlockDefinition[]
       keywords: ["badge", "status", "pill", "tag"],
       allowsBinding: true,
       defaultConfig: {},
+      runtime: "brixta",
+    },
+
+    // BRIXTA_VISUAL_CAPTURE_INPUT_V11
+    //
+    // A Kernel capture remains the canonical data-collection primitive.
+    //
+    // interaction.capture merely places that EXISTING capture inside
+    // the designed visual application.
+    {
+      type: "interaction.capture",
+      label: "Live Input",
+      category: "Interaction",
+      description:
+        "Place an existing Responsibility capture into the designed app as a real interactive control.",
+      keywords: [
+        "input",
+        "capture",
+        "field",
+        "dealer",
+        "business record",
+        "picker",
+        "photo",
+        "evidence",
+        "number",
+        "choice",
+        "gps",
+        "interactive",
+      ],
+      allowsBinding: true,
+      defaultConfig: {
+        variant: "auto",
+      },
+      supportedAnimations: [
+        "fade",
+        "scale",
+        "fade_scale",
+        "slide_up",
+      ],
       runtime: "brixta",
     },
 

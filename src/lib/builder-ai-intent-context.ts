@@ -145,6 +145,11 @@ APP QUALITY CONTRACT
 - Do not return a generic enterprise form when the user explicitly requests a designed experience.
 - Use strong visual hierarchy, spacing, typography, surfaces and motion where appropriate.
 - Functional controls must remain real functional controls.
+- BRIXTA_VISUAL_FUNCTIONAL_INTENT_V11
+- In a visual uiDocument, an editable existing capture must be placed with interaction.capture.
+- display.value, display.metric and display.counter are read-only presentation and must never impersonate an editable control.
+- Dealer/site/product/customer/business-record selection must use an existing reference capture + existing Data Source whenever available.
+- Preserve the existing visual composition when converting a read-only capture display into an interactive capture.
 - Never create decorative fake buttons, fake dropdowns or fake evidence controls.
 - Business-record selection must use a real reference/Data Source binding where available.
 - Photo, File, Signature, GPS and similar inputs must use real registered capture primitives.

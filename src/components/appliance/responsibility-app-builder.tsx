@@ -120,9 +120,13 @@ import type {
 
 import {
   VisualBlockInspector,
+  VisualFunctionalPlacementSection,
   VisualPaletteSection,
   VisualPhoneCanvas,
   addVisualBlock,
+  addVisualCaptureBlock,
+  addVisualActionBlock,
+  wireVisualFunctionality,
   deleteVisualBlock,
   reorderVisualRoots,
 } from "./responsibility-visual-builder";
@@ -6179,6 +6183,35 @@ export default function ResponsibilityAppBuilder({
       ...(next.metadata.ui ?? { layout: [] }),
       layout: nextLayout,
     };
+    // BRIXTA_FUNCTIONAL_VISUAL_DEFAULT_UX_V11
+    //
+    // If this Responsibility already has a designed uiDocument,
+    // "+ Dealer", "+ Photo", "+ Number", etc. means:
+    //
+    //     CREATE THE CAPTURE
+    //             +
+    //     PLACE THE REAL INPUT
+    //
+    // not "create hidden functionality and make the admin wire it later".
+    if (next.metadata.ui?.uiDocument) {
+      const visual =
+        addVisualCaptureBlock(
+          next,
+          captureId,
+        );
+
+      onChange(
+        visual.kernel,
+      );
+
+      setSelection({
+        kind: "ui",
+        id: visual.id,
+      });
+
+      return;
+    }
+
     onChange(next);
     setSelection({ kind: "possibility", id: possibilityId });
   }
@@ -6204,6 +6237,25 @@ export default function ResponsibilityAppBuilder({
       ...(next.metadata.ui ?? { layout: [] }),
       layout: nextLayout,
     };
+    if (next.metadata.ui?.uiDocument) {
+      const visual =
+        addVisualCaptureBlock(
+          next,
+          captureId,
+        );
+
+      onChange(
+        visual.kernel,
+      );
+
+      setSelection({
+        kind: "ui",
+        id: visual.id,
+      });
+
+      return;
+    }
+
     onChange(next);
     setSelection({ kind: "possibility", id: possibilityId });
   }
@@ -6230,6 +6282,26 @@ export default function ResponsibilityAppBuilder({
       layout: nextLayout,
     };
     next = ensureBaseRule(next, action).kernel;
+
+    if (next.metadata.ui?.uiDocument) {
+      const visual =
+        addVisualActionBlock(
+          next,
+          actionId,
+        );
+
+      onChange(
+        visual.kernel,
+      );
+
+      setSelection({
+        kind: "ui",
+        id: visual.id,
+      });
+
+      return;
+    }
+
     onChange(next);
     setSelection({ kind: "possibility", id: possibilityId });
   }
@@ -6703,6 +6775,50 @@ export default function ResponsibilityAppBuilder({
               )}
             </div>
             <div className="space-y-5">
+              <VisualFunctionalPlacementSection
+                kernel={kernel}
+                query={query}
+                onPlaceCapture={(captureId) => {
+                  const result =
+                    addVisualCaptureBlock(
+                      kernel,
+                      captureId,
+                    );
+
+                  onChange(
+                    result.kernel,
+                  );
+
+                  setSelection({
+                    kind: "ui",
+                    id: result.id,
+                  });
+                }}
+                onPlaceAction={(actionId) => {
+                  const result =
+                    addVisualActionBlock(
+                      kernel,
+                      actionId,
+                    );
+
+                  onChange(
+                    result.kernel,
+                  );
+
+                  setSelection({
+                    kind: "ui",
+                    id: result.id,
+                  });
+                }}
+                onWireAll={() => {
+                  onChange(
+                    wireVisualFunctionality(
+                      kernel,
+                    ),
+                  );
+                }}
+              />
+
               <VisualPaletteSection query={query} onAdd={addVisual} />
 
               {grouped.map((section) => (
@@ -6770,8 +6886,9 @@ export default function ResponsibilityAppBuilder({
                     </div>
 
                     <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      These are presentation blocks, not form inputs. They are
-                      rendered by the new BRIXTA/Stac phone runtime.
+                      This designed layer can contain both presentation and
+                      real interactive controls. Functional inputs reuse the same canonical
+                      captures and actions used by the Responsibility Kernel.
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-1.5">
