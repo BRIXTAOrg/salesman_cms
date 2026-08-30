@@ -33,8 +33,8 @@ const tabs = [
   },
   {
     key: "data" as const,
-    label: "DATA",
-    description: "Connect existing records",
+    label: "CONNECTIONS",
+    description: "Bind Entities to app fields",
     icon: Database,
   },
   {

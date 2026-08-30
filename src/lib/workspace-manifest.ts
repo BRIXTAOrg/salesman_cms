@@ -247,8 +247,7 @@ export function buildWorkspaceManifest({
       icon: "blocks",
       section: "App Setup",
     });
-
-    addNav(nav, "Field App Control", {
+addNav(nav, "Field App Control", {
       key: "workflows",
       label: "Workflows",
       href: "/dashboard/workspace/workflows",

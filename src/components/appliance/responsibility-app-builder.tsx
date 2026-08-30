@@ -3233,23 +3233,25 @@ function CaptureInspector({
           "entity_reference",
           "responsibility_reference",
         ].includes(capture.kind) && (
-          <Field label="Get options from">
-            <select
-              className={inputClass}
-              value={configString(capture.config, "source")}
-              onChange={(event) => patchConfig({ source: event.target.value })}
-            >
-              <option value="">Choose a source...</option>
-              {capture.kind === "person_reference" && (
-                <option value="employees">Employees</option>
-              )}
-              {dataSources.map((source) => (
-                <option key={source.id} value={source.key}>
-                  {source.title}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <div className="space-y-2">
+            <Field label="Get options from">
+              <select
+                className={inputClass}
+                value={configString(capture.config, "source")}
+                onChange={(event) => patchConfig({ source: event.target.value })}
+              >
+                <option value="">Choose a source...</option>
+                {capture.kind === "person_reference" && (
+                  <option value="employees">Employees</option>
+                )}
+                {dataSources.map((source) => (
+                  <option key={source.id} value={source.key}>
+                    {source.title}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
         )}
       </div>
 
