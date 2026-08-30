@@ -45,6 +45,30 @@ function scopeRules(
     ];
   }
 
+  // BRIXTA_AI_LOGIC_EDIT_CONTRACT_V1
+  if (
+    kind === "logic"
+    && mode === "modify"
+  ) {
+    return [
+      "EDIT THE EXISTING LOGIC IN PLACE.",
+      "Treat the current Responsibility Kernel and current Pixel Logic program as authoritative source code.",
+      "Interpret the human request as a semantic modification, not permission to redesign the Responsibility.",
+      "Make the smallest coherent business-logic change that satisfies the request.",
+      "Preserve all unrelated actors, captures, actions, outputs, states, guards, variables, nodes and edges.",
+      "Preserve stable IDs whenever the business concept still represents the same thing.",
+      "Do not delete existing logic merely because it is not mentioned in the new request.",
+      "Do not replace unrelated working logic with a newly invented alternative.",
+      "When modifying an existing action, keep the SAME action ID and restate every required action field accurately.",
+      "When changing only action.config, preserve actorId, objectId, captureIds, availableState and resultingState unless the human explicitly changes them.",
+      "Return the COMPLETE BRIXTA AI envelope required by the existing importer, even though the semantic change itself should be minimal.",
+      "The full returned program must contain unchanged existing nodes/edges plus the requested edits.",
+      "Reality declarations should introduce/update only business definitions actually needed by the requested change.",
+      "Use installed server-side submission guards for pre-persistence invariants instead of pretending a post-save Pixel effect can reject an already-created record.",
+      "Never fake unsupported behavior.",
+    ];
+  }
+
   if (
     kind === "logic"
     || mode === "logic"
@@ -184,5 +208,14 @@ OUTPUT CONTRACT
 
 Continue following the original BRIXTA AI bridge output format exactly.
 If that contract requires JSON-only output, return JSON only.
+
+For Logic Builder MODIFY mode:
+- This is an UPDATE request.
+- Do not return prose describing what the human should manually change.
+- Do not return a separate invented patch format.
+- Return the COMPLETE valid BRIXTA Pixel Reality + Pixel Logic JSON envelope expected by the existing importer.
+- The complete JSON must represent the CURRENT logic plus the requested modification.
+- Preserve unrelated existing program nodes, graph wires and stable business IDs.
+- Treat the human's exact brief as authoritative.
 `;
 }

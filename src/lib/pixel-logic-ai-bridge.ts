@@ -809,6 +809,20 @@ export function buildPixelLogicAIContext({
        */
       instanceModes: ["continuing", "repeatable"],
 
+      // BRIXTA_COMPOSITE_SUBMISSION_GUARD_AI_V1
+      logicEditing: {
+        modifyExisting: true,
+
+        strategy:
+          "Treat existing Kernel + currentProgram as source code. Make the smallest semantic change, preserve unrelated IDs/behavior, then return the complete accepted BRIXTA envelope.",
+
+        actionUpdateRule:
+          "When modifying an existing action, use the SAME action ID and preserve all required fields not explicitly changed by the human.",
+
+        prePersistenceRule:
+          "Rules that must PREVENT a write belong in action.config.submissionGuards, because ordinary Pixel effects execute as behavior and are not a substitute for a pre-write invariant.",
+      },
+
       submissionGuards: {
         date_range_no_overlap: {
           supported: true,
@@ -819,10 +833,81 @@ export function buildPixelLogicAIContext({
 
         calendar_day_unique: {
           supported: true,
-          scope: ["current_employee"],
-          timezone: "IANA timezone such as Asia/Kolkata",
+
+          scope: [
+            "current_employee",
+          ],
+
+          timezone:
+            "IANA timezone such as Asia/Kolkata",
+
+          daySource: [
+            "capture",
+            "server_time",
+          ],
+
+          field:
+            "Capture/store key used for the calendar day when daySource=capture.",
+
+          matchFields:
+            "Optional string[] of capture/store keys. When supplied, a conflict exists only when ALL listed fields match an existing record for the same employee/day.",
+
+          ignoreCurrentRecord: true,
+
+          conflictStatuses:
+            "Optional string[] limiting which existing record statuses count as conflicts.",
+
+          message:
+            "Optional human-readable rejection message.",
+
           description:
-            "Allows at most one matching record per employee per local calendar day. The day changes naturally at local midnight; no cron/reset mutation is required.",
+            "Server-enforced pre-write uniqueness by employee + local calendar day, optionally further scoped by matching business capture values such as Dealer, Site, Customer or Shift.",
+
+          examples: [
+            {
+              human:
+                "One attendance submission per employee per day.",
+
+              guard: {
+                kind:
+                  "calendar_day_unique",
+
+                scope:
+                  "current_employee",
+
+                daySource:
+                  "server_time",
+
+                timezone:
+                  "Asia/Kolkata",
+
+                matchFields: [],
+              },
+            },
+
+            {
+              human:
+                "Allow unlimited leads, but the same salesman cannot add the same dealer twice on the same day.",
+
+              guard: {
+                kind:
+                  "calendar_day_unique",
+
+                scope:
+                  "current_employee",
+
+                daySource:
+                  "server_time",
+
+                timezone:
+                  "Asia/Kolkata",
+
+                matchFields: [
+                  "dealer",
+                ],
+              },
+            },
+          ],
         },
       },
 
@@ -981,6 +1066,10 @@ export function buildPixelLogicAIContext({
                   scope: "current_employee",
 
                   timezone: "Asia/Kolkata",
+
+                  daySource: "server_time",
+
+                  matchFields: [],
 
                   ignoreCurrentRecord: true,
 
@@ -1190,6 +1279,12 @@ RUNTIME CAPABILITIES — NON-NEGOTIABLE
 - In particular, event.schedule does NOT create cron/recurrence/timers by itself.
 - Never model "every day at midnight" using event.schedule while packet.runtimeCapabilities.scheduling.recurringScheduleHost is false.
 - For "once per employee per local calendar day", use calendar_day_unique when appropriate instead of inventing a midnight reset.
+- BRIXTA_COMPOSITE_SUBMISSION_GUARD_AI_V1
+- For "same employee + same Dealer/Customer/Site/etc. + same day", use calendar_day_unique with matchFields containing the existing capture/store key.
+- For a normal business-day rule based on when the server receives the submission, prefer daySource="server_time".
+- Use daySource="capture" only when the business meaning explicitly depends on a submitted date/datetime field.
+- matchFields is an AND key: every listed capture must match before the record is considered a duplicate.
+- Never implement a pre-write duplicate restriction as event → query → post-save effect; use the installed submission guard.
 - If a required capability is listed as supported, USE it and do not report it as unsupported.
 - If a genuinely required runtime capability is absent, put a concise plain STRING in unsupportedCapabilities and do not fake the behavior.
 
@@ -1213,6 +1308,11 @@ RUNTIME CAPABILITIES — NON-NEGOTIABLE
 14. For control.if, connect a boolean to condition and use true/false flow outputs.
 15. If the business requirement needs a runtime engine capability unavailable in packet.registry/realityVocabulary, put it in unsupportedCapabilities. Do not fake it.
 16. Preserve existing currentProgram behavior unless explicitly asked to replace/remove it.
+16a. In MODIFY mode, the current graph is source code: retain unchanged nodes and edges with the SAME IDs.
+16b. In MODIFY mode, do not recreate unrelated actors/captures/actions/states/outputs just to make the JSON look different.
+16c. When an existing action must change, reuse its existing ID and preserve all required fields not targeted by the request.
+16d. If the human says "allow this again and again", do not impose an accidental daily uniqueness guard.
+16e. If the human says "same X cannot be submitted twice today", identify X from existing captures and use calendar_day_unique.matchFields.
 17. Copy registryFingerprint and responsibility id/title exactly.
 18. program.version MUST be 1.
 19. program.metadata.generatedBy MUST be external-ai.

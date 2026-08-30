@@ -159,19 +159,22 @@ export function AiBuilderBrief({
           <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.02em] text-muted-foreground">
             <Sparkles className="h-4 w-4 text-primary" />
 
-            Generate with AI
+            {/* BRIXTA_TALK_WITH_AI_BRIEF_V1 */}
+            {kind === "logic"
+              ? "Talk with AI"
+              : "Generate with AI"}
           </div>
 
           <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-foreground">
             {kind === "app"
               ? "Describe the app exactly the way you want it."
-              : "Describe the behaviour in normal language."}
+              : "Tell AI exactly what should change."}
           </h2>
 
           <p className="mt-2 max-w-3xl text-[14px] leading-6 text-muted-foreground">
             {kind === "app"
               ? "Describe the look, interaction, data and behaviour together. BRIXTA uses the systems already configured for this company."
-              : "Explain when something happens, what must be true, and what BRIXTA should do next."}
+              : "Describe the new rule in normal language. BRIXTA includes the current logic automatically, so AI can modify the existing behaviour instead of rebuilding it."}
           </p>
         </div>
 
@@ -263,7 +266,7 @@ export function AiBuilderBrief({
             placeholder={
               kind === "app"
                 ? "Example: Build a Daily Visit app. Keep it cream and editorial. Let the salesman choose a dealer from our existing Dealer data, take a proof photo, capture GPS/time automatically and submit. Make dealer selection a fullscreen searchable picker. Animate into VISIT RECORDED after success."
-                : "Example: When Submit Visit happens, require dealer and proof photo. If valid, create the record, change state to Recorded and append history."
+                : "Example: Allow salesmen to create unlimited leads, but do not let the same salesman submit the same Dealer twice on the same day. Use Asia/Kolkata. Preserve everything else."
             }
             className={textareaClass}
           />

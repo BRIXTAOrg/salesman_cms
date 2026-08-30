@@ -198,11 +198,12 @@ export default function PixelLogicStudioClient() {
   const [aiUserBrief, setAiUserBrief] =
     useState("");
 
+  // BRIXTA_TALK_WITH_AI_LOGIC_V1
   const [
     aiGenerationMode,
     setAiGenerationMode,
   ] = useState<BuilderAiMode>(
-    "logic",
+    "modify",
   );
 
   const [aiImportText, setAiImportText] = useState("");
@@ -443,13 +444,16 @@ export default function PixelLogicStudioClient() {
             "Existing actors",
             "Existing actions",
             "Existing states",
+            "Existing action configuration / submission guards",
+            "Existing record lifecycle behaviour",
             "Registered Pixel Logic nodes",
+            "Installed server-side submission guard capabilities",
           ],
           },
         ),
       );
       setMessage(
-        "AI context + your Logic brief copied. Paste it into ChatGPT; the behaviour requirement is already included. Then paste the returned JSON back here.",
+        "AI UPDATE REQUEST copied. Paste it into ChatGPT exactly as-is. Your requested change, current logic and preservation rules are already included. Paste the returned BRIXTA JSON back here.",
       );
     } catch (error) {
       setMessage(
@@ -604,7 +608,7 @@ export default function PixelLogicStudioClient() {
     setToPort("");
     setAiOpen(false);
     setMessage(
-      "AI Pixel Logic imported into the canvas. Review the graph and Validation panel, then click Save logic.",
+      "AI logic update applied to the draft canvas. Review the graph and Validation panel, then click Save logic to publish the new behaviour.",
     );
   }
 
@@ -761,7 +765,7 @@ export default function PixelLogicStudioClient() {
               disabled={!selectedResponsibility || loading}
             >
               <Zap className="h-4 w-4" />
-              Generate with AI
+              Talk with AI
             </SecondaryButton>
 
             <PrimaryButton
@@ -819,11 +823,16 @@ export default function PixelLogicStudioClient() {
         <Panel>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <div className="text-base font-semibold">Generate with AI</div>
+              <div className="text-base font-semibold">
+                Talk with AI
+              </div>
+
               <div className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                BRIXTA exports the live Pixel Logic Registry plus this Responsibility's
-                actions, captures, contexts, states and actors. ChatGPT is constrained
-                to that contract; BRIXTA still validates everything before import.
+                Describe the behaviour you want to change. BRIXTA packages your exact
+                request together with the current Responsibility, existing Pixel Logic,
+                action guards and installed runtime capabilities. AI is instructed to
+                edit the existing logic rather than regenerate unrelated behaviour.
+                BRIXTA still validates the returned JSON before anything is applied.
               </div>
             </div>
             <Pill>{pixelLogicRegistryFingerprint()}</Pill>
@@ -831,24 +840,37 @@ export default function PixelLogicStudioClient() {
 
           <div className="mt-5 grid gap-5 xl:grid-cols-2">
             <div className="rounded-lg border p-4">
-              <div className="text-sm font-semibold">1. Copy BRIXTA AI context</div>
-              <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Paste this into ChatGPT and add your business requirement after the
-                BUSINESS REQUIREMENT marker. The Registry is the language; GPT is
-                only composing legal blocks from it.
+              <div className="text-sm font-semibold">
+                1. Copy AI update request
               </div>
+
+              <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Your brief is already inside the copied prompt. Paste it into ChatGPT
+                exactly as-is. The prompt contains the current logic, the installed
+                capabilities and strict instructions to preserve everything unrelated.
+              </div>
+
               <div className="mt-4">
-                <PrimaryButton type="button" onClick={() => void copyAIContext()}>
-                  Copy AI context
+                <PrimaryButton
+                  type="button"
+                  onClick={() =>
+                    void copyAIContext()
+                  }
+                >
+                  Copy AI update request
                 </PrimaryButton>
               </div>
             </div>
 
             <div className="rounded-lg border p-4">
-              <div className="text-sm font-semibold">2. Paste generated Pixel Logic</div>
+              <div className="text-sm font-semibold">
+                2. Paste AI-updated Logic JSON
+              </div>
+
               <div className="mt-1 text-xs text-muted-foreground">
-                Paste the JSON object ChatGPT returns. Markdown fences are tolerated,
-                but alternate workflow formats are rejected.
+                Paste the complete BRIXTA JSON returned by ChatGPT. BRIXTA compares
+                it against the current Responsibility contract and rejects invalid
+                graph references or unsupported runtime capabilities.
               </div>
               <textarea
                 value={aiImportText}
@@ -872,7 +894,7 @@ export default function PixelLogicStudioClient() {
                     aiIssues.some((item) => item.severity === "error")
                   }
                 >
-                  Import into canvas
+                  Apply AI update
                 </PrimaryButton>
               </div>
             </div>
