@@ -5,6 +5,7 @@
 import {
   AiBuilderBrief,
 } from "./ai-builder-brief";
+import { PixelLogicFlowCanvas } from "./pixel-logic-flow-canvas";
 
 import {
   augmentBuilderAiContext,
@@ -39,7 +40,9 @@ import {
   buildPixelLogicAIContext,
   parsePixelLogicAIImport,
   pixelLogicRegistryFingerprint,
+  type PixelLogicAIEmployee,
   type PixelLogicAIImportResult,
+  type PixelLogicAIRole,
 } from "@/lib/pixel-logic-ai-bridge";
 import {
   blankPixelLogicProgram,
@@ -318,6 +321,7 @@ export default function PixelLogicStudioClient() {
     type: string,
     config: Record<string, unknown> = {},
     label?: string,
+    position?: { x: number; y: number },
   ) {
     const spec = getPixelLogicNodeSpec(type);
     if (!spec) {
@@ -329,10 +333,11 @@ export default function PixelLogicStudioClient() {
       id,
       type,
       label: label ?? spec.label,
-      position: {
-        x: (program.nodes.length % 4) * 220,
-        y: Math.floor(program.nodes.length / 4) * 140,
-      },
+      position:
+        position ?? {
+          x: (program.nodes.length % 4) * 260,
+          y: Math.floor(program.nodes.length / 4) * 180,
+        },
       config,
     };
     setProgram((current) => ({
@@ -423,11 +428,18 @@ export default function PixelLogicStudioClient() {
     }
 
     try {
+      const [roleBody, employeeBody] = await Promise.all([
+        apiJson<{ roles: PixelLogicAIRole[] }>("/api/platform/roles"),
+        apiJson<{ employees: PixelLogicAIEmployee[] }>("/api/appliance/employees"),
+      ]);
+
       const context = buildPixelLogicAIContext({
         responsibilityId: selectedResponsibility.id,
         responsibilityTitle: selectedResponsibility.title,
         kernel,
         currentProgram: program,
+        roles: roleBody.roles ?? [],
+        employees: employeeBody.employees ?? [],
       });
       // BRIXTA_AI_INTENT_CLIPBOARD_V11
       await navigator.clipboard.writeText(
@@ -1076,75 +1088,23 @@ export default function PixelLogicStudioClient() {
                 <Zap className="h-4 w-4 text-muted-foreground" />
               </div>
 
-              <div
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={dropOnCanvas}
-                className="mt-4 min-h-[430px] rounded-lg border border-dashed bg-muted/[0.12] p-3"
-              >
-                {program.nodes.length === 0 ? (
-                  <div className="flex min-h-[390px] items-center justify-center text-center text-sm text-muted-foreground">
-                    Drop an event, value, operation or effect here.
-                  </div>
-                ) : (
-                  <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-                    {program.nodes.map((node) => {
-                      const spec = getPixelLogicNodeSpec(node.type);
-                      const active = node.id === selectedNodeId;
-                      return (
-                        <button
-                          type="button"
-                          key={node.id}
-                          onClick={() => setSelectedNodeId(node.id)}
-                          className={[
-                            "min-w-0 rounded-lg border bg-background p-3 text-left shadow-sm",
-                            active
-                              ? "border-primary ring-1 ring-primary/20"
-                              : "hover:bg-muted/20",
-                          ].join(" ")}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-semibold">
-                                {node.label ?? spec?.label ?? node.type}
-                              </div>
-                              <div className="truncate font-mono text-[10px] text-muted-foreground">
-                                {node.type}
-                              </div>
-                            </div>
-                            <Pill>{spec?.kind ?? "custom"}</Pill>
-                          </div>
-
-                          <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
-                            <div>
-                              <div className="mb-1 font-medium">INPUTS</div>
-                              {(spec?.inputs ?? []).map((port) => (
-                                <div key={port.key} className="truncate text-muted-foreground">
-                                  ◀ {port.label} · {port.kind}
-                                </div>
-                              ))}
-                            </div>
-                            <div className="text-right">
-                              <div className="mb-1 font-medium">OUTPUTS</div>
-                              {(spec?.outputs ?? []).map((port) => (
-                                <div key={port.key} className="truncate text-muted-foreground">
-                                  {port.label} · {port.kind} ▶
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <PixelLogicFlowCanvas
+                program={program}
+                specs={nodeSpecs}
+                selectedNodeId={selectedNodeId}
+                onProgramChange={setProgram}
+                onSelectNode={setSelectedNodeId}
+                onAddNode={(type, position) =>
+                  addNode(type, {}, undefined, position)
+                }
+              />
             </Panel>
 
             <Panel>
-              <div className="font-semibold">Wire blocks</div>
+              <div className="font-semibold">Compatibility wire editor</div>
               <div className="mt-1 text-xs text-muted-foreground">
-                Choose an output and matching input. A Data port carries a value.
-                A Flow port carries execution.
+                React Flow handles normal wiring directly on the canvas above.
+                This compatibility editor remains available for precise/manual wiring.
               </div>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">

@@ -269,6 +269,7 @@ addNav(nav, "Field App Control", {
   );
 
   if (
+    canManage ||
     workflowHasApproval ||
     pendingApprovals > 0
   ) {

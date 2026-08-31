@@ -158,6 +158,13 @@ NON-NEGOTIABLE EXISTING-SYSTEM CONTRACT
 - Reuse existing Data Sources whenever they satisfy the requested data need.
 - Reuse existing captures/actions/outputs when they represent the same business concept.
 - Preserve stable IDs wherever possible.
+- The Responsibility Kernel is the authoritative business model.
+- New AI-authored Responsibilities MUST NOT depend on separately authored Workflow definitions.
+- Express multi-step business routing with Kernel actors, states, actions, rules and effects.
+- Existing Workflow records are legacy compatibility infrastructure, not an AI authoring target.
+- Reuse the employee reporting hierarchy and existing Role administration for manager/approver authority.
+- If a rule can reject a write, authorize an actor, change business state, affect money, enforce uniqueness, create records, assign work or approve/reject something, it MUST be enforceable by the backend Kernel.
+- Flutter may present business behaviour, but Flutter must never be the sole authority for business truth.
 - Use registered BRIXTA capabilities only.
 - Do not invent unsupported native phone capabilities.
 - Visual-only changes must not rewrite business logic.

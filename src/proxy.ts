@@ -4,8 +4,6 @@ import { decrypt } from "./lib/auth";
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:8000",
-  "https://dashboard.brixta.site",
-  "https://salesappbackend.brixta.site",
 ];
 
 export async function proxy(request: NextRequest) {

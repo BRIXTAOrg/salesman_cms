@@ -559,6 +559,91 @@ const specs: PixelLogicNodeSpec[] = [
   },
 
   {
+    type: "effect.device_sound",
+    label: "Play device sound",
+    description:
+      "Play one of the packaged BRIXTA sounds on the current foreground device after this action succeeds.",
+    category: "Device",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+    configFields: [
+      {
+        key: "preset",
+        label: "Sound",
+        kind: "select",
+        options: [
+          { value: "action", label: "Action" },
+          { value: "notice", label: "Notice" },
+          { value: "decision", label: "Decision" },
+          { value: "select", label: "Select" },
+          { value: "success", label: "Success" },
+        ],
+      },
+      {
+        key: "volume",
+        label: "Volume 0–1",
+        kind: "number",
+        placeholder: "1",
+      },
+    ],
+  },
+  {
+    type: "effect.device_ring",
+    label: "Ring current device",
+    description:
+      "Play a bounded call-like attention ring on the current foreground device. This is not remote/background push delivery.",
+    category: "Device",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+    configFields: [
+      {
+        key: "preset",
+        label: "Ring sound",
+        kind: "select",
+        options: [
+          { value: "decision", label: "Decision" },
+          { value: "notice", label: "Notice" },
+        ],
+      },
+      {
+        key: "durationMs",
+        label: "Duration ms",
+        kind: "number",
+        placeholder: "3000",
+      },
+      { key: "vibrate", label: "Vibrate too", kind: "boolean" },
+    ],
+  },
+  {
+    type: "effect.device_notification",
+    label: "Foreground device notification",
+    description:
+      "Show an immediate in-app notification on the current device, optionally with sound/vibration. Durable actor notifications still use Notify actor.",
+    category: "Device",
+    kind: "effect",
+    inputs: [flowIn],
+    outputs: [flowOut],
+    configFields: [
+      { key: "title", label: "Title", kind: "text", placeholder: "Attention" },
+      { key: "body", label: "Body", kind: "text", placeholder: "Action required" },
+      {
+        key: "sound",
+        label: "Sound",
+        kind: "select",
+        options: [
+          { value: "none", label: "None" },
+          { value: "notice", label: "Notice" },
+          { value: "decision", label: "Decision" },
+          { value: "success", label: "Success" },
+        ],
+      },
+      { key: "vibrate", label: "Vibrate", kind: "boolean" },
+    ],
+  },
+
+  {
     type: "effect.set_computed",
     label: "Set computed value",
     description: "Emit an instruction to set a computed field/value.",

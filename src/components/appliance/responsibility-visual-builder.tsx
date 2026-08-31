@@ -1159,7 +1159,15 @@ function paletteMatches(
   const q = query.trim().toLowerCase();
 
   if (!q) {
-    return ["Display", "Interaction", "Overlay"].includes(definition.category);
+    return [
+      "Layout",
+      "Container",
+      "Display",
+      "Interaction",
+      "Overlay",
+      "Media",
+      "Feedback",
+    ].includes(definition.category);
   }
 
   const haystack = [

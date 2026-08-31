@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /**
  * BRIXTA RESPONSIBILITY UI DOCUMENT V1
  *
@@ -115,12 +117,19 @@ export type ResponsibilityUiBlockType =
   | "layout.column"
   | "layout.row"
   | "layout.stack"
+  | "layout.wrap"
+  | "layout.grid"
+  | "container.card"
+  | "container.surface"
   | "display.text"
   | "display.value"
   | "display.counter"
   | "display.metric"
   | "display.progress"
   | "display.badge"
+  | "display.icon"
+  | "feedback.empty"
+  | "feedback.loading"
   | "interaction.capture"
   | "interaction.action_button"
   | "overlay.banner"
@@ -194,11 +203,13 @@ export type ResponsibilityUiBlockDefinition = {
 
   category:
     | "Layout"
+    | "Container"
     | "Display"
     | "Interaction"
     | "Overlay"
     | "Media"
     | "Animation"
+    | "Feedback"
     | "Spacing"
     | "Advanced";
 
@@ -268,6 +279,68 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY: ResponsibilityUiBlockDefinition[]
       keywords: ["stack", "overlay", "layer"],
       allowsChildren: true,
       defaultConfig: {},
+      runtime: "brixta",
+    },
+
+    {
+      type: "layout.wrap",
+      label: "Wrap",
+      category: "Layout",
+      description: "Responsive wrapping layout for chips, compact cards and controls.",
+      keywords: ["wrap", "responsive", "chips", "flow", "layout"],
+      allowsChildren: true,
+      defaultConfig: {
+        gap: 10,
+        runGap: 10,
+        alignment: "start",
+      },
+      runtime: "brixta",
+    },
+
+    {
+      type: "layout.grid",
+      label: "Grid",
+      category: "Layout",
+      description: "Responsive grid for cards, metrics, shortcuts and visual choices.",
+      keywords: ["grid", "cards", "dashboard", "tiles", "columns"],
+      allowsChildren: true,
+      defaultConfig: {
+        columns: 2,
+        gap: 12,
+        childAspectRatio: 1.15,
+      },
+      runtime: "brixta",
+    },
+
+    {
+      type: "container.card",
+      label: "Card",
+      category: "Container",
+      description: "Material card that groups child blocks into one interactive visual section.",
+      keywords: ["card", "panel", "section", "group", "material"],
+      allowsChildren: true,
+      defaultConfig: {
+        padding: 16,
+        gap: 12,
+        elevation: 0,
+        radius: 18,
+      },
+      runtime: "brixta",
+    },
+
+    {
+      type: "container.surface",
+      label: "Surface",
+      category: "Container",
+      description: "Styled surface/container with padding, border and optional background.",
+      keywords: ["container", "surface", "box", "background", "section"],
+      allowsChildren: true,
+      defaultConfig: {
+        padding: 16,
+        gap: 12,
+        radius: 16,
+        border: true,
+      },
       runtime: "brixta",
     },
 
@@ -363,6 +436,47 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY: ResponsibilityUiBlockDefinition[]
       keywords: ["badge", "status", "pill", "tag"],
       allowsBinding: true,
       defaultConfig: {},
+      runtime: "brixta",
+    },
+
+    {
+      type: "display.icon",
+      label: "Icon",
+      category: "Display",
+      description: "Material icon for status, navigation cues and visual hierarchy.",
+      keywords: ["icon", "symbol", "check", "warning", "location", "camera"],
+      defaultConfig: {
+        name: "check",
+        size: 28,
+        alignment: "left",
+      },
+      supportedAnimations: ["fade", "scale", "fade_scale", "pulse"],
+      runtime: "brixta",
+    },
+
+    {
+      type: "feedback.empty",
+      label: "Empty State",
+      category: "Feedback",
+      description: "Designed empty/no-data state.",
+      keywords: ["empty", "no data", "nothing", "state", "placeholder"],
+      defaultConfig: {
+        icon: "inbox",
+        title: "Nothing here yet",
+        message: "New items will appear here.",
+      },
+      runtime: "brixta",
+    },
+
+    {
+      type: "feedback.loading",
+      label: "Loading State",
+      category: "Feedback",
+      description: "Loading/progress state for data-driven experiences.",
+      keywords: ["loading", "spinner", "progress", "wait"],
+      defaultConfig: {
+        text: "Loading…",
+      },
       runtime: "brixta",
     },
 
@@ -554,6 +668,34 @@ function rawString(value: unknown, path: string) {
   return value.trim();
 }
 
+// BRIXTA_UNIVERSAL_INTEGRATION_V1
+// Structural fail-closed validation uses the already-installed Zod runtime.
+// Existing semantic/reference validation below remains authoritative too.
+const responsibilityUiDocumentEnvelopeSchema = z
+  .object({
+    version: z.literal(1),
+    engine: z.literal("brixta_stac_v1"),
+    theme: z.unknown().optional(),
+    rootIds: z.array(z.string().trim().min(1)).max(256),
+    blocks: z
+      .array(
+        z
+          .object({
+            id: z.string().trim().min(1),
+            type: z.string().trim().min(1),
+            children: z.array(z.string().trim().min(1)).optional(),
+            binding: z.record(z.string(), z.unknown()).optional(),
+            actionId: z.string().optional(),
+            visibility: z.record(z.string(), z.unknown()).optional(),
+            animation: z.record(z.string(), z.unknown()).optional(),
+            config: z.record(z.string(), z.unknown()).optional(),
+          })
+          .passthrough(),
+      )
+      .max(10_000),
+  })
+  .passthrough();
+
 const allowedTypes = new Set(
   RESPONSIBILITY_UI_BLOCK_REGISTRY.map((block) => block.type),
 );
@@ -561,7 +703,20 @@ const allowedTypes = new Set(
 export function parseResponsibilityUiDocument(
   value: unknown,
 ): ResponsibilityUiDocument {
-  const raw = rawObject(value, "app.uiDocument");
+  const structural =
+    responsibilityUiDocumentEnvelopeSchema.safeParse(value);
+
+  if (!structural.success) {
+    const first = structural.error.issues[0];
+    const path = first?.path?.length
+      ? ` at ${first.path.join(".")}`
+      : "";
+    throw new Error(
+      `app.uiDocument is structurally invalid${path}: ${first?.message ?? "invalid JSON contract"}.`,
+    );
+  }
+
+  const raw = rawObject(structural.data, "app.uiDocument");
 
   if (Number(raw.version) !== 1) {
     throw new Error("app.uiDocument.version must be 1.");

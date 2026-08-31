@@ -297,7 +297,10 @@ export type KernelEffectKind =
   | "ui_show"
   | "ui_hide"
   | "ui_play"
-  | "haptic";
+  | "haptic"
+  | "device_sound"
+  | "device_ring"
+  | "device_notification";
 
 export type KernelEffect = {
   id: KernelId;

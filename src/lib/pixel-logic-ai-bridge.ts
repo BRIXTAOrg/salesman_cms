@@ -27,6 +27,13 @@ export type PixelLogicAIEmployee = {
   employeeCode?: string | null;
   department?: string | null;
   designation?: string | null;
+  role?: string | null;
+  area?: string | null;
+  zone?: string | null;
+  reportsToId?: number | null;
+  reportingManagerName?: string | null;
+  reportingStatus?: string | null;
+  reportingPolicy?: Record<string, unknown> | null;
 };
 
 export type PixelLogicAIRole = {

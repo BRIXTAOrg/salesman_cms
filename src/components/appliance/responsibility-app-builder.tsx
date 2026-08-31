@@ -130,6 +130,7 @@ import {
   deleteVisualBlock,
   reorderVisualRoots,
 } from "./responsibility-visual-builder";
+import { FlutterLivePreview } from "./flutter-live-preview";
 import { cx } from "./client";
 import {
   Field,
@@ -6875,6 +6876,10 @@ export default function ResponsibilityAppBuilder({
                 selection={selection}
                 onSelect={setSelection}
               />
+            )}
+
+            {visualBlocks.length > 0 && (
+              <FlutterLivePreview kernel={kernel} />
             )}
 
             {visualBlocks.length > 0 && (

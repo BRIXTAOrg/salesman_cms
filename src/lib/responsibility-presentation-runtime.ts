@@ -124,6 +124,28 @@ export const BRIXTA_PRESENTATION_RUNTIME_CAPABILITIES = {
 
       persistent: false,
     },
+
+    {
+      nodeType: "effect.device_sound",
+      purpose: "Play a packaged BRIXTA sound on the current foreground device.",
+      persistent: false,
+      deliveryScope: "current_action_response_device",
+    },
+
+    {
+      nodeType: "effect.device_ring",
+      purpose: "Play a bounded attention ring on the current foreground device.",
+      persistent: false,
+      deliveryScope: "current_action_response_device",
+    },
+
+    {
+      nodeType: "effect.device_notification",
+      purpose: "Display an immediate in-app foreground notification on the current device.",
+      persistent: false,
+      deliveryScope: "current_action_response_device",
+      backgroundPush: false,
+    },
   ],
 
   accessibility: {
