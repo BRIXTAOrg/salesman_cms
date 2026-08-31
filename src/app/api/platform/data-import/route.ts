@@ -12,8 +12,6 @@ import {
 
 /* BRIXTA_SIMPLE_DATA_MANAGER_V1_0_1 */
 
-export const runtime = "nodejs";
-
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_ROWS = 20_000;
 
