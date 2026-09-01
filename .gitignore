@@ -53,3 +53,11 @@ src/app/api/dashboardPagesAPI/users-and-team/users/*.csv
 
 # BRIXTA repository hygiene
 /graphify-out/
+
+# Local secrets / generated BRIXTA artifacts
+.env
+.env.local
+.env.*
+!.env.example
+.brixta-backups/
+graphify-out/
