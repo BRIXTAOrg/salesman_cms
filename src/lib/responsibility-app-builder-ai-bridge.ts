@@ -558,6 +558,58 @@ export function buildResponsibilityAppBuilderAIContext(
 
     presentationRuntime: BRIXTA_PRESENTATION_RUNTIME_CAPABILITIES,
 
+    surfacePresentationContract: {
+      rule:
+        "App Builder and Pixel Logic publish one shared Responsibility interface. Inputs are captures + interaction.capture. Outputs are declarative surface projections.",
+
+      dashboardOutputConfig: {
+        columns: [
+          {
+            key:
+              "stable presentation key",
+
+            label:
+              "human label",
+
+            binding: {
+              scope:
+                "capture | computed | context | state | record | actor | query | literal",
+
+              key:
+                "binding key when applicable",
+
+              path:
+                "optional nested path",
+            },
+
+            format: {
+              kind:
+                "text | number | currency | percent | date | datetime | boolean",
+
+              currency:
+                "optional ISO currency, e.g. INR",
+
+              timezone:
+                "optional IANA timezone",
+
+              decimals:
+                "optional integer",
+            },
+          },
+        ],
+
+        specializedBindings: [
+          "metricBinding",
+          "pointBinding",
+          "routeBinding",
+          "labelBinding",
+        ],
+      },
+
+      ruleNoFakeFields:
+        "Read-only/computed dashboard values do not require captures.",
+    },
+
     serverPolicyRuntime: {
       purpose:
         "Kernel-authoritative pre-action business policy. App Builder may configure simple action availability/invariants; complex behavior still belongs in Pixel Logic.",
@@ -685,6 +737,8 @@ export function buildResponsibilityAppBuilderAIContext(
       "Use overlay.fullscreen for a full-screen state-driven visual experience.",
       "Use animation on UI blocks rather than inventing form fields for animation state.",
       "Bind counters and calculated displays to computed values whenever the value is produced by Pixel Logic.",
+      "Dashboard/table output presentation may use output.config.columns with capture/computed/context/state/record/actor/query/literal bindings. Do not create fake input fields for read-only output.",
+      "Use output.config.surfaceKinds to decide whether an output belongs to app, dashboard, or both.",
       "captureIds on an action contain ONLY values that must actually be collected from the employee/device for that action.",
       "A button that only triggers behavior normally has captureIds: [].",
       "For a visual-only app it is valid for app.captures to be [].",

@@ -14,6 +14,11 @@ import type {
   KernelOutputKind,
 } from "@/lib/responsibility-kernel-types";
 
+import {
+  parseResponsibilityUiDocument,
+  type ResponsibilityUiDocument,
+} from "@/lib/responsibility-ui-document";
+
 export const PIXEL_REALITY_METADATA_KEY = "pixelReality";
 
 export type PixelRealitySurface = "app" | "dashboard";
@@ -108,6 +113,17 @@ export type PixelRealityOutput = {
   config?: Record<string, unknown>;
 };
 
+export type PixelRealityInterface = {
+  /**
+   * AUTHORING-TIME complete app UI document.
+   *
+   * Omit it to preserve the current App Builder UI.
+   * When present, it replaces metadata.ui.uiDocument atomically with
+   * Reality + Program on Save Logic / Publish.
+   */
+  appUiDocument?: ResponsibilityUiDocument;
+};
+
 export type PixelRealityProposal = {
   version: 1;
   actors: PixelRealityActor[];
@@ -117,6 +133,7 @@ export type PixelRealityProposal = {
   captures: PixelRealityCapture[];
   actions: PixelRealityAction[];
   outputs: PixelRealityOutput[];
+  interface?: PixelRealityInterface;
   warnings: string[];
   notes: string[];
 };
@@ -154,6 +171,7 @@ export function blankPixelReality(): PixelRealityProposal {
     captures: [],
     actions: [],
     outputs: [],
+    interface: {},
     warnings: [],
     notes: [],
   };
@@ -366,6 +384,19 @@ export function normalizePixelReality(
       })
     : [];
 
+  const interfaceValue =
+    objectValue(
+      value.interface,
+    );
+
+  const appUiDocument =
+    interfaceValue.appUiDocument ===
+      undefined
+      ? undefined
+      : parseResponsibilityUiDocument(
+          interfaceValue.appUiDocument,
+        );
+
   return {
     version: 1,
     actors,
@@ -375,6 +406,11 @@ export function normalizePixelReality(
     captures,
     actions,
     outputs,
+    interface: {
+      ...(appUiDocument
+        ? { appUiDocument }
+        : {}),
+    },
     warnings: stringArray(value.warnings),
     notes: stringArray(value.notes),
   };

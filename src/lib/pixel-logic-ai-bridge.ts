@@ -16,7 +16,10 @@ import type {
   ResponsibilityKernel,
 } from "@/lib/responsibility-kernel-types";
 
-import { buildPixelPresentationContext } from "@/lib/responsibility-presentation-runtime";
+import {
+  BRIXTA_PRESENTATION_RUNTIME_CAPABILITIES,
+  buildPixelPresentationContext,
+} from "@/lib/responsibility-presentation-runtime";
 import { pixelLogicExecutionAIContext } from "@/lib/pixel-logic-execution-policy";
 
 export const PIXEL_LOGIC_AI_FORMAT = "brixta.pixel-logic" as const;
@@ -204,6 +207,27 @@ function validateRawPixelLogicAIEnvelope(value: Record<string, unknown>) {
   const actions = requireRawArray(reality.actions, "reality.actions");
 
   const outputs = requireRawArray(reality.outputs, "reality.outputs");
+
+  if (
+    reality.interface !==
+    undefined
+  ) {
+    const interfaceValue =
+      requireRawObject(
+        reality.interface,
+        "reality.interface",
+      );
+
+    if (
+      interfaceValue.appUiDocument !==
+      undefined
+    ) {
+      requireRawObject(
+        interfaceValue.appUiDocument,
+        "reality.interface.appUiDocument",
+      );
+    }
+  }
 
   validateRawStringArray(reality.warnings, "reality.warnings");
 
@@ -736,6 +760,99 @@ export function buildPixelLogicAIContext({
     },
 
     presentationContext: buildPixelPresentationContext(kernel),
+
+    interfaceAuthoring: {
+      rule:
+        "Reality + Interface + Program are one Responsibility IR. Logic AI may author interface changes when required by the human behavior.",
+
+      app: {
+        writePath:
+          "reality.interface.appUiDocument",
+
+        mode:
+          "complete_document_replace",
+
+        preserveRule:
+          "If no App UI change is required, return reality.interface as {}. If an App UI change IS required, return the COMPLETE desired uiDocument and preserve unrelated useful blocks/stable IDs.",
+
+        bindingScopes: [
+          "capture",
+          "computed",
+          "context",
+          "state",
+          "record",
+          "actor",
+          "literal",
+        ],
+
+        visualBlocks:
+          BRIXTA_PRESENTATION_RUNTIME_CAPABILITIES.visualBlocks,
+      },
+
+      dashboard: {
+        writePath:
+          "reality.outputs[]",
+
+        rule:
+          "Dashboard presentation is authored through outputs. Computed values never need fake captures.",
+
+        columnConfigPath:
+          "reality.outputs[].config.columns",
+
+        columnShape: {
+          key:
+            "stable presentation key",
+
+          label:
+            "human label",
+
+          binding: {
+            scope:
+              "capture | computed | context | state | record | actor | query | literal",
+
+            key:
+              "binding key when applicable",
+
+            path:
+              "optional nested path",
+
+            value:
+              "literal value only for literal scope",
+          },
+
+          format: {
+            kind:
+              "text | number | currency | percent | date | datetime | boolean",
+
+            currency:
+              "optional ISO currency, e.g. INR",
+
+            timezone:
+              "optional IANA timezone",
+
+            decimals:
+              "optional integer",
+          },
+        },
+
+        visibleKeysFallback:
+          "visibleKeys remains supported as a compact fallback when custom columns are unnecessary.",
+
+        specializedBindings: {
+          metricBinding:
+            "output.config.metricBinding",
+
+          pointBinding:
+            "output.config.pointBinding",
+
+          routeBinding:
+            "output.config.routeBinding",
+
+          labelBinding:
+            "output.config.labelBinding",
+        },
+      },
+    },
 
     executionPlacement:
       pixelLogicExecutionAIContext(),
@@ -1272,6 +1389,8 @@ export function buildPixelLogicAIContext({
           },
         ],
 
+        interface: {},
+
         warnings: [],
 
         notes: [],
@@ -1372,6 +1491,7 @@ export function buildPixelLogicAIContext({
         captures: [],
         actions: [],
         outputs: [],
+        interface: {},
         warnings: [],
         notes: [],
       },
@@ -1397,7 +1517,7 @@ export function buildPixelLogicAIContext({
 
 You are compiling a human business requirement into one BRIXTA Responsibility.
 
-A Responsibility is an operational reality. You MAY define the participants, relationships, states, captures, actions, outputs, visibility intent and app/dashboard surfaces required by the business requirement. You ALSO build the deterministic Pixel Logic graph that executes the behavior.
+A Responsibility is one operational IR: REALITY + INTERFACE + PROGRAM. You MAY define participants, relationships, states, captures, actions and outputs; you MAY also author the employee App UI and dashboard output presentation when the requested behavior requires it; and you build the deterministic Pixel Logic graph that executes the behavior.
 
 STRICT SECURITY BOUNDARY
 You have broad authority INSIDE this Responsibility only.
@@ -1433,15 +1553,20 @@ STRUCTURE — NON-NEGOTIABLE
 - Every referenced node, actor, action, state, capture and output must either already exist in packet.responsibility.existing or be declared in reality.
 - Every required property shown by the contract must be present even when its value is [] or {}.
 
-PRESENTATION CONTEXT — NON-NEGOTIABLE
-- packet.presentationContext is READ-ONLY App Builder / Flutter presentation truth.
-- Pixel Logic MUST NOT create, delete, restructure or restyle UI blocks.
-- effect.ui_animate, effect.ui_show, effect.ui_hide and effect.ui_play may target ONLY block IDs already present in packet.presentationContext.currentUi.blocks.
-- Prefer computed/state bindings for persistent UI behavior.
-- Use effect.ui_* for one-shot/transient presentation behavior.
-- Use only animation presets listed for the target UI block/runtime.
+SHARED INTERFACE AUTHORING — NON-NEGOTIABLE
+- App Builder and Pixel Logic are two editors over ONE published Responsibility IR.
+- packet.presentationContext contains the current published/draft App UI and installed visual capabilities.
+- If the human behavior requires a NEW or CHANGED input/output presentation, Pixel Logic MAY author reality.interface.appUiDocument.
+- reality.interface.appUiDocument is a COMPLETE desired UI document, not a partial patch. Preserve unrelated useful blocks and stable IDs.
+- If no App UI change is needed, return reality.interface as {} so the current UI is preserved.
+- New employee-entered/device-captured values require real reality.captures plus interaction.capture blocks bound to those captures.
+- Calculated/read-only values use display.* blocks bound to computed/context/state/record values. NEVER create fake captures merely to display calculated output.
+- Dashboard presentation belongs in reality.outputs[].config and reality.outputs[].visibleKeys/surfaces.
+- Use output.config.columns bindings when the dashboard needs explicit column order, labels, computed values or formatting.
+- At RUNTIME the published UI structure is immutable. Pixel effects change state/data/computed values and the UI reacts declaratively.
+- effect.ui_animate, effect.ui_show, effect.ui_hide and effect.ui_play are transient runtime effects and may target only blocks present in the final published appUiDocument/current UI.
+- Use only installed visual block types and animation presets from packet.presentationContext.runtime.
 - Accessibility/reduced-motion runtime policy always wins over authored animation.
-- App Builder and Pixel Logic remain separate editors and separate generated contracts.
 
 RUNTIME CAPABILITIES — NON-NEGOTIABLE
 - packet.runtimeCapabilities is authoritative.
@@ -1477,6 +1602,10 @@ RUNTIME CAPABILITIES — NON-NEGOTIABLE
 9. A graph reference may target either an existing business ID or an ID declared in reality.
 10. Every required Pixel node input must be connected.
 11. Never hide calculations inside strings. Use real graph nodes.
+11a. If a calculated/server-generated value must be visible, persist it with an authoritative effect such as effect.set_computed and project it through App display bindings and/or dashboard output bindings.
+11b. If logic introduces a new required human/device input, declare the capture AND place it in appUiDocument with interaction.capture when the App surface needs that input.
+11c. If logic introduces a new output, declare/update reality.outputs and author its dashboard config/columns when presentation matters.
+11d. Money, authoritative timestamps, deductions, uniqueness and persisted consequences remain SERVER authoritative even when their presentation is authored for App/Dashboard.
 12. Every node ID and edge ID must be unique.
 13. Flow connects only Flow; Data connects only Data.
 14. For control.if, connect a boolean to condition and use true/false flow outputs.

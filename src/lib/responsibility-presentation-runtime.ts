@@ -180,7 +180,13 @@ function uiDocumentFromKernel(kernel: ResponsibilityKernel | null) {
 }
 
 /**
- * Pixel is allowed to KNOW the presentation, but not manufacture it.
+ * BRIXTA_SHARED_INTERFACE_IR_V1
+ *
+ * Pixel may inspect AND author a complete replacement UI document while
+ * editing/publishing a Responsibility.
+ *
+ * This does NOT grant runtime structural mutation. Runtime Pixel effects
+ * remain transient reactions against the already-published document.
  */
 export function buildPixelPresentationContext(
   kernel: ResponsibilityKernel | null,
@@ -224,6 +230,13 @@ export function buildPixelPresentationContext(
     currentUi: {
       exists: Boolean(document),
 
+      /*
+       * The complete authored document is intentionally included so
+       * Logic AI can preserve/modify the actual interface rather than
+       * reconstructing it from a lossy block summary.
+       */
+      document,
+
       engine: document?.engine ?? null,
 
       theme: document?.theme ?? {
@@ -234,14 +247,27 @@ export function buildPixelPresentationContext(
       blocks,
     },
 
+    authoring: {
+      canReplaceAppUiDocument: true,
+
+      writePath:
+        "reality.interface.appUiDocument",
+
+      semantics:
+        "Authoring-time complete-document replacement. Omit appUiDocument to preserve the current UI.",
+
+      runtimeStructuralMutation:
+        false,
+    },
+
     separationRules: [
-      "Pixel Logic MAY read/reference existing App Builder UI block IDs.",
-      "Pixel Logic MUST NOT create, delete, restyle, or restructure App Builder UI blocks.",
-      "Persistent application appearance belongs to App Builder.",
-      "Persistent business state/data belongs to Kernel/Pixel Logic.",
-      "Prefer normal binding/state reactions for persistent UI behavior.",
-      "Use effect.ui_* only for transient presentation impulses such as replaying an animation, temporarily showing/hiding an existing block, or replaying Lottie.",
-      "A targetBlockId must reference a block already present in currentUi.blocks.",
+      "App Builder and Pixel Logic are two editors over the SAME published Responsibility interface.",
+      "During AUTHORING, Pixel Logic MAY create captures/actions and MAY provide a complete replacement app UI document when the requested behavior requires new/changed inputs or outputs.",
+      "When authoring appUiDocument, preserve unrelated useful existing blocks and stable IDs.",
+      "At RUNTIME, Pixel Logic MUST NOT structurally rewrite the published UI. It changes state/computed/data and the declarative UI reacts.",
+      "effect.ui_* remains transient runtime presentation against blocks that exist in the published UI document.",
+      "Persistent application structure is versioned/published as Responsibility interface data, regardless of whether App Builder or Logic Builder authored it.",
+      "A runtime targetBlockId must reference a block present in the published currentUi document.",
     ],
   };
 }

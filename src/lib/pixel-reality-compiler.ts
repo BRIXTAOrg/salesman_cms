@@ -478,9 +478,94 @@ export function applyPixelRealityToKernel(
     }
   }
 
+  const authoredUiDocument =
+    proposal.interface
+      ?.appUiDocument;
+
+  if (authoredUiDocument) {
+    /*
+     * BRIXTA_SHARED_INTERFACE_IR_V1
+     *
+     * Logic Builder authoring is allowed to manufacture the app interface,
+     * but only declaratively and only at authoring/publish time.
+     *
+     * Runtime Pixel effects still cannot download/execute source code or
+     * rewrite arbitrary Flutter structure.
+     */
+    const captureKeys =
+      new Set<string>();
+
+    const actionIds =
+      new Set<string>();
+
+    for (
+      const possibility
+      of next.possibilities
+    ) {
+      if (
+        possibility.type ===
+        "capture"
+      ) {
+        captureKeys.add(
+          possibility.capture.id,
+        );
+
+        if (
+          possibility.capture.storeAs
+        ) {
+          captureKeys.add(
+            possibility.capture.storeAs,
+          );
+        }
+      } else if (
+        possibility.type ===
+        "action"
+      ) {
+        actionIds.add(
+          possibility.action.id,
+        );
+      }
+    }
+
+    for (
+      const block
+      of authoredUiDocument.blocks
+    ) {
+      if (
+        block.binding?.scope ===
+          "capture" &&
+        block.binding.key &&
+        !captureKeys.has(
+          block.binding.key,
+        )
+      ) {
+        throw new Error(
+          `UI block "${block.id}" references unknown capture "${block.binding.key}".`,
+        );
+      }
+
+      if (
+        block.actionId &&
+        !actionIds.has(
+          block.actionId,
+        )
+      ) {
+        throw new Error(
+          `UI block "${block.id}" references unknown action "${block.actionId}".`,
+        );
+      }
+    }
+  }
+
   next.metadata.ui = {
     ...(next.metadata.ui ?? { layout: [] }),
     layout: [...layout],
+    ...(authoredUiDocument
+      ? {
+          uiDocument:
+            authoredUiDocument,
+        }
+      : {}),
   };
 
   return next;
