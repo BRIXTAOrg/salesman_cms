@@ -247,14 +247,6 @@ export function buildWorkspaceManifest({
       icon: "blocks",
       section: "App Setup",
     });
-addNav(nav, "Field App Control", {
-      key: "workflows",
-      label: "Workflows",
-      href: "/dashboard/workspace/workflows",
-      icon: "git-branch",
-      section: "App Setup",
-    });
-
     addNav(nav, "Field App Control", {
       key: "assignments",
       label: "Assignments",
@@ -343,7 +335,7 @@ addNav(nav, "Field App Control", {
         label: `${workflow.name} active`,
         value: workflow.runtime.active,
         hint: `${workflow.steps.length} step${workflow.steps.length === 1 ? "" : "s"}`,
-        href: "/dashboard/workspace/workflows",
+        href: "/dashboard",
       });
     }
 
@@ -366,7 +358,7 @@ addNav(nav, "Field App Control", {
         key: `${workflow.key}:completed`,
         label: `${workflow.name} completed`,
         value: workflow.runtime.completed,
-        href: "/dashboard/workspace/workflows",
+        href: "/dashboard",
       });
     }
   }
@@ -422,7 +414,7 @@ addNav(nav, "Field App Control", {
         severity: "warning",
         title: `${blocked} ${workflow.name} step${blocked === 1 ? "" : "s"} blocked`,
         body: "A prerequisite or approval is preventing progress.",
-        href: "/dashboard/workspace/workflows",
+        href: "/dashboard",
       });
     }
   }
@@ -470,9 +462,9 @@ addNav(nav, "Field App Control", {
             : "Control Center",
       subtitle:
         workflows.length > 0
-          ? "Live work, bottlenecks and decisions derived from active Responsibilities and published Workflows."
+          ? "Live work and decisions derived from active Responsibilities, employee hierarchy and Kernel logic."
           : activeResponsibilities.length > 0
-            ? "Active Responsibilities are ready. Publish a Workflow when work needs sequencing, prerequisites or approvals."
+            ? "Active Responsibilities are ready. Use Kernel states, actors and Pixel Logic for new sequencing and approval behavior."
             : "Create a Responsibility to define the first piece of work in this company.",
       stats: stats.slice(0, 8),
       attention,

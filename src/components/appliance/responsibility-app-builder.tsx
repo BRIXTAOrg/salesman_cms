@@ -6135,6 +6135,98 @@ export default function ResponsibilityAppBuilder({
     }
   }
 
+  function validateAndApplyAppBuilderAI() {
+    try {
+      const result =
+        parseResponsibilityAppBuilderAIImport(
+          aiImportText,
+        );
+
+      const issues =
+        validateResponsibilityAppBuilderAIImport(
+          kernel,
+          result,
+          aiNativeContext(),
+        );
+
+      if (
+        String(result.responsibilityId) !==
+        String(responsibilityId)
+      ) {
+        issues.push(
+          `AI result targets Responsibility ${String(result.responsibilityId)}, not ${String(responsibilityId)}.`,
+        );
+      }
+
+      const currentFingerprint =
+        responsibilityAppBuilderRegistryFingerprint(
+          aiNativeContext(),
+        );
+
+      if (
+        result.blockRegistryFingerprint !==
+        currentFingerprint
+      ) {
+        issues.push(
+          "App Builder registry changed. Copy a fresh AI Context and regenerate.",
+        );
+      }
+
+      setAiImportResult(
+        result,
+      );
+
+      setAiIssues(
+        issues,
+      );
+
+      if (
+        issues.length >
+        0
+      ) {
+        setAiMessage(
+          `AI App parsed, but ${issues.length} blocking issue${issues.length === 1 ? "" : "s"} must be fixed.`,
+        );
+
+        return;
+      }
+
+      onChange(
+        applyResponsibilityAppBuilderAIImport(
+          kernel,
+          result,
+        ),
+      );
+
+      setSelection({
+        kind:
+          "app",
+      });
+
+      setAiOpen(
+        false,
+      );
+
+      setAiMessage(
+        "AI App validated and generated. Continue editing the running Flutter draft.",
+      );
+    } catch (error) {
+      setAiImportResult(
+        null,
+      );
+
+      setAiIssues([
+        error instanceof Error
+          ? error.message
+          : "Unable to parse AI-generated App Builder JSON.",
+      ]);
+
+      setAiMessage(
+        "AI App could not be validated.",
+      );
+    }
+  }
+
   function applyAppBuilderAI() {
     if (!aiImportResult || aiIssues.length > 0) {
       return;
@@ -6879,7 +6971,20 @@ export default function ResponsibilityAppBuilder({
             )}
 
             {visualBlocks.length > 0 && (
-              <FlutterLivePreview kernel={kernel} />
+              <FlutterLivePreview
+                kernel={kernel}
+                selectedBlockId={
+                  selection.kind === "ui"
+                    ? selection.id
+                    : undefined
+                }
+                onSelectBlock={(id) =>
+                  setSelection({
+                    kind: "ui",
+                    id,
+                  })
+                }
+              />
             )}
 
             {visualBlocks.length > 0 && (
@@ -7117,17 +7222,23 @@ export default function ResponsibilityAppBuilder({
                 <div className="flex flex-wrap gap-2">
                   <SecondaryButton type="button" onClick={validateAppBuilderAI}>
                     <ShieldCheck className="h-4 w-4" />
-                    Validate AI App
+                    Validate only
                   </SecondaryButton>
 
                   <PrimaryButton
                     type="button"
-                    disabled={!aiImportResult || aiIssues.length > 0}
-                    onClick={applyAppBuilderAI}
+                    disabled={!aiImportText.trim()}
+                    onClick={validateAndApplyAppBuilderAI}
                   >
                     <Sparkles className="h-4 w-4" />
-                    Generate App
+                    Validate & Generate
                   </PrimaryButton>
+
+                  {aiImportResult && aiIssues.length === 0 && (
+                    <SecondaryButton type="button" onClick={applyAppBuilderAI}>
+                      Apply validated result
+                    </SecondaryButton>
+                  )}
                 </div>
 
                 {aiMessage && (

@@ -35,6 +35,7 @@ import { DataTableReusable } from "@/components/data-table-reusable";
 import { SearchSelect } from "@/components/search-select";
 import { MultiSelect } from "@/components/multi-select";
 import ReportingPolicyEditor from "./reporting-policy-editor";
+import RolesVNextClient from "./roles-vnext-client";
 import {
   EmptyState,
   Field,
@@ -75,6 +76,9 @@ export default function EmployeesClient() {
     useState("all");
   const [message, setMessage] =
     useState<string | null>(null);
+
+  const [peopleTab, setPeopleTab] =
+    useState<"employees" | "roles">("employees");
 
   const [showCreate, setShowCreate] =
     useState(false);
@@ -742,8 +746,49 @@ export default function EmployeesClient() {
     }
   }
 
+  if (peopleTab === "roles") {
+    return (
+      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPeopleTab("employees")}
+            className="rounded-md border px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
+          >
+            Employees
+          </button>
+
+          <button
+            type="button"
+            className="rounded-md border border-primary bg-primary/[0.06] px-3 py-2 text-sm font-medium"
+          >
+            Roles
+          </button>
+        </div>
+
+        <RolesVNextClient />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="rounded-md border border-primary bg-primary/[0.06] px-3 py-2 text-sm font-medium"
+        >
+          Employees
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setPeopleTab("roles")}
+          className="rounded-md border px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
+        >
+          Roles
+        </button>
+      </div>
       <PageIntro
         eyebrow="People"
         title="Employees"

@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 import {
-  ArrowRight,
   Check,
   Loader2,
   Plus,
@@ -16,16 +15,12 @@ import {
   Save,
   ShieldCheck,
   Trash2,
-  UsersRound,
-  Workflow,
   Wrench,
 } from "lucide-react";
 
 import type {
   RoleCapabilityKey,
   RoleContextDefinition,
-  RoleTargetResolver,
-  WorkflowPurpose,
 } from "@/lib/roles/role-context-types";
 import { BASE_ROLE_CAPABILITIES } from "@/lib/roles/role-context-types";
 import { BUILDER_CAPABILITY_CATALOG } from "@/lib/roles/builder-capability-catalog";
@@ -49,27 +44,7 @@ type RoleRow = {
   label: string;
 };
 
-type Tab = "basics" | "relationships" | "workflow" | "capabilities";
-
-function targetValue(target?: RoleTargetResolver) {
-  if (!target) return "none";
-  if (target.kind === "role") return `role:${target.roleId}`;
-  return target.kind;
-}
-
-function targetFrom(value: string): RoleTargetResolver | null {
-  if (value === "none") return null;
-  if (value === "reporting_manager") return { kind: "reporting_manager" };
-  if (value === "self") return { kind: "self" };
-  if (value === "organization_admin") return { kind: "organization_admin" };
-  if (value.startsWith("role:")) {
-    const roleId = Number(value.slice(5));
-    return Number.isInteger(roleId) && roleId > 0
-      ? { kind: "role", roleId }
-      : null;
-  }
-  return null;
-}
+type Tab = "basics" | "capabilities";
 
 export default function RolesVNextClient() {
   const [roles, setRoles] = useState<RoleRow[]>([]);
@@ -214,33 +189,7 @@ export default function RolesVNextClient() {
     }
   }
 
-  function setWorkflow(purpose: WorkflowPurpose, value: string) {
-    if (!context) return;
-    const target = targetFrom(value);
-    const others = context.workflows.filter((item) => item.purpose !== purpose);
 
-    setContext({
-      ...context,
-      workflows: target
-        ? [
-            ...others,
-            {
-              id: `workflow_${purpose}`,
-              purpose,
-              target,
-              enabled: true,
-            },
-          ]
-        : others,
-    });
-  }
-
-  function workflowValue(purpose: WorkflowPurpose) {
-    return targetValue(
-      context?.workflows.find((item) => item.enabled && item.purpose === purpose)
-        ?.target,
-    );
-  }
 
   function toggleCapability(key: RoleCapabilityKey) {
     if (!context) return;
@@ -253,50 +202,7 @@ export default function RolesVNextClient() {
     });
   }
 
-  function reportingRelationshipEnabled() {
-    return Boolean(
-      context?.relationships.some(
-        (item) => item.kind === "reports_to" && item.enabled,
-      ),
-    );
-  }
 
-  function setReportingRelationship(enabled: boolean) {
-    if (!context) return;
-    const rest = context.relationships.filter(
-      (item) => item.kind !== "reports_to",
-    );
-    setContext({
-      ...context,
-      relationships: enabled
-        ? [
-            ...rest,
-            {
-              id: "relationship_reports_to",
-              kind: "reports_to",
-              enabled: true,
-              label: "Reporting manager",
-            },
-          ]
-        : rest,
-    });
-  }
-
-  const targetOptions = (
-    <>
-      <option value="none">Not used</option>
-      <option value="reporting_manager">Reporting manager</option>
-      <option value="organization_admin">Organization Admin</option>
-      <option value="self">Same person</option>
-      {roles
-        .filter((role) => role.id !== selectedRoleId)
-        .map((role) => (
-          <option key={role.id} value={`role:${role.id}`}>
-            Role: {role.label}
-          </option>
-        ))}
-    </>
-  );
 
   return (
     <div className="min-w-0 space-y-4">
@@ -316,7 +222,7 @@ export default function RolesVNextClient() {
                   Roles
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Define people once. Responsibilities inherit this wiring.
+                  Reusable capability profiles. Reporting hierarchy lives on Employees.
                 </div>
               </div>
               <button
@@ -386,7 +292,7 @@ export default function RolesVNextClient() {
           {!selectedRole ? (
             <EmptyState
               title="Choose a Role"
-              description="Select a Role to define its relationships, workflow and builder capabilities."
+              description="Select a Role to define its reusable builder capabilities."
             />
           ) : contextLoading || !context ? (
             <div className="flex h-64 items-center justify-center rounded-lg border">
@@ -401,8 +307,8 @@ export default function RolesVNextClient() {
                       {selectedRole.label}
                     </div>
                     <div className="mt-1 text-sm text-muted-foreground">
-                      This is the context contract inherited by Responsibilities
-                      built for this Role.
+                      Employee hierarchy and reporting are configured on Employees.
+                      Responsibilities consume that organization context at runtime.
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -438,8 +344,6 @@ export default function RolesVNextClient() {
                   {(
                     [
                       ["basics", "Basics", ShieldCheck],
-                      ["relationships", "Relationships", UsersRound],
-                      ["workflow", "Workflow", Workflow],
                       ["capabilities", "App Builder", Wrench],
                     ] as const
                   ).map(([key, label, Icon]) => (
@@ -476,7 +380,7 @@ export default function RolesVNextClient() {
                       </div>
                     </div>
                     <div className="rounded-lg border p-3">
-                      <div className="text-xs text-muted-foreground">Workflow routes</div>
+                      <div className="text-xs text-muted-foreground">Legacy routes</div>
                       <div className="mt-1 text-2xl font-semibold">
                         {context.workflows.filter((item) => item.enabled).length}
                       </div>
@@ -486,81 +390,6 @@ export default function RolesVNextClient() {
                       <div className="mt-1 text-2xl font-semibold">
                         {context.visibility.filter((item) => item.enabled).length}
                       </div>
-                    </div>
-                  </div>
-                </Panel>
-              )}
-
-              {tab === "relationships" && (
-                <Panel>
-                  <div className="font-semibold">People relationships</div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    The actual manager is still stored on each employee through
-                    users.reports_to_id. This switch tells Responsibilities that
-                    the relationship is meaningful for this Role.
-                  </div>
-
-                  <label className="mt-5 flex items-start gap-3 rounded-lg border p-4">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={reportingRelationshipEnabled()}
-                      onChange={(event) =>
-                        setReportingRelationship(event.target.checked)
-                      }
-                    />
-                    <div>
-                      <div className="font-medium">Has a reporting manager</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Approval/review routing may resolve through the employee's
-                        current reports_to_id relationship.
-                      </div>
-                    </div>
-                  </label>
-                </Panel>
-              )}
-
-              {tab === "workflow" && (
-                <Panel>
-                  <div className="font-semibold">Default workflow routing</div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    Responsibilities only need to say “Needs approval” or “Needs
-                    review.” The Role decides where that work goes.
-                  </div>
-
-                  <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                    {(
-                      [
-                        ["approval", "Approval"],
-                        ["review", "Review"],
-                        ["escalation", "Escalation"],
-                        ["handoff", "Handoff"],
-                      ] as const
-                    ).map(([purpose, label]) => (
-                      <Field key={purpose} label={label}>
-                        <select
-                          className={inputClass}
-                          value={workflowValue(purpose)}
-                          onChange={(event) =>
-                            setWorkflow(purpose, event.target.value)
-                          }
-                        >
-                          {targetOptions}
-                        </select>
-                      </Field>
-                    ))}
-                  </div>
-
-                  <div className="mt-5 rounded-lg border bg-muted/20 p-4 text-sm">
-                    <div className="flex items-center gap-2 font-medium">
-                      <ArrowRight className="h-4 w-4" />
-                      Example
-                    </div>
-                    <div className="mt-2 text-muted-foreground">
-                      Junior Executive → Approval = Reporting manager. Rahul
-                      submits → runtime reads Rahul.reports_to_id → Arjun receives
-                      the approval. Change Rahul's manager later and the
-                      Responsibility does not need editing.
                     </div>
                   </div>
                 </Panel>

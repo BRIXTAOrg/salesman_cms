@@ -156,11 +156,19 @@ function uniqueIds(values: unknown[], path: string) {
 }
 
 function parseStrictJsonObject(text: string) {
-  const cleaned = text.trim();
+  let cleaned = text.trim();
+
+  const fenced = cleaned.match(
+    /^```(?:json)?\s*([\s\S]*?)\s*```$/i,
+  );
+
+  if (fenced) {
+    cleaned = fenced[1].trim();
+  }
 
   if (!cleaned.startsWith("{") || !cleaned.endsWith("}")) {
     throw new Error(
-      "AI response must contain exactly one JSON object with no Markdown fences or prose before/after it.",
+      "AI response must resolve to exactly one JSON object. Remove prose before/after the JSON.",
     );
   }
 
@@ -199,6 +207,28 @@ function stableRegistryValue(nativeBlocks: AppBuilderNativeBlockContext[]) {
     visualUiBlocks: RESPONSIBILITY_UI_BLOCK_REGISTRY,
 
     presentationRuntime: BRIXTA_PRESENTATION_RUNTIME_CAPABILITIES,
+
+    deviceStudio: {
+      fastPreview:
+        "Shared Flutter/Stac renderer receives the current unpublished uiDocument live.",
+
+      actualAndroid:
+        "When Device Studio is configured, the CMS embeds the hosted Android salesapp APK.",
+
+      editingTruth:
+        "Always mutate the structured BRIXTA definition; preview pixels are never source code.",
+    },
+
+    nativeExtensionPolicy: {
+      normalAuthoring:
+        "Return declarative BRIXTA JSON using registered capabilities. Never output arbitrary Dart/Kotlin/XML/ADB commands for direct execution.",
+
+      unavailableCapability:
+        "Report unavailable native requirements instead of pretending support exists.",
+
+      extensionPipeline:
+        "New native code belongs to an isolated Platform Extension build/test/sign/device-validation pipeline before it becomes a registered palette capability.",
+    },
 
     nativeBlocks: nativeBlocks
       .map((item) => ({
@@ -598,6 +628,9 @@ export function buildResponsibilityAppBuilderAIContext(
       "DO NOT output effect.* nodes.",
       "DO NOT output a program object.",
       "DO NOT output events, rules or effects.",
+      "DO NOT create or depend on a separate Workflow definition for new behavior.",
+      "Use the existing employee reporting hierarchy for manager relationships.",
+      "Represent approval/review routing with Kernel actors, states and actions; advanced conditions/effects belong in Pixel Logic.",
       "Advanced behavior wiring belongs to the separate Pixel Logic builder.",
       "Basic action availableState/resultingState configuration is allowed because the normal App Builder already supports action lifecycle configuration.",
     ],

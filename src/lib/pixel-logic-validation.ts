@@ -2,6 +2,7 @@
 // BRIXTA_PIXEL_LOGIC_AI_BRIDGE_V1
 import { getPixelLogicNodeSpec } from "@/lib/pixel-logic-registry";
 import type { PixelLogicProgram } from "@/lib/pixel-logic-types";
+import { pixelLogicExecutionPolicy } from "@/lib/pixel-logic-execution-policy";
 
 export type PixelLogicValidationIssue = {
   severity: "error" | "warning";
@@ -32,6 +33,32 @@ export function validatePixelLogicProgram(
         severity: "error",
         nodeId: node.id,
         message: `No registered Pixel Logic node type "${node.type}".`,
+      });
+    }
+
+    const executionPolicy =
+      pixelLogicExecutionPolicy(
+        node.type,
+      );
+
+    const placement =
+      node.execution?.placement ??
+      "auto";
+
+    if (
+      !executionPolicy.allowed.includes(
+        placement,
+      )
+    ) {
+      issues.push({
+        severity:
+          "error",
+
+        nodeId:
+          node.id,
+
+        message:
+          `${node.label ?? node.type}: "${placement}" execution is not allowed. ${executionPolicy.reason}`,
       });
     }
   }

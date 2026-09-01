@@ -17,6 +17,7 @@ import type {
 } from "@/lib/responsibility-kernel-types";
 
 import { buildPixelPresentationContext } from "@/lib/responsibility-presentation-runtime";
+import { pixelLogicExecutionAIContext } from "@/lib/pixel-logic-execution-policy";
 
 export const PIXEL_LOGIC_AI_FORMAT = "brixta.pixel-logic" as const;
 export const PIXEL_LOGIC_AI_FORMAT_VERSION = 2 as const;
@@ -401,6 +402,33 @@ function validateRawPixelLogicAIEnvelope(value: Record<string, unknown>) {
     }
 
     requireRawObject(node.config, `program.nodes[${index}].config`);
+
+    if (
+      node.execution !==
+      undefined
+    ) {
+      const execution =
+        requireRawObject(
+          node.execution,
+          `program.nodes[${index}].execution`,
+        );
+
+      const placement =
+        requireRawString(
+          execution.placement,
+          `program.nodes[${index}].execution.placement`,
+        );
+
+      if (
+        placement !== "auto" &&
+        placement !== "device" &&
+        placement !== "server"
+      ) {
+        throw new Error(
+          `program.nodes[${index}].execution.placement must be "auto", "device", or "server".`,
+        );
+      }
+    }
   });
 
   /*
@@ -707,6 +735,9 @@ export function buildPixelLogicAIContext({
 
     presentationContext: buildPixelPresentationContext(kernel),
 
+    executionPlacement:
+      pixelLogicExecutionAIContext(),
+
     organization: {
       availableRoles: roles.map((role) => ({
         id: role.id,
@@ -720,7 +751,21 @@ export function buildPixelLogicAIContext({
         employeeCode: employee.employeeCode ?? null,
         department: employee.department ?? null,
         designation: employee.designation ?? null,
+        role: employee.role ?? null,
+        area: employee.area ?? null,
+        zone: employee.zone ?? null,
+        reportsToId: employee.reportsToId ?? null,
+        reportingManagerName: employee.reportingManagerName ?? null,
+        reportingStatus: employee.reportingStatus ?? null,
+        reportingPolicy: employee.reportingPolicy ?? null,
       })),
+
+      hierarchyRules: [
+        "Employee reportingPolicy/reportsToId is the organization hierarchy source of truth.",
+        "Use manager_of / relationship for relational actors such as reporting manager.",
+        "Do not invent a parallel Workflow or manager-routing configuration.",
+        "New approval/review behavior should use Kernel actors, states, actions and Pixel Logic.",
+      ],
     },
 
     realityVocabulary: {
@@ -1333,11 +1378,19 @@ Describe the workflow after this line.`;
 }
 
 function parseJsonObject(text: string): Record<string, unknown> {
-  const cleaned = text.trim();
+  let cleaned = text.trim();
+
+  const fenced = cleaned.match(
+    /^```(?:json)?\s*([\s\S]*?)\s*```$/i,
+  );
+
+  if (fenced) {
+    cleaned = fenced[1].trim();
+  }
 
   if (!cleaned.startsWith("{") || !cleaned.endsWith("}")) {
     throw new Error(
-      "AI response must contain exactly one JSON object with no Markdown fences or prose before/after it.",
+      "AI response must resolve to exactly one JSON object. Remove prose before/after the JSON.",
     );
   }
 

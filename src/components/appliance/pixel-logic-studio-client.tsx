@@ -57,6 +57,7 @@ import {
   type PixelLogicValidationIssue,
 } from "@/lib/pixel-logic-validation";
 import { validatePixelLogicAgainstResponsibility } from "@/lib/pixel-logic-context-validation";
+import { pixelLogicExecutionPolicy } from "@/lib/pixel-logic-execution-policy";
 
 import {
   applyPixelRealityToKernel,
@@ -339,7 +340,20 @@ export default function PixelLogicStudioClient() {
           y: Math.floor(program.nodes.length / 4) * 180,
         },
       config,
+
+      execution: {
+        placement:
+          pixelLogicExecutionPolicy(
+            type,
+          ).recommended,
+
+        rationale:
+          pixelLogicExecutionPolicy(
+            type,
+          ).reason,
+      },
     };
+
     setProgram((current) => ({
       ...current,
       nodes: [...current.nodes, next],
@@ -451,6 +465,8 @@ export default function PixelLogicStudioClient() {
             userRequest: aiUserBrief,
             contextItems: [
             "Current Responsibility",
+            "Live employee reporting hierarchy",
+            "Live Role IDs",
             "Canonical Responsibility Kernel",
             "Existing Pixel Logic program",
             "Existing actors",
@@ -459,6 +475,7 @@ export default function PixelLogicStudioClient() {
             "Existing action configuration / submission guards",
             "Existing record lifecycle behaviour",
             "Registered Pixel Logic nodes",
+            "Execution placement policy: Auto / Device / Server",
             "Installed server-side submission guard capabilities",
           ],
           },
@@ -472,6 +489,141 @@ export default function PixelLogicStudioClient() {
         error instanceof Error
           ? error.message
           : "Unable to copy Pixel Logic AI context.",
+      );
+    }
+  }
+
+  function validateAndApplyAIImport() {
+    if (!selectedResponsibility) {
+      setMessage("Choose a Responsibility before importing AI logic.");
+      return;
+    }
+
+    try {
+      const result = parsePixelLogicAIImport(
+        aiImportText,
+        `${selectedResponsibility.title} Logic`,
+      );
+
+      const proposedKernel = applyPixelRealityToKernel(
+        kernel,
+        result.reality,
+      );
+
+      const issues: PixelLogicValidationIssue[] = [
+        ...validatePixelLogicProgram(result.program),
+        ...validatePixelLogicAgainstResponsibility(
+          result.program,
+          proposedKernel,
+        ),
+      ];
+
+      const currentFingerprint =
+        pixelLogicRegistryFingerprint();
+
+      if (
+        result.registryFingerprint &&
+        result.registryFingerprint !== currentFingerprint
+      ) {
+        issues.push({
+          severity: "warning",
+          message: `This AI result was generated against registry ${result.registryFingerprint}, while the current registry is ${currentFingerprint}. It has been revalidated against the current registry.`,
+        });
+      }
+
+      if (
+        result.responsibilityId !== undefined &&
+        String(result.responsibilityId) !==
+          String(selectedResponsibility.id)
+      ) {
+        issues.push({
+          severity: "error",
+          message: `AI result targets Responsibility ${String(result.responsibilityId)}, not the currently selected Responsibility ${selectedResponsibility.id}.`,
+        });
+      }
+
+      if (result.unsupportedCapabilities.length > 0) {
+        issues.push({
+          severity: "error",
+          message: `The requested logic needs unsupported capabilities: ${result.unsupportedCapabilities.join(", ")}.`,
+        });
+      }
+
+      setAiImportResult(result);
+      setAiIssues(issues);
+
+      const errors =
+        issues.filter(
+          (item) => item.severity === "error",
+        ).length;
+
+      if (errors > 0) {
+        setMessage(
+          `AI logic parsed, but ${errors} blocking validation error${errors === 1 ? "" : "s"} must be fixed.`,
+        );
+        return;
+      }
+
+      if (!extension) {
+        setMessage(
+          "Responsibility extension is not loaded.",
+        );
+        return;
+      }
+
+      const next =
+        autoLayoutPixelLogicProgram(
+          result.program,
+        );
+
+      const nextExtension =
+        withReality(
+          extension,
+          result.reality,
+        );
+
+      setExtension(nextExtension);
+
+      setProgram({
+        ...next,
+
+        metadata: {
+          ...next.metadata,
+
+          generatedBy:
+            next.metadata.generatedBy ??
+            "external-ai",
+
+          updatedAt:
+            new Date().toISOString(),
+        },
+      });
+
+      setSelectedNodeId(null);
+      setFromNodeId("");
+      setFromPort("");
+      setToNodeId("");
+      setToPort("");
+      setAiOpen(false);
+
+      setMessage(
+        "AI logic validated and applied to the draft canvas. Review the graph, then click Save logic.",
+      );
+    } catch (error) {
+      setAiImportResult(null);
+
+      setAiIssues([
+        {
+          severity: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Unable to parse AI-generated Pixel Logic.",
+        },
+      ]);
+
+      setMessage(
+        "AI import could not be validated.",
       );
     }
   }
@@ -895,19 +1047,33 @@ export default function PixelLogicStudioClient() {
                 className="mt-3 min-h-52 w-full rounded-md border bg-background p-3 font-mono text-xs outline-none focus:ring-2 focus:ring-ring"
               />
               <div className="mt-3 flex flex-wrap gap-2">
-                <SecondaryButton type="button" onClick={validateAIImport}>
-                  Validate AI JSON
+                <SecondaryButton
+                  type="button"
+                  onClick={validateAIImport}
+                >
+                  Validate only
                 </SecondaryButton>
+
                 <PrimaryButton
                   type="button"
-                  onClick={applyAIImport}
-                  disabled={
-                    !aiImportResult ||
-                    aiIssues.some((item) => item.severity === "error")
-                  }
+                  onClick={validateAndApplyAIImport}
+                  disabled={!aiImportText.trim()}
                 >
-                  Apply AI update
+                  Validate & Apply
                 </PrimaryButton>
+
+                {aiImportResult &&
+                  !aiIssues.some(
+                    (item) =>
+                      item.severity === "error",
+                  ) && (
+                    <SecondaryButton
+                      type="button"
+                      onClick={applyAIImport}
+                    >
+                      Apply validated result
+                    </SecondaryButton>
+                  )}
               </div>
             </div>
           </div>
@@ -1249,6 +1415,86 @@ export default function PixelLogicStudioClient() {
                       }
                     />
                   </Field>
+
+                  <div className="rounded-lg border bg-muted/10 p-3">
+                    <div className="text-xs font-semibold">
+                      Execution placement
+                    </div>
+
+                    <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      {
+                        pixelLogicExecutionPolicy(
+                          selectedNode.type,
+                        ).reason
+                      }
+                    </div>
+
+                    <select
+                      className={`${inputClass} mt-3`}
+                      value={
+                        selectedNode.execution?.placement ??
+                        "auto"
+                      }
+                      onChange={(event) =>
+                        setProgram((current) => ({
+                          ...current,
+
+                          nodes:
+                            current.nodes.map(
+                              (node) =>
+                                node.id ===
+                                selectedNode.id
+                                  ? {
+                                      ...node,
+
+                                      execution: {
+                                        placement:
+                                          event.target.value as
+                                            | "auto"
+                                            | "device"
+                                            | "server",
+
+                                        rationale:
+                                          pixelLogicExecutionPolicy(
+                                            node.type,
+                                          ).reason,
+                                      },
+                                    }
+                                  : node,
+                            ),
+                        }))
+                      }
+                    >
+                      {
+                        pixelLogicExecutionPolicy(
+                          selectedNode.type,
+                        ).allowed.map(
+                          (
+                            placement,
+                          ) => (
+                            <option
+                              key={
+                                placement
+                              }
+                              value={
+                                placement
+                              }
+                            >
+                              {
+                                placement ===
+                                  "auto"
+                                  ? "Auto · BRIXTA chooses"
+                                  : placement ===
+                                      "device"
+                                    ? "Device · immediate"
+                                    : "Server · authoritative"
+                              }
+                            </option>
+                          ),
+                        )
+                      }
+                    </select>
+                  </div>
 
                   {(selectedSpec.configFields ?? []).map((field) => {
                     const raw = selectedNode.config[field.key];

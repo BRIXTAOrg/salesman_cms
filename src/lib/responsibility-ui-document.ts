@@ -119,6 +119,8 @@ export type ResponsibilityUiBlockType =
   | "layout.stack"
   | "layout.wrap"
   | "layout.grid"
+  | "layout.safe_area"
+  | "navigation.tabs"
   | "container.card"
   | "container.surface"
   | "display.text"
@@ -128,10 +130,14 @@ export type ResponsibilityUiBlockType =
   | "display.progress"
   | "display.badge"
   | "display.icon"
+  | "display.avatar"
   | "feedback.empty"
   | "feedback.loading"
+  | "feedback.success"
+  | "feedback.error"
   | "interaction.capture"
   | "interaction.action_button"
+  | "interaction.icon_button"
   | "overlay.banner"
   | "overlay.fullscreen"
   | "media.image"
@@ -204,6 +210,7 @@ export type ResponsibilityUiBlockDefinition = {
   category:
     | "Layout"
     | "Container"
+    | "Navigation"
     | "Display"
     | "Interaction"
     | "Overlay"
@@ -308,6 +315,34 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY: ResponsibilityUiBlockDefinition[]
         columns: 2,
         gap: 12,
         childAspectRatio: 1.15,
+      },
+      runtime: "brixta",
+    },
+
+    {
+      type: "layout.safe_area",
+      label: "Safe Area",
+      category: "Layout",
+      description: "Keep content clear of Android/iOS system insets and cutouts.",
+      keywords: ["safe area", "notch", "insets", "phone", "layout"],
+      allowsChildren: true,
+      defaultConfig: {
+        padding: 0,
+        gap: 12,
+      },
+      runtime: "brixta",
+    },
+
+    {
+      type: "navigation.tabs",
+      label: "Tabs",
+      category: "Navigation",
+      description: "Native Flutter tab navigation across child sections.",
+      keywords: ["tabs", "navigation", "sections", "pages"],
+      allowsChildren: true,
+      defaultConfig: {
+        labels: ["Tab 1", "Tab 2"],
+        height: 360,
       },
       runtime: "brixta",
     },
@@ -455,6 +490,50 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY: ResponsibilityUiBlockDefinition[]
     },
 
     {
+      type: "display.avatar",
+      label: "Avatar",
+      category: "Display",
+      description: "Circular avatar from a bound image URL or initials.",
+      keywords: ["avatar", "person", "profile", "photo", "initials"],
+      allowsBinding: true,
+      defaultConfig: {
+        size: 52,
+        initials: "A",
+      },
+      runtime: "brixta",
+    },
+
+    {
+      type: "feedback.success",
+      label: "Success State",
+      category: "Feedback",
+      description: "Designed success confirmation state.",
+      keywords: ["success", "done", "complete", "confirmation"],
+      defaultConfig: {
+        title: "Done",
+        message: "Completed successfully.",
+        radius: 18,
+      },
+      supportedAnimations: ["fade", "scale", "fade_scale"],
+      runtime: "brixta",
+    },
+
+    {
+      type: "feedback.error",
+      label: "Error State",
+      category: "Feedback",
+      description: "Designed error/failure state.",
+      keywords: ["error", "failed", "warning", "problem"],
+      defaultConfig: {
+        title: "Something went wrong",
+        message: "Please try again.",
+        radius: 18,
+      },
+      supportedAnimations: ["fade", "shake"],
+      runtime: "brixta",
+    },
+
+    {
       type: "feedback.empty",
       label: "Empty State",
       category: "Feedback",
@@ -531,6 +610,27 @@ export const RESPONSIBILITY_UI_BLOCK_REGISTRY: ResponsibilityUiBlockDefinition[]
         label: "Continue",
         style: "primary",
         size: "large",
+      },
+      supportedAnimations: ["fade", "scale", "fade_scale"],
+      runtime: "brixta",
+    },
+
+    {
+      type: "interaction.icon_button",
+      label: "Icon Button",
+      category: "Interaction",
+      description: "Compact native action button with icon.",
+      keywords: ["icon button", "button", "action", "tap"],
+      allowsAction: true,
+      defaultConfig: {
+        icon: "check",
+        style: "primary",
+        size: "medium",
+        width: "fit",
+        height: 48,
+        radius: 14,
+        tapHaptic: "light",
+        tapSound: "none"
       },
       supportedAnimations: ["fade", "scale", "fade_scale"],
       runtime: "brixta",

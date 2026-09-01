@@ -22,6 +22,10 @@ import {
 
 import { compileResponsibilitySemantics } from "@/lib/responsibility-semantic-compiler";
 import {
+  PIXEL_LOGIC_METADATA_KEY,
+  normalizePixelLogicProgram,
+} from "@/lib/pixel-logic-types";
+import {
   RESPONSIBILITY_KERNEL_METADATA_KEY,
   type ResponsibilityKernel,
 } from "@/lib/responsibility-kernel-types";
@@ -209,9 +213,84 @@ export const POST = withTenantDb<Context>(
             },
           }
         : normalizedWithReality;
-    const publishedBaseDefinition = publishedKernel
-      ? compileKernelToBaseDefinition(publishedKernel)
-      : (responsibility.config ?? {});
+    const compiledBaseDefinition =
+      publishedKernel
+        ? compileKernelToBaseDefinition(
+            publishedKernel,
+          )
+        : (
+            responsibility.config ??
+            {}
+          );
+
+    const rawPixelProgram =
+      publishedNormalized.metadata?.[
+        PIXEL_LOGIC_METADATA_KEY
+      ];
+
+    const clientPixelLogic =
+      rawPixelProgram
+        ? normalizePixelLogicProgram(
+            rawPixelProgram,
+            `${responsibility.title} Logic`,
+          )
+        : null;
+
+    const baseRecord =
+      compiledBaseDefinition &&
+      typeof compiledBaseDefinition ===
+        "object" &&
+      !Array.isArray(
+        compiledBaseDefinition,
+      )
+        ? (
+            compiledBaseDefinition as
+              Record<string, unknown>
+          )
+        : {};
+
+    const appRecord =
+      baseRecord.app &&
+      typeof baseRecord.app ===
+        "object" &&
+      !Array.isArray(
+        baseRecord.app,
+      )
+        ? (
+            baseRecord.app as
+              Record<string, unknown>
+          )
+        : {};
+
+    const appConfig =
+      appRecord.config &&
+      typeof appRecord.config ===
+        "object" &&
+      !Array.isArray(
+        appRecord.config,
+      )
+        ? (
+            appRecord.config as
+              Record<string, unknown>
+          )
+        : {};
+
+    const publishedBaseDefinition =
+      clientPixelLogic
+        ? ({
+            ...baseRecord,
+
+            app: {
+              ...appRecord,
+
+              config: {
+                ...appConfig,
+
+                clientPixelLogic,
+              },
+            },
+          } as typeof compiledBaseDefinition)
+        : compiledBaseDefinition;
 
     const validationIssues = validateResponsibilityDefinition({
       baseDefinition: publishedBaseDefinition,

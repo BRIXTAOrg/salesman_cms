@@ -1572,10 +1572,13 @@ export function VisualPaletteSection({
   }
 
   const categories = [
+    "Layout",
+    "Container",
+    "Navigation",
     "Display",
     "Interaction",
+    "Feedback",
     "Overlay",
-    "Layout",
     "Media",
     "Animation",
     "Spacing",
@@ -2391,6 +2394,247 @@ export function VisualBlockInspector({
               />
             </Field>
           </div>
+        )}
+      </div>
+
+      <div className="space-y-3 border-t pt-4">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Layout & feel
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Top margin">
+            <input
+              className={inputClass}
+              type="number"
+              value={Number(block.config.marginTop ?? 0)}
+              onChange={(event) =>
+                config({
+                  marginTop: Number(event.target.value),
+                })
+              }
+            />
+          </Field>
+
+          <Field label="Bottom margin">
+            <input
+              className={inputClass}
+              type="number"
+              value={Number(block.config.marginBottom ?? 0)}
+              onChange={(event) =>
+                config({
+                  marginBottom: Number(event.target.value),
+                })
+              }
+            />
+          </Field>
+        </div>
+
+        <Field label="Opacity">
+          <input
+            className="w-full"
+            type="range"
+            min="0.1"
+            max="1"
+            step="0.05"
+            value={Number(block.config.opacity ?? 1)}
+            onChange={(event) =>
+              config({
+                opacity: Number(event.target.value),
+              })
+            }
+          />
+        </Field>
+
+        {["container.card", "container.surface"].includes(block.type) && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Padding">
+                <input
+                  className={inputClass}
+                  type="number"
+                  value={Number(block.config.padding ?? 16)}
+                  onChange={(event) =>
+                    config({
+                      padding: Number(event.target.value),
+                    })
+                  }
+                />
+              </Field>
+
+              <Field label="Radius">
+                <input
+                  className={inputClass}
+                  type="number"
+                  value={Number(block.config.radius ?? 16)}
+                  onChange={(event) =>
+                    config({
+                      radius: Number(event.target.value),
+                    })
+                  }
+                />
+              </Field>
+            </div>
+
+            <Field label="Background">
+              <input
+                className={inputClass}
+                type="color"
+                value={String(block.config.background ?? "#ffffff")}
+                onChange={(event) =>
+                  config({
+                    background: event.target.value,
+                  })
+                }
+              />
+            </Field>
+          </>
+        )}
+
+        {block.type === "display.text" && (
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Text color">
+              <input
+                className={inputClass}
+                type="color"
+                value={String(block.config.color ?? "#111111")}
+                onChange={(event) =>
+                  config({
+                    color: event.target.value,
+                  })
+                }
+              />
+            </Field>
+
+            <Field label="Weight">
+              <select
+                className={inputClass}
+                value={String(block.config.weight ?? "auto")}
+                onChange={(event) =>
+                  config({
+                    weight: event.target.value,
+                  })
+                }
+              >
+                <option value="auto">Automatic</option>
+                <option value="normal">Normal</option>
+                <option value="medium">Medium</option>
+                <option value="semibold">Semi-bold</option>
+                <option value="bold">Bold</option>
+                <option value="black">Black</option>
+              </select>
+            </Field>
+          </div>
+        )}
+
+        {["interaction.action_button", "interaction.icon_button"].includes(block.type) && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Background">
+                <input
+                  className={inputClass}
+                  type="color"
+                  value={String(block.config.background ?? "#2563eb")}
+                  onChange={(event) =>
+                    config({
+                      background: event.target.value,
+                    })
+                  }
+                />
+              </Field>
+
+              <Field label="Text / icon">
+                <input
+                  className={inputClass}
+                  type="color"
+                  value={String(block.config.foreground ?? "#ffffff")}
+                  onChange={(event) =>
+                    config({
+                      foreground: event.target.value,
+                    })
+                  }
+                />
+              </Field>
+
+              <Field label="Radius">
+                <input
+                  className={inputClass}
+                  type="number"
+                  value={Number(block.config.radius ?? 16)}
+                  onChange={(event) =>
+                    config({
+                      radius: Number(event.target.value),
+                    })
+                  }
+                />
+              </Field>
+
+              <Field label="Height">
+                <input
+                  className={inputClass}
+                  type="number"
+                  value={Number(block.config.height ?? 54)}
+                  onChange={(event) =>
+                    config({
+                      height: Number(event.target.value),
+                    })
+                  }
+                />
+              </Field>
+            </div>
+
+            <Field label="Width">
+              <select
+                className={inputClass}
+                value={String(block.config.width ?? "fill")}
+                onChange={(event) =>
+                  config({
+                    width: event.target.value,
+                  })
+                }
+              >
+                <option value="fill">Fill width</option>
+                <option value="fit">Fit content</option>
+              </select>
+            </Field>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Tap haptic">
+                <select
+                  className={inputClass}
+                  value={String(block.config.tapHaptic ?? "light")}
+                  onChange={(event) =>
+                    config({
+                      tapHaptic: event.target.value,
+                    })
+                  }
+                >
+                  <option value="none">None</option>
+                  <option value="light">Light</option>
+                  <option value="medium">Medium</option>
+                  <option value="heavy">Heavy</option>
+                  <option value="vibrate">Vibrate</option>
+                </select>
+              </Field>
+
+              <Field label="Tap sound">
+                <select
+                  className={inputClass}
+                  value={String(block.config.tapSound ?? "none")}
+                  onChange={(event) =>
+                    config({
+                      tapSound: event.target.value,
+                    })
+                  }
+                >
+                  <option value="none">None</option>
+                  <option value="action">Action</option>
+                  <option value="notice">Notice</option>
+                  <option value="decision">Decision</option>
+                </select>
+              </Field>
+            </div>
+          </>
         )}
       </div>
 
