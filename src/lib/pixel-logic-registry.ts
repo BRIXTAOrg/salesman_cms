@@ -384,6 +384,99 @@ const specs: PixelLogicNodeSpec[] = [
   },
 
   {
+    type: "time.local_minutes",
+    label: "Local minutes since midnight",
+    description:
+      "Convert a date/time to minutes since local midnight in an explicit IANA timezone.",
+    category: "Time",
+    kind: "operation",
+    inputs: [
+      {
+        key: "time",
+        label: "Time",
+        kind: "data",
+        valueType: "datetime",
+        required: true,
+      },
+    ],
+    outputs: [
+      {
+        ...valueOut,
+        valueType: "number",
+      },
+    ],
+    configFields: [
+      {
+        key: "timezone",
+        label: "Timezone",
+        kind: "text",
+        placeholder: "Asia/Kolkata",
+      },
+    ],
+  },
+  {
+    type: "time.local_date",
+    label: "Local calendar date",
+    description:
+      "Convert a date/time to YYYY-MM-DD in an explicit IANA timezone.",
+    category: "Time",
+    kind: "operation",
+    inputs: [
+      {
+        key: "time",
+        label: "Time",
+        kind: "data",
+        valueType: "datetime",
+        required: true,
+      },
+    ],
+    outputs: [
+      {
+        ...valueOut,
+        valueType: "string",
+      },
+    ],
+    configFields: [
+      {
+        key: "timezone",
+        label: "Timezone",
+        kind: "text",
+        placeholder: "Asia/Kolkata",
+      },
+    ],
+  },
+  {
+    type: "time.day_of_week",
+    label: "Local day of week",
+    description:
+      "Return ISO weekday 1=Monday through 7=Sunday in an explicit IANA timezone.",
+    category: "Time",
+    kind: "operation",
+    inputs: [
+      {
+        key: "time",
+        label: "Time",
+        kind: "data",
+        valueType: "datetime",
+        required: true,
+      },
+    ],
+    outputs: [
+      {
+        ...valueOut,
+        valueType: "number",
+      },
+    ],
+    configFields: [
+      {
+        key: "timezone",
+        label: "Timezone",
+        kind: "text",
+        placeholder: "Asia/Kolkata",
+      },
+    ],
+  },
+  {
     type: "time.difference_minutes",
     label: "Difference in minutes",
     description: "Minutes between two dates/times.",

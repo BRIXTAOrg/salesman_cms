@@ -668,6 +668,8 @@ export function buildPixelLogicAIContext({
         kind: item.capture.kind,
         valueType: captureValueType(item.capture.kind),
         required: item.capture.required === true,
+        storeAs: item.capture.storeAs,
+        config: item.capture.config,
       })) ?? [];
 
   const contexts =
@@ -876,6 +878,122 @@ export function buildPixelLogicAIContext({
       },
 
       submissionGuards: {
+        expression: {
+          supported: true,
+
+          phases: [
+            "availability",
+            "submission",
+            "both",
+          ],
+
+          placements: [
+            "auto",
+            "server",
+          ],
+
+          authoritativeHost:
+            "server",
+
+          description:
+            "Generic safe JSON-expression pre-action policy. phase=both affects visible availability and is rechecked before persistence.",
+
+          ops: [
+            "literal",
+            "server_now",
+            "ref",
+            "coalesce",
+
+            "and",
+            "or",
+            "not",
+            "if",
+
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "between",
+            "contains",
+            "exists",
+
+            "add",
+            "subtract",
+            "multiply",
+            "divide",
+            "mod",
+            "min",
+            "max",
+            "round",
+            "abs",
+
+            "time.local_minutes",
+            "time.local_date",
+            "time.day_of_week",
+            "time.difference_minutes",
+            "time.add_minutes",
+          ],
+
+          refScopes: [
+            "server",
+            "context",
+            "capture",
+            "actor",
+            "state",
+            "query",
+            "computed",
+            "object",
+            "history",
+          ],
+
+          example: {
+            human:
+              "Punch In opens at 09:00 Asia/Kolkata.",
+
+            guard: {
+              kind:
+                "expression",
+
+              phase:
+                "both",
+
+              placement:
+                "server",
+
+              message:
+                "Punch In opens at 09:00.",
+
+              expression: {
+                op:
+                  "gte",
+
+                left: {
+                  op:
+                    "time.local_minutes",
+
+                  timezone:
+                    "Asia/Kolkata",
+
+                  value: {
+                    op:
+                      "server_now",
+                  },
+                },
+
+                right: {
+                  op:
+                    "literal",
+
+                  value:
+                    540,
+                },
+              },
+            },
+          },
+        },
+
         date_range_no_overlap: {
           supported: true,
           scope: ["current_employee"],
@@ -1337,6 +1455,10 @@ RUNTIME CAPABILITIES — NON-NEGOTIABLE
 - Use daySource="capture" only when the business meaning explicitly depends on a submitted date/datetime field.
 - matchFields is an AND key: every listed capture must match before the record is considered a duplicate.
 - Never implement a pre-write duplicate restriction as event → query → post-save effect; use the installed submission guard.
+- For arbitrary PRE-ACTION business rules, use the generic expression submission guard instead of inventing a business-specific guard kind.
+- Use phase="both" when a rule should affect visible action availability AND be rechecked before persistence.
+- Expression guards are server-authoritative. placement may be "auto" or "server", never "device".
+- For local shift/time calculations in Pixel Logic, use time.local_minutes with an explicit IANA timezone instead of inventing a fake shift-start datetime context.
 - If a required capability is listed as supported, USE it and do not report it as unsupported.
 - If a genuinely required runtime capability is absent, put a concise plain STRING in unsupportedCapabilities and do not fake the behavior.
 

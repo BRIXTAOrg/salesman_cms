@@ -61,6 +61,28 @@ export function pixelLogicExecutionPolicy(
   }
 
   if (
+    type ===
+      "time.local_minutes" ||
+    type ===
+      "time.local_date" ||
+    type ===
+      "time.day_of_week"
+  ) {
+    return {
+      allowed: [
+        "auto",
+        "server",
+      ],
+
+      recommended:
+        "server",
+
+      reason:
+        "Timezone-sensitive business-clock logic is server-authoritative until an equivalent trusted client executor is installed.",
+    };
+  }
+
+  if (
     type.startsWith(
       "effect.",
     ) ||

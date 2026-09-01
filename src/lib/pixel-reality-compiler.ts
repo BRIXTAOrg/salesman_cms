@@ -289,6 +289,19 @@ export function applyPixelRealityToKernel(
   for (const capture of proposal.captures) {
     const id = possibilityId("capture", capture.id);
 
+    const existingCapture =
+      next.possibilities.find(
+        (item) =>
+          item.type === "capture" &&
+          item.capture.id === capture.id,
+      );
+
+    const existingStoreAs =
+      existingCapture?.type ===
+        "capture"
+        ? existingCapture.capture.storeAs
+        : undefined;
+
     const possibility: KernelPossibility = {
       id,
       type: "capture",
@@ -297,7 +310,10 @@ export function applyPixelRealityToKernel(
         label: capture.label,
         kind: capture.kind,
         required: capture.required,
-        storeAs: capture.storeAs,
+        storeAs:
+          capture.storeAs ??
+          existingStoreAs ??
+          capture.id,
         config: {
           ...(capture.config ?? {}),
           origin: "pixel_reality_v2",

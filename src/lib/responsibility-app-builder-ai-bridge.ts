@@ -558,9 +558,82 @@ export function buildResponsibilityAppBuilderAIContext(
 
     presentationRuntime: BRIXTA_PRESENTATION_RUNTIME_CAPABILITIES,
 
+    serverPolicyRuntime: {
+      purpose:
+        "Kernel-authoritative pre-action business policy. App Builder may configure simple action availability/invariants; complex behavior still belongs in Pixel Logic.",
+
+      actionConfigPath:
+        "action.config.submissionGuards",
+
+      expressionGuard: {
+        kind:
+          "expression",
+
+        phases: [
+          "availability",
+          "submission",
+          "both",
+        ],
+
+        placements: [
+          "auto",
+          "server",
+        ],
+
+        rule:
+          "Device-only authority is forbidden. phase=both affects action availability and is rechecked before persistence.",
+
+        example: {
+          kind:
+            "expression",
+
+          phase:
+            "both",
+
+          placement:
+            "server",
+
+          message:
+            "This action opens at 09:00.",
+
+          expression: {
+            op:
+              "gte",
+
+            left: {
+              op:
+                "time.local_minutes",
+
+              timezone:
+                "Asia/Kolkata",
+
+              value: {
+                op:
+                  "server_now",
+              },
+            },
+
+            right: {
+              op:
+                "literal",
+
+              value:
+                540,
+            },
+          },
+        },
+      },
+
+      optimizedGuards: [
+        "calendar_day_unique",
+        "date_range_no_overlap",
+      ],
+    },
+
     platformRules: {
       general: [
         "Use only capabilities explicitly present in availableBlocks.",
+        "Simple server-authoritative action availability/invariants may use serverPolicyRuntime in action.config.submissionGuards; complex behavior belongs in Pixel Logic.",
         "Never invent a native phone capability.",
         "Never claim that declaring a block automatically installs native Android or iOS code.",
         "If runtime metadata says not_installed, do not use that block.",
