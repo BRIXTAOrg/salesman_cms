@@ -132,8 +132,14 @@ export function SiteHeader() {
   }, []);
 
   useEffect(() => {
-    setFocused(false);
-    setQuery("");
+    const frame = window.requestAnimationFrame(() => {
+      setFocused(false);
+      setQuery("");
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
   }, [pathname]);
 
   const actions = useMemo(

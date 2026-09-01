@@ -1655,11 +1655,17 @@ function BuilderDialog({
   );
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+
+    const frame = window.requestAnimationFrame(() => {
       setState(initialState);
       setSelected(null);
       setError(null);
-    }
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
   }, [open, initialState]);
 
   const selectedField =

@@ -7,8 +7,9 @@
     "dev:studio": "node scripts/dev-studio.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "check": "npx tsc --noEmit"
+    "lint": "eslint .",
+    "check": "tsc --noEmit",
+    "check:full": "npm run check && npm run lint && npm run build"
   },
   "dependencies": {
     "@corbe30/fortune-excel": "^2.3.2",
@@ -88,7 +89,7 @@
     "@types/react": "19.2.1",
     "@types/react-dom": "19.2.1",
     "@types/ws": "^8.18.1",
-    "baseline-browser-mapping": "^2.10.0",
+    "baseline-browser-mapping": "^2.11.20",
     "drizzle-kit": "^0.31.9",
     "eslint": "^9",
     "eslint-config-next": "16.0.7",

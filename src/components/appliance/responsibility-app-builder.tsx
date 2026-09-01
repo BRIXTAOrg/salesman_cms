@@ -354,7 +354,7 @@ function ensureAction(
   action: KernelAction,
   addToLayout = true,
 ) {
-  let next = clone(kernel);
+  const next = clone(kernel);
   let possibility = next.possibilities.find(
     (item) => item.type === "action" && item.action.id === action.id,
   );
@@ -5363,7 +5363,15 @@ function PlayPhone({ kernel }: { kernel: ResponsibilityKernel }) {
   );
   const layout = kernel.metadata.ui?.layout ?? [];
 
-  useEffect(() => setSimulation(initialSimulation(kernel)), [kernel]);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setSimulation(initialSimulation(kernel));
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [kernel]);
 
   function setCurrentTime(value: string) {
     setSimulation((current) => {

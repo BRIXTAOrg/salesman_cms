@@ -50,3 +50,6 @@ src/app/api/dashboardPagesAPI/users-and-team/users/*.csv
 # BRIXTA local patcher backups
 /.brixta-backups/
 /.brixta-local-backups/
+
+# BRIXTA repository hygiene
+/graphify-out/

@@ -1,49 +1,72 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
 
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
-  {
-   ignores: [
-      "src/generated/prisma/", // This ignores the entire folder and its contents
-      "src/generated/prisma/wasm.js", // Specific file if not covered by the folder ignore
-      "node_modules/",
-      ".next/",
-      "dist/",
-      "public/",
-    ],
-  },
-  // You might also want to generally ignore build artifacts and node_modules
   {
     rules: {
-      // Disable the 'no-explicit-any' rule (the one causing "Unexpected any" errors)
       "@typescript-eslint/no-explicit-any": "off",
-
-      // Disable the 'no-unescaped-entities' rule (the one causing "can be escaped with" errors)
       "react/no-unescaped-entities": "off",
 
-      // --- Optional: For the warnings you're seeing ---
-      // If 'no-unused-vars' is blocking your build (i.e., treated as an error),
-      // you can set it to "warn" or "off" temporarily.
-      "@typescript-eslint/no-unused-vars": "warn", // or "off"
-      "no-unused-vars": "warn", // For JavaScript files or non-TS contexts
+      "@typescript-eslint/no-unused-vars": "warn",
+      "no-unused-vars": "off",
 
-      // If 'no-unused-expressions' is blocking your build, set to "warn" or "off".
-      "@typescript-eslint/no-unused-expressions": "warn", // or "off"
-      "no-unused-expressions": "warn", // For JavaScript files or non-TS contexts
-      
-      // To disable the Next.js <img> warning, though it's usually just a warning
-      "@next/next/no-img-element": "off", 
-    }
-  }
-];
+      "@typescript-eslint/no-unused-expressions": "warn",
+      "no-unused-expressions": "off",
+
+      "@next/next/no-img-element": "off",
+    },
+  },
+
+  /*
+   * BRIXTA_REACT_COMPILER_INTEROP_V1
+   *
+   * dnd-kit intentionally returns ref-bearing attributes,
+   * listeners and setNodeRef from its hooks. React Compiler's
+   * refs rule cannot currently model that API correctly.
+   *
+   * Keep this exception narrowly scoped to the drag/drop
+   * visual builder instead of weakening lint globally.
+   */
+  {
+    files: [
+      "src/components/appliance/responsibility-visual-builder.tsx",
+    ],
+    rules: {
+      "react-hooks/refs": "off",
+    },
+  },
+
+  /*
+   * These two builders choose among statically imported Lucide
+   * icons via helper functions. The components themselves are
+   * not dynamically declared; React Compiler simply cannot
+   * prove that through the icon-selector helper.
+   */
+  {
+    files: [
+      "src/components/appliance/responsibilities-client.tsx",
+      "src/components/appliance/responsibility-app-builder.tsx",
+    ],
+    rules: {
+      "react-hooks/static-components": "off",
+    },
+  },
+
+  globalIgnores([
+    ".brixta-backups/**",
+    "graphify-out/**",
+    ".next/**",
+    "out/**",
+    "build/**",
+    "dist/**",
+    "public/**",
+    "src/generated/prisma/**",
+    "next-env.d.ts",
+  ]),
+]);
 
 export default eslintConfig;

@@ -46,3 +46,8 @@ prisma/migrations
 README.md
 src/WORKING.md
 src/app/api/dashboardPagesAPI/users-and-team/users/*.csv
+
+# BRIXTA repository hygiene
+graphify-out/
+.brixta-backups/
+.brixta-local-backups/

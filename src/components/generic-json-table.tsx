@@ -312,7 +312,7 @@ function FieldPreview({
           rel="noreferrer"
           className="group relative block overflow-hidden rounded-md border border-border/50 bg-black/5"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          { }
           <img
             src={media}
             alt={label}
@@ -441,7 +441,7 @@ export function GenericJsonTable({
 
                 if (media) {
                   return (
-                    // eslint-disable-next-line @next/next/no-img-element
+
                     <img
                       src={media}
                       alt={col.label}
