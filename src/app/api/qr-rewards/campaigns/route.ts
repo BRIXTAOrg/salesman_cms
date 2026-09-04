@@ -8,7 +8,7 @@ import {
 } from "next/server";
 
 import {
-  desc,
+  sql,
 } from "drizzle-orm";
 
 import {
@@ -25,24 +25,117 @@ import {
 } from "../../../../../drizzle/qrRewardsSchema";
 
 
+async function validateEntityRecords(
+  db: Parameters<
+    Parameters<typeof withTenantDb>[0]
+  >[1],
+  rawIds: unknown,
+) {
+  if (!Array.isArray(rawIds)) {
+    return [];
+  }
+
+  const ids = [
+    ...new Set(
+      rawIds
+        .map(
+          (value) =>
+            String(
+              value ?? "",
+            ).trim(),
+        )
+        .filter(Boolean),
+    ),
+  ];
+
+  if (ids.length > 500) {
+    throw new Error(
+      "A Campaign can contain at most 500 Entity records in this version.",
+    );
+  }
+
+  const validated:
+    Array<{
+      id: string;
+      entityTypeId: number;
+    }> = [];
+
+  for (const id of ids) {
+    const result =
+      await db.execute(sql`
+        SELECT
+          er.id,
+
+          er.entity_type_id
+            AS "entityTypeId"
+
+        FROM entity_records er
+
+        INNER JOIN entity_types et
+          ON et.id =
+            er.entity_type_id
+
+        WHERE
+          er.id =
+            ${id}::uuid
+
+          AND er.status =
+            'active'
+
+          AND et.is_active =
+            true
+
+        LIMIT 1
+      `);
+
+    const row =
+      result.rows[0] as
+        | {
+            id: string;
+            entityTypeId: number;
+          }
+        | undefined;
+
+    if (!row) {
+      throw new Error(
+        `Entity record ${id} is unavailable.`,
+      );
+    }
+
+    validated.push({
+      id:
+        String(
+          row.id,
+        ),
+
+      entityTypeId:
+        Number(
+          row.entityTypeId,
+        ),
+    });
+  }
+
+  return validated;
+}
+
+
 export const GET =
   withTenantDb(
     async (
       _request,
       db,
     ) => {
-      const status =
+      const schema =
         await qrRewardsSchemaStatus(
           db,
         );
 
-      if (!status.ready) {
+      if (!schema.ready) {
         return NextResponse.json(
           {
             success: false,
-            notProvisioned: true,
             error:
-              "QR Rewards records are not provisioned for this tenant.",
+              "QR Rewards V4 is not provisioned.",
           },
           {
             status: 503,
@@ -50,21 +143,137 @@ export const GET =
         );
       }
 
-      const campaigns =
-        await db
-          .select()
-          .from(
-            qrRewardCampaigns,
-          )
-          .orderBy(
-            desc(
-              qrRewardCampaigns.createdAt,
-            ),
-          );
+      const result =
+        await db.execute(sql`
+          SELECT
+            c.id,
+            c.name,
+            c.description,
+
+            c.reward_amount_minor
+              AS "rewardAmountMinor",
+
+            c.currency,
+
+            c.starts_at
+              AS "startsAt",
+
+            c.expires_at
+              AS "expiresAt",
+
+            c.status,
+
+            c.created_at
+              AS "createdAt",
+
+            c.updated_at
+              AS "updatedAt",
+
+            (
+              SELECT
+                COUNT(*)::integer
+
+              FROM qr_reward_batch_assignments a
+
+              WHERE
+                a.campaign_id =
+                  c.id
+            ) AS "batchCount",
+
+            COALESCE(
+              (
+                SELECT
+                  jsonb_agg(
+                    jsonb_build_object(
+                      'id',
+                        er.id,
+
+                      'entityTypeId',
+                        et.id,
+
+                      'entityTypeKey',
+                        et.key,
+
+                      'entityTypeName',
+                        et.title,
+
+                      'label',
+                        COALESCE(
+                          (
+                            SELECT
+                              NULLIF(
+                                er.data ->> f.key,
+                                ''
+                              )
+
+                            FROM
+                              jsonb_array_elements_text(
+                                et.searchable_fields
+                              ) AS f(key)
+
+                            WHERE
+                              NULLIF(
+                                er.data ->> f.key,
+                                ''
+                              ) IS NOT NULL
+
+                            LIMIT 1
+                          ),
+
+                          NULLIF(
+                            er.data ->> 'name',
+                            ''
+                          ),
+
+                          NULLIF(
+                            er.data ->> 'title',
+                            ''
+                          ),
+
+                          er.external_key,
+
+                          er.id::text
+                        )
+                    )
+
+                    ORDER BY
+                      et.title,
+                      er.id
+                  )
+
+                FROM
+                  qr_reward_campaign_entities ce
+
+                INNER JOIN
+                  entity_records er
+                    ON er.id =
+                      ce.entity_record_id
+
+                INNER JOIN
+                  entity_types et
+                    ON et.id =
+                      ce.entity_type_id
+
+                WHERE
+                  ce.campaign_id =
+                    c.id
+              ),
+
+              '[]'::jsonb
+            ) AS "eligibleEntities"
+
+          FROM
+            qr_reward_campaigns c
+
+          ORDER BY
+            c.created_at DESC
+        `);
 
       return NextResponse.json({
         success: true,
-        campaigns,
+
+        campaigns:
+          result.rows,
       });
     },
   );
@@ -98,34 +307,25 @@ export const POST =
         );
       }
 
-      const status =
-        await qrRewardsSchemaStatus(
-          db,
-        );
-
-      if (!status.ready) {
-        return NextResponse.json(
-          {
-            success: false,
-            notProvisioned: true,
-            error:
-              "QR Rewards records are not provisioned for this tenant.",
-          },
-          {
-            status: 503,
-          },
-        );
-      }
-
       const body =
         await request
           .json()
-          .catch(() => null);
+          .catch(
+            () => null,
+          );
 
       const name =
         String(
-          body?.name ?? "",
+          body?.name ??
+            "",
         ).trim();
+
+      const description =
+        String(
+          body?.description ??
+            "",
+        ).trim() ||
+        null;
 
       const rewardAmountMinor =
         Math.round(
@@ -137,7 +337,8 @@ export const POST =
       const validityDays =
         Math.round(
           Number(
-            body?.validityDays ?? 30,
+            body?.validityDays ??
+              30,
           ),
         );
 
@@ -191,16 +392,48 @@ export const POST =
         );
       }
 
+      let entities:
+        Array<{
+          id: string;
+          entityTypeId: number;
+        }>;
+
+      try {
+        entities =
+          await validateEntityRecords(
+            db,
+            body?.entityRecordIds,
+          );
+      } catch (cause) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              cause instanceof Error
+                ? cause.message
+                : "Invalid Entity selection.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
       const starts =
         new Date();
 
-      const expiry =
-        new Date(starts);
+      const expires =
+        new Date(
+          starts,
+        );
 
-      expiry.setDate(
-        expiry.getDate() +
+      expires.setDate(
+        expires.getDate() +
           validityDays,
       );
+
+      const campaignId =
+        randomUUID();
 
       const [campaign] =
         await db
@@ -208,33 +441,61 @@ export const POST =
             qrRewardCampaigns,
           )
           .values({
-            id: randomUUID(),
+            id:
+              campaignId,
 
             name,
 
-            description:
-              body?.description
-                ? String(
-                    body.description,
-                  )
-                : null,
+            description,
 
             rewardAmountMinor,
 
-            currency: "INR",
+            currency:
+              "INR",
 
             startsAt:
               starts.toISOString(),
 
             expiresAt:
-              expiry.toISOString(),
+              expires.toISOString(),
 
-            status: "active",
+            status:
+              "active",
 
             createdByUserId:
               session.userId,
           })
           .returning();
+
+      for (
+        const entity of
+        entities
+      ) {
+        await db.execute(sql`
+          INSERT INTO
+            qr_reward_campaign_entities (
+              id,
+              campaign_id,
+              entity_type_id,
+              entity_record_id,
+              created_by_user_id
+            )
+
+          VALUES (
+            ${randomUUID()},
+            ${campaignId},
+            ${entity.entityTypeId},
+            ${entity.id}::uuid,
+            ${session.userId}
+          )
+
+          ON CONFLICT (
+            campaign_id,
+            entity_record_id
+          )
+          DO NOTHING
+        `);
+      }
 
       return NextResponse.json(
         {

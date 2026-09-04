@@ -2,6 +2,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -13,6 +14,12 @@ import {
 import {
   sql,
 } from "drizzle-orm";
+
+
+import {
+  entityRecords,
+  entityTypes,
+} from "./platformVNextSchema";
 
 
 export const qrRewardsMeta = pgTable(
@@ -37,6 +44,228 @@ export const qrRewardsMeta = pgTable(
 );
 
 
+
+/*
+ * ==========================================================
+ * SCHEME
+ *
+ * Reusable business policy container.
+ * ==========================================================
+ */
+export const qrRewardSchemes = pgTable(
+  "qr_reward_schemes",
+  {
+    id: uuid(
+      "id",
+    ).primaryKey(),
+
+    name: varchar(
+      "name",
+      {
+        length: 180,
+      },
+    ).notNull(),
+
+    description: text(
+      "description",
+    ),
+
+    status: varchar(
+      "status",
+      {
+        length: 32,
+      },
+    )
+      .notNull()
+      .default(
+        "active",
+      ),
+
+    createdByUserId: integer(
+      "created_by_user_id",
+    ),
+
+    createdAt: timestamp(
+      "created_at",
+      {
+        withTimezone: true,
+        mode: "string",
+      },
+    )
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp(
+      "updated_at",
+      {
+        withTimezone: true,
+        mode: "string",
+      },
+    )
+      .notNull()
+      .defaultNow(),
+  },
+
+  (table) => [
+    index(
+      "idx_qr_reward_schemes_status",
+    ).on(
+      table.status,
+    ),
+  ],
+);
+
+
+/*
+ * ==========================================================
+ * IMMUTABLE VERSIONED RULEBOOK
+ *
+ * NEVER update an old version.
+ * Publishing changes creates version N+1.
+ * ==========================================================
+ */
+export const qrRewardRulebooks = pgTable(
+  "qr_reward_rulebooks",
+  {
+    id: uuid(
+      "id",
+    ).primaryKey(),
+
+    schemeId: uuid(
+      "scheme_id",
+    )
+      .notNull()
+      .references(
+        () =>
+          qrRewardSchemes.id,
+        {
+          onDelete:
+            "restrict",
+        },
+      ),
+
+    version: integer(
+      "version",
+    ).notNull(),
+
+    status: varchar(
+      "status",
+      {
+        length: 32,
+      },
+    )
+      .notNull()
+      .default(
+        "published",
+      ),
+
+    /*
+     * Supported V1 reward policies:
+     *
+     * fixed:
+     * {
+     *   type: "fixed",
+     *   amountMinor: 10000
+     * }
+     *
+     * formula:
+     * {
+     *   type: "formula",
+     *   baseAmountMinor: 5000,
+     *   adjustments: [...]
+     * }
+     */
+    rewardPolicy: jsonb(
+      "reward_policy",
+    )
+      .$type<
+        Record<string, unknown>
+      >()
+      .notNull(),
+
+    claimLimitPolicy: jsonb(
+      "claim_limit_policy",
+    )
+      .$type<
+        Record<string, unknown>
+      >()
+      .notNull()
+      .default(
+        sql`'{}'::jsonb`,
+      ),
+
+    fraudPolicy: jsonb(
+      "fraud_policy",
+    )
+      .$type<
+        Record<string, unknown>
+      >()
+      .notNull()
+      .default(
+        sql`'{}'::jsonb`,
+      ),
+
+    validityPolicy: jsonb(
+      "validity_policy",
+    )
+      .$type<
+        Record<string, unknown>
+      >()
+      .notNull()
+      .default(
+        sql`'{}'::jsonb`,
+      ),
+
+    rulesHash: varchar(
+      "rules_hash",
+      {
+        length: 64,
+      },
+    ).notNull(),
+
+    createdByUserId: integer(
+      "created_by_user_id",
+    ),
+
+    publishedAt: timestamp(
+      "published_at",
+      {
+        withTimezone: true,
+        mode: "string",
+      },
+    )
+      .notNull()
+      .defaultNow(),
+
+    createdAt: timestamp(
+      "created_at",
+      {
+        withTimezone: true,
+        mode: "string",
+      },
+    )
+      .notNull()
+      .defaultNow(),
+  },
+
+  (table) => [
+    uniqueIndex(
+      "qr_reward_rulebooks_scheme_version_key",
+    ).on(
+      table.schemeId,
+      table.version,
+    ),
+
+    index(
+      "idx_qr_reward_rulebooks_scheme",
+    ).on(
+      table.schemeId,
+    ),
+  ],
+);
+
+
+
 export const qrRewardCampaigns = pgTable(
   "qr_reward_campaigns",
   {
@@ -52,6 +281,34 @@ export const qrRewardCampaigns = pgTable(
 
     description: text(
       "description",
+    ),
+
+    /*
+     * Current Campaign policy selection.
+     *
+     * Existing Batch Assignments retain their own immutable
+     * Rulebook snapshot if the Campaign later switches.
+     */
+    schemeId: uuid(
+      "scheme_id",
+    ).references(
+      () =>
+        qrRewardSchemes.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    currentRulebookId: uuid(
+      "current_rulebook_id",
+    ).references(
+      () =>
+        qrRewardRulebooks.id,
+      {
+        onDelete:
+          "restrict",
+      },
     ),
 
     rewardAmountMinor: integer(
@@ -141,6 +398,98 @@ export const qrRewardCampaigns = pgTable(
     ),
   ],
 );
+
+
+
+/*
+ * Campaign ↔ BRIXTA Entity records.
+ *
+ * QR Rewards does NOT create its own Dealer/Store/Mason tables.
+ * These IDs point directly at BRIXTA's reusable Entity Store.
+ */
+export const qrRewardCampaignEntities = pgTable(
+  "qr_reward_campaign_entities",
+  {
+    id: uuid(
+      "id",
+    ).primaryKey(),
+
+    campaignId: uuid(
+      "campaign_id",
+    )
+      .notNull()
+      .references(
+        () =>
+          qrRewardCampaigns.id,
+        {
+          onDelete:
+            "cascade",
+        },
+      ),
+
+    entityTypeId: integer(
+      "entity_type_id",
+    )
+      .notNull()
+      .references(
+        () =>
+          entityTypes.id,
+        {
+          onDelete:
+            "restrict",
+        },
+      ),
+
+    entityRecordId: uuid(
+      "entity_record_id",
+    )
+      .notNull()
+      .references(
+        () =>
+          entityRecords.id,
+        {
+          onDelete:
+            "restrict",
+        },
+      ),
+
+    createdByUserId: integer(
+      "created_by_user_id",
+    ),
+
+    createdAt: timestamp(
+      "created_at",
+      {
+        withTimezone: true,
+        mode: "string",
+      },
+    )
+      .notNull()
+      .defaultNow(),
+  },
+
+  (table) => [
+    uniqueIndex(
+      "qr_reward_campaign_entities_campaign_record_key",
+    ).on(
+      table.campaignId,
+      table.entityRecordId,
+    ),
+
+    index(
+      "idx_qr_reward_campaign_entities_campaign",
+    ).on(
+      table.campaignId,
+    ),
+
+    index(
+      "idx_qr_reward_campaign_entities_type",
+    ).on(
+      table.entityTypeId,
+    ),
+  ],
+);
+
 
 
 export const qrRewardBatches = pgTable(
@@ -403,6 +752,95 @@ export const qrRewardBatchAssignments = pgTable(
         },
       ),
 
+
+    /*
+     * Exact policy contract used by this activation.
+     *
+     * These values DO NOT follow future Campaign updates.
+     */
+    schemeId: uuid(
+      "scheme_id",
+    ).references(
+      () =>
+        qrRewardSchemes.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    rulebookId: uuid(
+      "rulebook_id",
+    ).references(
+      () =>
+        qrRewardRulebooks.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    rulebookVersion: integer(
+      "rulebook_version",
+    ),
+
+    rulesHash: varchar(
+      "rules_hash",
+      {
+        length: 64,
+      },
+    ),
+
+    /*
+     * How this batch receives Entity attribution:
+     *
+     * none
+     * fixed_entity
+     * claimant_selects
+     */
+    attributionMode: varchar(
+      "attribution_mode",
+      {
+        length: 32,
+      },
+    )
+      .notNull()
+      .default(
+        "none",
+      ),
+
+    entityTypeId: integer(
+      "entity_type_id",
+    ).references(
+      () =>
+        entityTypes.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    entityRecordId: uuid(
+      "entity_record_id",
+    ).references(
+      () =>
+        entityRecords.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    /*
+     * Immutable human-readable label for the assignment.
+     */
+    entityLabelSnapshot: varchar(
+      "entity_label_snapshot",
+      {
+        length: 500,
+      },
+    ),
+
     /*
      * Commercial snapshot for THIS activation.
      *
@@ -545,6 +983,23 @@ export const qrRewardClaims = pgTable(
       "user_id",
     ).notNull(),
 
+
+    /*
+     * Stable claimant key used by Rulebook limits.
+     *
+     * Today:
+     *   SHA256("brixta_user:<id>")
+     *
+     * Public web redemption later:
+     *   SHA256(normalized verified UPI / claimant identity)
+     */
+    claimantKeyHash: varchar(
+      "claimant_key_hash",
+      {
+        length: 64,
+      },
+    ),
+
     /*
      * Snapshot which Campaign assignment actually produced
      * this financial entitlement.
@@ -581,6 +1036,91 @@ export const qrRewardClaims = pgTable(
       "currency_snapshot",
       {
         length: 3,
+      },
+    ),
+
+
+    /*
+     * Exact Scheme / Rulebook used when money became owed.
+     */
+    schemeIdSnapshot: uuid(
+      "scheme_id_snapshot",
+    ).references(
+      () =>
+        qrRewardSchemes.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    schemeNameSnapshot: varchar(
+      "scheme_name_snapshot",
+      {
+        length: 180,
+      },
+    ),
+
+    rulebookIdSnapshot: uuid(
+      "rulebook_id_snapshot",
+    ).references(
+      () =>
+        qrRewardRulebooks.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    rulebookVersionSnapshot: integer(
+      "rulebook_version_snapshot",
+    ),
+
+    rulesHashSnapshot: varchar(
+      "rules_hash_snapshot",
+      {
+        length: 64,
+      },
+    ),
+
+
+    /*
+     * Entity attribution is snapshotted at CLAIM time.
+     * Renaming/reassigning Entities later cannot rewrite history.
+     */
+    entityTypeIdSnapshot: integer(
+      "entity_type_id_snapshot",
+    ).references(
+      () =>
+        entityTypes.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    entityRecordIdSnapshot: uuid(
+      "entity_record_id_snapshot",
+    ).references(
+      () =>
+        entityRecords.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    entityTypeLabelSnapshot: varchar(
+      "entity_type_label_snapshot",
+      {
+        length: 220,
+      },
+    ),
+
+    entityLabelSnapshot: varchar(
+      "entity_label_snapshot",
+      {
+        length: 500,
       },
     ),
 
@@ -628,6 +1168,147 @@ export const qrRewardClaims = pgTable(
       "idx_qr_reward_claims_claimed_at",
     ).on(
       table.claimedAt,
+    ),
+  ],
+);
+
+
+
+/*
+ * ==========================================================
+ * RULE ENGINE AUDIT
+ *
+ * Every PASS/FAIL decision can be inspected later.
+ * ==========================================================
+ */
+export const qrRewardRuleEvaluations = pgTable(
+  "qr_reward_rule_evaluations",
+  {
+    id: uuid(
+      "id",
+    ).primaryKey(),
+
+    voucherId: uuid(
+      "voucher_id",
+    ).references(
+      () =>
+        qrRewardVouchers.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    assignmentId: uuid(
+      "assignment_id",
+    ).references(
+      () =>
+        qrRewardBatchAssignments.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    claimId: uuid(
+      "claim_id",
+    ).references(
+      () =>
+        qrRewardClaims.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    schemeId: uuid(
+      "scheme_id",
+    ).references(
+      () =>
+        qrRewardSchemes.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    rulebookId: uuid(
+      "rulebook_id",
+    ).references(
+      () =>
+        qrRewardRulebooks.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    rulebookVersion: integer(
+      "rulebook_version",
+    ),
+
+    phase: varchar(
+      "phase",
+      {
+        length: 32,
+      },
+    ).notNull(),
+
+    decision: varchar(
+      "decision",
+      {
+        length: 16,
+      },
+    ).notNull(),
+
+    reasonCodes: jsonb(
+      "reason_codes",
+    )
+      .$type<string[]>()
+      .notNull()
+      .default(
+        sql`'[]'::jsonb`,
+      ),
+
+    facts: jsonb(
+      "facts",
+    )
+      .$type<
+        Record<string, unknown>
+      >()
+      .notNull()
+      .default(
+        sql`'{}'::jsonb`,
+      ),
+
+    evaluatedAt: timestamp(
+      "evaluated_at",
+      {
+        withTimezone: true,
+        mode: "string",
+      },
+    )
+      .notNull()
+      .defaultNow(),
+  },
+
+  (table) => [
+    index(
+      "idx_qr_reward_rule_eval_voucher",
+    ).on(
+      table.voucherId,
+    ),
+
+    index(
+      "idx_qr_reward_rule_eval_claim",
+    ).on(
+      table.claimId,
+    ),
+
+    index(
+      "idx_qr_reward_rule_eval_time",
+    ).on(
+      table.evaluatedAt,
     ),
   ],
 );

@@ -20,30 +20,30 @@ import {
 type ClaimRecord = {
   id: string;
 
-  requestId: string;
+  campaignName: string;
 
-  userId: number;
-
-  claimedAt: string;
-
-  voucherId: string;
+  batchCode: string;
 
   serialNumber: number;
 
-  batchId: string;
-  batchCode: string;
+  userId: number;
 
   rewardAmountMinor: number;
 
-  currency: string;
+  entityTypeName:
+    | string
+    | null;
 
-  campaignId: string;
-  campaignName: string;
+  entityName:
+    | string
+    | null;
+
+  claimedAt: string;
 };
 
 
 function money(
-  amountMinor: number,
+  minor: number,
 ) {
   return new Intl.NumberFormat(
     "en-IN",
@@ -56,7 +56,7 @@ function money(
     },
   ).format(
     Number(
-      amountMinor,
+      minor,
     ) / 100,
   );
 }
@@ -69,9 +69,7 @@ export function ClaimsConsole() {
   ] =
     useState<
       ClaimRecord[]
-    >(
-      [],
-    );
+    >([]);
 
   const [
     loading,
@@ -119,7 +117,7 @@ export function ClaimsConsole() {
           ) {
             throw new Error(
               body?.error ||
-                "Could not load Claims ledger.",
+                "Could not load Claims.",
             );
           }
 
@@ -131,7 +129,7 @@ export function ClaimsConsole() {
           setError(
             cause instanceof Error
               ? cause.message
-              : "Could not load Claims ledger.",
+              : "Could not load Claims.",
           );
         } finally {
           setLoading(
@@ -174,6 +172,14 @@ export function ClaimsConsole() {
             qr:
               `#${claim.serialNumber}`,
 
+            entityType:
+              claim.entityTypeName ??
+              "—",
+
+            entity:
+              claim.entityName ??
+              "—",
+
             claimant:
               `User ${claim.userId}`,
 
@@ -188,9 +194,6 @@ export function ClaimsConsole() {
               ).toLocaleString(
                 "en-IN",
               ),
-
-            requestId:
-              claim.requestId,
           }),
         ),
       [
@@ -203,7 +206,7 @@ export function ClaimsConsole() {
     loading
   ) {
     return (
-      <div className="rounded-2xl border bg-card p-8 text-sm text-muted-foreground">
+      <div className="rounded-2xl border p-8 text-sm text-muted-foreground">
         Loading Claims ledger...
       </div>
     );
@@ -214,7 +217,7 @@ export function ClaimsConsole() {
     error
   ) {
     return (
-      <div className="rounded-2xl border bg-card p-6 text-sm text-destructive">
+      <div className="rounded-2xl border p-6 text-sm text-destructive">
         {error}
       </div>
     );
@@ -223,14 +226,14 @@ export function ClaimsConsole() {
 
   return (
     <div className="grid gap-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <h2 className="font-semibold">
             Claims ledger
           </h2>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Every successful one-time QR redemption.
+            Campaign, QR, claimant and BRIXTA Entity attribution.
           </p>
         </div>
 
@@ -240,7 +243,7 @@ export function ClaimsConsole() {
             () =>
               void load()
           }
-          className="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium hover:bg-muted"
+          className="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm"
         >
           <RefreshCw className="h-4 w-4" />
 
@@ -248,9 +251,9 @@ export function ClaimsConsole() {
         </button>
       </div>
 
-
       {rows.length ? (
         <GenericJsonTable
+          title="Claims Ledger"
           data={
             rows
           }
@@ -278,6 +281,20 @@ export function ClaimsConsole() {
 
             {
               key:
+                "entityType",
+              label:
+                "Entity Type",
+            },
+
+            {
+              key:
+                "entity",
+              label:
+                "Entity",
+            },
+
+            {
+              key:
                 "claimant",
               label:
                 "Claimant",
@@ -299,8 +316,8 @@ export function ClaimsConsole() {
           ]}
         />
       ) : (
-        <div className="rounded-2xl border bg-card p-8 text-sm text-muted-foreground">
-          No successful claims yet.
+        <div className="rounded-2xl border p-8 text-sm text-muted-foreground">
+          No successful Claims yet.
         </div>
       )}
     </div>

@@ -31,7 +31,7 @@ export const GET =
           {
             success: false,
             error:
-              "QR Rewards V3 is not provisioned.",
+              "QR Rewards V4 is not provisioned.",
           },
           {
             status: 503,
@@ -84,7 +84,19 @@ export const GET =
             ) AS "campaignId",
 
             c.name
-              AS "campaignName"
+              AS "campaignName",
+
+            cl.entity_type_id_snapshot
+              AS "entityTypeId",
+
+            cl.entity_type_label_snapshot
+              AS "entityTypeName",
+
+            cl.entity_record_id_snapshot
+              AS "entityRecordId",
+
+            cl.entity_label_snapshot
+              AS "entityName"
 
           FROM
             qr_reward_claims cl

@@ -134,7 +134,7 @@ async function main() {
     await client.query("COMMIT");
 
     console.log(
-      `\\nQR Rewards schema V1 installed in ${schemaName}.\\n`,
+      `\\nQR Rewards schema V5 installed in ${schemaName}.\\n`,
     );
   } catch (error) {
     try {

@@ -54,7 +54,7 @@ function sha256(
 }
 
 
-function batchCode() {
+function createBatchCode() {
   return [
     "BRX",
 
@@ -66,6 +66,95 @@ function batchCode() {
       .toString("hex")
       .toUpperCase(),
   ].join("-");
+}
+
+
+async function campaignEntities(
+  db: Parameters<
+    Parameters<typeof withTenantDb>[0]
+  >[1],
+  campaignId: string,
+) {
+  const result =
+    await db.execute(sql`
+      SELECT
+        er.id,
+
+        et.id
+          AS "entityTypeId",
+
+        et.title
+          AS "entityTypeName",
+
+        COALESCE(
+          (
+            SELECT
+              NULLIF(
+                er.data ->> f.key,
+                ''
+              )
+
+            FROM
+              jsonb_array_elements_text(
+                et.searchable_fields
+              ) AS f(key)
+
+            WHERE
+              NULLIF(
+                er.data ->> f.key,
+                ''
+              ) IS NOT NULL
+
+            LIMIT 1
+          ),
+
+          NULLIF(
+            er.data ->> 'name',
+            ''
+          ),
+
+          NULLIF(
+            er.data ->> 'title',
+            ''
+          ),
+
+          er.external_key,
+
+          er.id::text
+        ) AS label
+
+      FROM
+        qr_reward_campaign_entities ce
+
+      INNER JOIN
+        entity_records er
+          ON er.id =
+            ce.entity_record_id
+
+      INNER JOIN
+        entity_types et
+          ON et.id =
+            ce.entity_type_id
+
+      WHERE
+        ce.campaign_id =
+          ${campaignId}::uuid
+
+        AND
+        er.status =
+          'active'
+
+        AND
+        et.is_active =
+          true
+    `);
+
+  return result.rows as Array<{
+    id: string;
+    entityTypeId: number;
+    entityTypeName: string;
+    label: string;
+  }>;
 }
 
 
@@ -85,7 +174,7 @@ export const GET =
           {
             success: false,
             error:
-              "QR Rewards V3 is not provisioned for this tenant.",
+              "QR Rewards V4 is not provisioned.",
           },
           {
             status: 503,
@@ -108,18 +197,12 @@ export const GET =
             b.created_at
               AS "createdAt",
 
-            /*
-             * Original Campaign is immutable historical origin.
-             */
             b.campaign_id
               AS "originCampaignId",
 
             origin_c.name
               AS "originCampaignName",
 
-            /*
-             * Current Campaign comes from ACTIVE assignment.
-             */
             a.id
               AS "activeAssignmentId",
 
@@ -136,6 +219,21 @@ export const GET =
 
             a.expires_at
               AS "expiresAt",
+
+            a.attribution_mode
+              AS "attributionMode",
+
+            a.entity_type_id
+              AS "entityTypeId",
+
+            et.title
+              AS "entityTypeName",
+
+            a.entity_record_id
+              AS "entityRecordId",
+
+            a.entity_label_snapshot
+              AS "entityLabel",
 
             COUNT(v.id)::integer
               AS "voucherCount",
@@ -172,27 +270,38 @@ export const GET =
               )::integer
               AS "revokedCount"
 
-          FROM qr_reward_batches b
+          FROM
+            qr_reward_batches b
 
-          INNER JOIN qr_reward_campaigns origin_c
-            ON origin_c.id =
-              b.campaign_id
+          INNER JOIN
+            qr_reward_campaigns origin_c
+              ON origin_c.id =
+                b.campaign_id
 
-          LEFT JOIN qr_reward_batch_assignments a
-            ON
-              a.batch_id =
+          LEFT JOIN
+            qr_reward_batch_assignments a
+              ON
+                a.batch_id =
+                  b.id
+
+                AND
+                a.status =
+                  'active'
+
+          LEFT JOIN
+            qr_reward_campaigns current_c
+              ON current_c.id =
+                a.campaign_id
+
+          LEFT JOIN
+            entity_types et
+              ON et.id =
+                a.entity_type_id
+
+          LEFT JOIN
+            qr_reward_vouchers v
+              ON v.batch_id =
                 b.id
-              AND
-              a.status =
-                'active'
-
-          LEFT JOIN qr_reward_campaigns current_c
-            ON current_c.id =
-              a.campaign_id
-
-          LEFT JOIN qr_reward_vouchers v
-            ON v.batch_id =
-              b.id
 
           GROUP BY
             b.id,
@@ -203,6 +312,11 @@ export const GET =
             a.reward_amount_minor,
             a.currency,
             a.expires_at,
+            a.attribution_mode,
+            a.entity_type_id,
+            et.title,
+            a.entity_record_id,
+            a.entity_label_snapshot,
             current_c.id,
             current_c.name
 
@@ -212,7 +326,6 @@ export const GET =
 
       return NextResponse.json({
         success: true,
-
         batches:
           result.rows,
       });
@@ -248,24 +361,6 @@ export const POST =
         );
       }
 
-      const schema =
-        await qrRewardsSchemaStatus(
-          db,
-        );
-
-      if (!schema.ready) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "QR Rewards V3 is not provisioned for this tenant.",
-          },
-          {
-            status: 503,
-          },
-        );
-      }
-
       const body =
         await request
           .json()
@@ -286,20 +381,8 @@ export const POST =
             "",
         ).trim();
 
-      if (!campaignId) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Select a Campaign before generating a QR batch.",
-          },
-          {
-            status: 400,
-          },
-        );
-      }
-
       if (
+        !campaignId ||
         !Number.isFinite(
           quantity,
         ) ||
@@ -310,7 +393,7 @@ export const POST =
           {
             success: false,
             error:
-              "Quantity must be between 1 and 10,000.",
+              "Campaign and a quantity from 1 to 10,000 are required.",
           },
           {
             status: 400,
@@ -337,7 +420,7 @@ export const POST =
           {
             success: false,
             error:
-              "Campaign was not found.",
+              "Campaign not found.",
           },
           {
             status: 404,
@@ -364,10 +447,98 @@ export const POST =
           {
             success: false,
             error:
-              "Campaign is not currently active.",
+              "Campaign is not active.",
           },
           {
             status: 409,
+          },
+        );
+      }
+
+      const eligible =
+        await campaignEntities(
+          db,
+          campaignId,
+        );
+
+      let attributionMode =
+        String(
+          body?.attributionMode ??
+            (
+              eligible.length
+                ? "claimant_selects"
+                : "none"
+            ),
+        );
+
+      if (
+        ![
+          "none",
+          "fixed_entity",
+          "claimant_selects",
+        ].includes(
+          attributionMode,
+        )
+      ) {
+        attributionMode =
+          "none";
+      }
+
+      let fixedEntity:
+        | {
+            id: string;
+            entityTypeId: number;
+            entityTypeName: string;
+            label: string;
+          }
+        | undefined;
+
+      if (
+        attributionMode ===
+          "fixed_entity"
+      ) {
+        const entityRecordId =
+          String(
+            body?.entityRecordId ??
+              "",
+          );
+
+        fixedEntity =
+          eligible.find(
+            (entity) =>
+              String(
+                entity.id,
+              ) ===
+              entityRecordId,
+          );
+
+        if (!fixedEntity) {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "Fixed Entity must be one of the Campaign's eligible Entities.",
+            },
+            {
+              status: 400,
+            },
+          );
+        }
+      }
+
+      if (
+        attributionMode ===
+          "claimant_selects" &&
+        eligible.length === 0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "This Campaign has no eligible Entities for claimant selection.",
+          },
+          {
+            status: 400,
           },
         );
       }
@@ -379,7 +550,7 @@ export const POST =
         randomUUID();
 
       const code =
-        batchCode();
+        createBatchCode();
 
       const [batch] =
         await db
@@ -390,10 +561,6 @@ export const POST =
             id:
               batchId,
 
-            /*
-             * ORIGINAL Campaign.
-             * Never mutate this during reassignment.
-             */
             campaignId:
               campaign.id,
 
@@ -419,7 +586,6 @@ export const POST =
           })
           .returning();
 
-
       await db
         .insert(
           qrRewardBatchAssignments,
@@ -432,6 +598,23 @@ export const POST =
 
           campaignId:
             campaign.id,
+
+          attributionMode,
+
+          entityTypeId:
+            fixedEntity
+              ?.entityTypeId ??
+            null,
+
+          entityRecordId:
+            fixedEntity
+              ?.id ??
+            null,
+
+          entityLabelSnapshot:
+            fixedEntity
+              ?.label ??
+            null,
 
           rewardAmountMinor:
             campaign.rewardAmountMinor,
@@ -449,16 +632,13 @@ export const POST =
             session.userId,
         });
 
-
       const printable:
-        PrintableVoucher[] =
-        [];
+        PrintableVoucher[] = [];
 
       const dbRows:
         Array<
           typeof qrRewardVouchers.$inferInsert
         > = [];
-
 
       for (
         let index = 0;
@@ -474,12 +654,6 @@ export const POST =
               "base64url",
             );
 
-        /*
-         * Physical QR contains no Campaign/reward.
-         *
-         * This is precisely what makes unused printed QRs
-         * reusable under a later Campaign assignment.
-         */
         const payload =
           `BRX:Q:1:${secret}`;
 
@@ -500,9 +674,6 @@ export const POST =
           status:
             "available",
 
-          /*
-           * Kept synchronized with CURRENT assignment.
-           */
           expiresAt:
             campaign.expiresAt,
         });
@@ -518,16 +689,11 @@ export const POST =
         });
       }
 
-
-      const CHUNK_SIZE =
-        500;
-
       for (
         let offset = 0;
         offset <
-        dbRows.length;
-        offset +=
-        CHUNK_SIZE
+          dbRows.length;
+        offset += 500
       ) {
         await db
           .insert(
@@ -536,12 +702,10 @@ export const POST =
           .values(
             dbRows.slice(
               offset,
-              offset +
-                CHUNK_SIZE,
+              offset + 500,
             ),
           );
       }
-
 
       return NextResponse.json(
         {
@@ -553,20 +717,17 @@ export const POST =
             id:
               assignmentId,
 
-            campaignId:
-              campaign.id,
+            attributionMode,
 
-            status:
-              "active",
+            entity:
+              fixedEntity ??
+              null,
           },
 
           batch,
 
           printRecords:
             printable,
-
-          warning:
-            "printRecords contain bearer voucher secrets. Treat them as sensitive.",
         },
         {
           status: 201,

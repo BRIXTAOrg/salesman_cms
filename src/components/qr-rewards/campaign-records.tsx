@@ -1,39 +1,152 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   FormEvent,
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
 
+type EntityType = {
+  id: number;
+  key: string;
+  title: string;
+
+  searchableFields?:
+    string[];
+
+  isActive: boolean;
+};
+
+
+type EntityRecord = {
+  id: string;
+
+  entityTypeId: number;
+
+  externalKey?:
+    string | null;
+
+  status: string;
+
+  data:
+    Record<
+      string,
+      unknown
+    >;
+};
+
+
+type EligibleEntity = {
+  id: string;
+
+  entityTypeId: number;
+
+  entityTypeName: string;
+
+  label: string;
+};
+
+
 type Campaign = {
   id: string;
+
   name: string;
-  description?: string | null;
+
+  description?:
+    string | null;
+
   rewardAmountMinor: number;
-  currency: string;
-  startsAt: string;
+
   expiresAt: string;
+
   status: string;
-  createdAt: string;
+
+  batchCount: number;
+
+  eligibleEntities:
+    EligibleEntity[];
 };
 
 
 function money(
-  amountMinor: number,
+  minor: number,
 ) {
   return new Intl.NumberFormat(
     "en-IN",
     {
-      style: "currency",
-      currency: "INR",
+      style:
+        "currency",
+
+      currency:
+        "INR",
+
+      maximumFractionDigits:
+        0,
     },
   ).format(
     Number(
-      amountMinor,
+      minor,
     ) / 100,
+  );
+}
+
+
+function recordLabel(
+  record: EntityRecord,
+  type:
+    EntityType | undefined,
+) {
+  for (
+    const key of
+    type
+      ?.searchableFields ??
+    []
+  ) {
+    const value =
+      record.data[
+        key
+      ];
+
+    if (
+      typeof value ===
+        "string" &&
+      value.trim()
+    ) {
+      return value.trim();
+    }
+  }
+
+  for (
+    const key of [
+      "name",
+      "title",
+      "dealer_name",
+      "store_name",
+      "company_name",
+    ]
+  ) {
+    const value =
+      record.data[
+        key
+      ];
+
+    if (
+      typeof value ===
+        "string" &&
+      value.trim()
+    ) {
+      return value.trim();
+    }
+  }
+
+  return (
+    record.externalKey ||
+    record.id
   );
 }
 
@@ -42,105 +155,322 @@ export function CampaignRecords() {
   const [
     campaigns,
     setCampaigns,
-  ] = useState<Campaign[]>(
-    [],
-  );
+  ] =
+    useState<
+      Campaign[]
+    >([]);
 
   const [
-    error,
-    setError,
-  ] = useState("");
+    entityTypes,
+    setEntityTypes,
+  ] =
+    useState<
+      EntityType[]
+    >([]);
 
   const [
-    loading,
-    setLoading,
-  ] = useState(true);
+    records,
+    setRecords,
+  ] =
+    useState<
+      EntityRecord[]
+    >([]);
 
   const [
-    creating,
-    setCreating,
-  ] = useState(false);
+    selectedTypeId,
+    setSelectedTypeId,
+  ] =
+    useState(
+      "",
+    );
+
+  const [
+    selectedRecordIds,
+    setSelectedRecordIds,
+  ] =
+    useState<
+      string[]
+    >([]);
 
   const [
     name,
     setName,
-  ] = useState("");
+  ] =
+    useState(
+      "",
+    );
 
   const [
     description,
     setDescription,
-  ] = useState("");
+  ] =
+    useState(
+      "",
+    );
 
   const [
     reward,
     setReward,
-  ] = useState(100);
+  ] =
+    useState(
+      100,
+    );
 
   const [
     validityDays,
     setValidityDays,
-  ] = useState(30);
+  ] =
+    useState(
+      30,
+    );
+
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(
+      true,
+    );
+
+  const [
+    creating,
+    setCreating,
+  ] =
+    useState(
+      false,
+    );
+
+  const [
+    error,
+    setError,
+  ] =
+    useState(
+      "",
+    );
 
 
   const load =
     useCallback(
       async () => {
-        setLoading(true);
-        setError("");
+        setLoading(
+          true,
+        );
+
+        setError(
+          "",
+        );
 
         try {
-          const response =
-            await fetch(
-              "/api/qr-rewards/campaigns",
-              {
-                cache:
-                  "no-store",
-              },
-            );
+          const [
+            campaignsResponse,
+            entityTypesResponse,
+          ] =
+            await Promise.all([
+              fetch(
+                "/api/qr-rewards/campaigns",
+                {
+                  cache:
+                    "no-store",
+                },
+              ),
 
-          const body =
-            await response.json();
+              fetch(
+                "/api/platform/entities",
+                {
+                  cache:
+                    "no-store",
+                },
+              ),
+            ]);
 
-          if (!response.ok) {
+          const [
+            campaignsBody,
+            entityTypesBody,
+          ] =
+            await Promise.all([
+              campaignsResponse
+                .json(),
+
+              entityTypesResponse
+                .json(),
+            ]);
+
+          if (
+            !campaignsResponse.ok
+          ) {
             throw new Error(
-              body?.error ||
-                "Could not load campaigns.",
+              campaignsBody?.error ||
+                "Could not load Campaigns.",
+            );
+          }
+
+          if (
+            !entityTypesResponse.ok
+          ) {
+            throw new Error(
+              entityTypesBody?.error ||
+                "Could not load Entities.",
             );
           }
 
           setCampaigns(
-            body.campaigns ?? [],
+            campaignsBody
+              .campaigns ??
+              [],
+          );
+
+          const types =
+            (
+              entityTypesBody
+                .entityTypes ??
+              []
+            ).filter(
+              (
+                item:
+                  EntityType,
+              ) =>
+                item.isActive !==
+                false,
+            );
+
+          setEntityTypes(
+            types,
+          );
+
+          setSelectedTypeId(
+            (
+              current,
+            ) =>
+              current ||
+              (
+                types[0]?.id
+                  ? String(
+                      types[0].id,
+                    )
+                  : ""
+              ),
           );
         } catch (cause) {
           setError(
             cause instanceof Error
               ? cause.message
-              : "Could not load campaigns.",
+              : "Load failed.",
           );
         } finally {
-          setLoading(false);
+          setLoading(
+            false,
+          );
         }
       },
       [],
     );
 
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(
+    () => {
+      void load();
+    },
+    [
+      load,
+    ],
+  );
+
+
+  useEffect(
+    () => {
+      if (
+        !selectedTypeId
+      ) {
+        setRecords([]);
+        return;
+      }
+
+      let active =
+        true;
+
+      async function loadRecords() {
+        const response =
+          await fetch(
+            `/api/platform/entity-records?entityTypeId=${encodeURIComponent(
+              selectedTypeId,
+            )}&limit=100`,
+            {
+              cache:
+                "no-store",
+            },
+          );
+
+        const body =
+          await response.json();
+
+        if (!active) {
+          return;
+        }
+
+        if (
+          response.ok
+        ) {
+          setRecords(
+            (
+              body.records ??
+              []
+            ).filter(
+              (
+                item:
+                  EntityRecord,
+              ) =>
+                item.status ===
+                "active",
+            ),
+          );
+        }
+      }
+
+      void loadRecords();
+
+      return () => {
+        active =
+          false;
+      };
+    },
+    [
+      selectedTypeId,
+    ],
+  );
+
+
+  const selectedType =
+    useMemo(
+      () =>
+        entityTypes.find(
+          (
+            item,
+          ) =>
+            String(
+              item.id,
+            ) ===
+            selectedTypeId,
+        ),
+      [
+        entityTypes,
+        selectedTypeId,
+      ],
+    );
 
 
   async function createCampaign(
-    event: FormEvent<HTMLFormElement>,
+    event:
+      FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
 
-    if (creating) {
-      return;
-    }
+    setCreating(
+      true,
+    );
 
-    setCreating(true);
-    setError("");
+    setError(
+      "",
+    );
 
     try {
       const response =
@@ -157,12 +487,9 @@ export function CampaignRecords() {
 
             body:
               JSON.stringify({
-                name:
-                  name.trim(),
+                name,
 
-                description:
-                  description.trim() ||
-                  null,
+                description,
 
                 rewardAmountMinor:
                   Math.round(
@@ -171,6 +498,9 @@ export function CampaignRecords() {
                   ),
 
                 validityDays,
+
+                entityRecordIds:
+                  selectedRecordIds,
               }),
           },
         );
@@ -178,7 +508,9 @@ export function CampaignRecords() {
       const body =
         await response.json();
 
-      if (!response.ok) {
+      if (
+        !response.ok
+      ) {
         throw new Error(
           body?.error ||
             "Could not create Campaign.",
@@ -189,6 +521,7 @@ export function CampaignRecords() {
       setDescription("");
       setReward(100);
       setValidityDays(30);
+      setSelectedRecordIds([]);
 
       await load();
     } catch (cause) {
@@ -198,8 +531,35 @@ export function CampaignRecords() {
           : "Could not create Campaign.",
       );
     } finally {
-      setCreating(false);
+      setCreating(
+        false,
+      );
     }
+  }
+
+
+  function toggleRecord(
+    id: string,
+  ) {
+    setSelectedRecordIds(
+      (
+        current,
+      ) =>
+        current.includes(
+          id,
+        )
+          ? current.filter(
+              (
+                value,
+              ) =>
+                value !==
+                id,
+            )
+          : [
+              ...current,
+              id,
+            ],
+    );
   }
 
 
@@ -212,7 +572,7 @@ export function CampaignRecords() {
           </h2>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Define the reward programme once. Multiple QR batches can then be minted inside this Campaign.
+            Build a reward programme and directly attach reusable BRIXTA Entity records.
           </p>
         </div>
 
@@ -220,7 +580,7 @@ export function CampaignRecords() {
           onSubmit={
             createCampaign
           }
-          className="grid gap-4 p-5"
+          className="grid gap-5 p-5"
         >
           <div className="grid gap-4 md:grid-cols-2">
             <label className="grid gap-2">
@@ -234,13 +594,17 @@ export function CampaignRecords() {
                   name
                 }
                 onChange={
-                  (event) =>
+                  (
+                    event,
+                  ) =>
                     setName(
-                      event.target.value,
+                      event
+                        .target
+                        .value,
                     )
                 }
-                placeholder="Mason Rewards 2026"
-                className="h-10 rounded-xl border bg-background px-3 text-sm outline-none"
+                placeholder="Mason Rewards September"
+                className="h-10 rounded-xl border bg-background px-3 text-sm"
               />
             </label>
 
@@ -249,8 +613,8 @@ export function CampaignRecords() {
                 Reward per QR
               </span>
 
-              <div className="flex h-10 items-center rounded-xl border">
-                <span className="px-3 text-sm text-muted-foreground">
+              <div className="flex h-10 rounded-xl border">
+                <span className="flex items-center px-3 text-muted-foreground">
                   ₹
                 </span>
 
@@ -262,45 +626,47 @@ export function CampaignRecords() {
                     reward
                   }
                   onChange={
-                    (event) =>
+                    (
+                      event,
+                    ) =>
                       setReward(
                         Number(
-                          event.target.value,
+                          event
+                            .target
+                            .value,
                         ),
                       )
                   }
-                  className="h-full min-w-0 flex-1 bg-transparent pr-3 text-sm outline-none"
+                  className="min-w-0 flex-1 bg-transparent pr-3"
                 />
               </div>
             </label>
           </div>
 
-          <label className="grid gap-2">
-            <span className="text-sm font-medium">
-              Description
-            </span>
-
-            <textarea
-              value={
-                description
-              }
-              onChange={
-                (event) =>
-                  setDescription(
-                    event.target.value,
-                  )
-              }
-              placeholder="Reward programme for masons..."
-              className="min-h-24 rounded-xl border bg-background p-3 text-sm outline-none"
-            />
-          </label>
+          <textarea
+            value={
+              description
+            }
+            onChange={
+              (
+                event,
+              ) =>
+                setDescription(
+                  event
+                    .target
+                    .value,
+                )
+            }
+            placeholder="Campaign description"
+            className="min-h-20 rounded-xl border bg-background p-3 text-sm"
+          />
 
           <label className="grid gap-2">
             <span className="text-sm font-medium">
               Campaign validity
             </span>
 
-            <div className="flex h-10 items-center rounded-xl border">
+            <div className="flex h-10 rounded-xl border">
               <input
                 required
                 type="number"
@@ -310,21 +676,171 @@ export function CampaignRecords() {
                   validityDays
                 }
                 onChange={
-                  (event) =>
+                  (
+                    event,
+                  ) =>
                     setValidityDays(
                       Number(
-                        event.target.value,
+                        event
+                          .target
+                          .value,
                       ),
                     )
                 }
-                className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm outline-none"
+                className="min-w-0 flex-1 bg-transparent px-3"
               />
 
-              <span className="pr-3 text-sm text-muted-foreground">
+              <span className="flex items-center pr-3 text-sm text-muted-foreground">
                 days
               </span>
             </div>
           </label>
+
+
+          <section className="rounded-xl border bg-muted/10">
+            <div className="border-b p-4">
+              <div className="font-medium">
+                Eligible business Entities
+              </div>
+
+              <p className="mt-1 text-xs text-muted-foreground">
+                These are the same reusable Entities uploaded elsewhere in BRIXTA.
+              </p>
+            </div>
+
+            <div className="grid gap-4 p-4">
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">
+                  Entity type
+                </span>
+
+                <select
+                  value={
+                    selectedTypeId
+                  }
+                  onChange={
+                    (
+                      event,
+                    ) => {
+                      setSelectedTypeId(
+                        event
+                          .target
+                          .value,
+                      );
+
+                      setSelectedRecordIds(
+                        [],
+                      );
+                    }
+                  }
+                  className="h-10 rounded-xl border bg-background px-3 text-sm"
+                >
+                  <option value="">
+                    No Entity attribution
+                  </option>
+
+                  {entityTypes.map(
+                    (
+                      type,
+                    ) => (
+                      <option
+                        key={
+                          type.id
+                        }
+                        value={
+                          type.id
+                        }
+                      >
+                        {
+                          type.title
+                        }
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
+
+              {selectedTypeId && (
+                <div className="grid gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">
+                      Eligible {
+                        selectedType
+                          ?.title ??
+                        "Entities"
+                      }
+                    </span>
+
+                    {!!records.length && (
+                      <button
+                        type="button"
+                        onClick={
+                          () =>
+                            setSelectedRecordIds(
+                              records.map(
+                                (
+                                  record,
+                                ) =>
+                                  record.id,
+                              ),
+                            )
+                        }
+                        className="text-xs underline"
+                      >
+                        Select all
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-64 overflow-auto rounded-xl border bg-background">
+                    {!records.length ? (
+                      <div className="p-4 text-sm text-muted-foreground">
+                        No active Entity records found for this type.
+                      </div>
+                    ) : (
+                      <div className="divide-y">
+                        {records.map(
+                          (
+                            record,
+                          ) => (
+                            <label
+                              key={
+                                record.id
+                              }
+                              className="flex cursor-pointer items-center gap-3 px-4 py-3"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={
+                                  selectedRecordIds.includes(
+                                    record.id,
+                                  )
+                                }
+                                onChange={
+                                  () =>
+                                    toggleRecord(
+                                      record.id,
+                                    )
+                                }
+                              />
+
+                              <span className="text-sm">
+                                {recordLabel(
+                                  record,
+                                  selectedType,
+                                )}
+                              </span>
+                            </label>
+                          ),
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
 
           {error && (
             <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
@@ -341,7 +857,7 @@ export function CampaignRecords() {
           >
             {
               creating
-                ? "Creating Campaign..."
+                ? "Creating..."
                 : "Create Campaign"
             }
           </button>
@@ -356,96 +872,155 @@ export function CampaignRecords() {
           </h2>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Generate as many independent QR batches as required under any active Campaign.
+            Open a Campaign for its live QR, Entity and claim analytics.
           </p>
         </div>
 
         {loading ? (
           <div className="rounded-2xl border bg-card p-8 text-sm text-muted-foreground">
-            Loading campaigns...
+            Loading Campaigns...
           </div>
-        ) : campaigns.length === 0 ? (
+        ) : !campaigns.length ? (
           <div className="rounded-2xl border bg-card p-8 text-sm text-muted-foreground">
-            No Campaigns yet. Create the first Campaign above.
+            No Campaigns yet.
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border bg-card">
-            <div className="grid grid-cols-5 gap-4 border-b bg-muted/30 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <div className="col-span-2">
-                Campaign
-              </div>
+          <div className="overflow-x-auto rounded-2xl border bg-card">
+            <table className="w-full min-w-[900px] text-sm">
+              <thead className="border-b bg-muted/30 text-left text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3">
+                    Campaign
+                  </th>
 
-              <div>
-                Reward
-              </div>
+                  <th className="px-4 py-3">
+                    Entities
+                  </th>
 
-              <div>
-                Expiry
-              </div>
+                  <th className="px-4 py-3">
+                    Reward
+                  </th>
 
-              <div>
-                Status
-              </div>
-            </div>
+                  <th className="px-4 py-3">
+                    Batches
+                  </th>
 
-            <div className="divide-y">
-              {campaigns.map(
-                (
-                  campaign,
-                ) => (
-                  <div
-                    key={
-                      campaign.id
-                    }
-                    className="grid grid-cols-5 gap-4 px-5 py-4 text-sm"
-                  >
-                    <div className="col-span-2">
-                      <div className="font-medium">
-                        {
-                          campaign.name
-                        }
-                      </div>
+                  <th className="px-4 py-3">
+                    Expiry
+                  </th>
 
-                      {campaign.description && (
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {
-                            campaign.description
-                          }
-                        </div>
-                      )}
+                  <th className="px-4 py-3">
+                    Status
+                  </th>
 
-                      <div className="mt-1 font-mono text-[10px] text-muted-foreground">
-                        {
+                  <th className="px-4 py-3">
+                    Dashboard
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y">
+                {campaigns.map(
+                  (
+                    campaign,
+                  ) => {
+                    const typeNames = [
+                      ...new Set(
+                        (
+                          campaign
+                            .eligibleEntities ??
+                          []
+                        ).map(
+                          (
+                            entity,
+                          ) =>
+                            entity
+                              .entityTypeName,
+                        ),
+                      ),
+                    ];
+
+                    return (
+                      <tr
+                        key={
                           campaign.id
                         }
-                      </div>
-                    </div>
+                      >
+                        <td className="px-4 py-4">
+                          <div className="font-medium">
+                            {
+                              campaign.name
+                            }
+                          </div>
 
-                    <div className="font-medium">
-                      {money(
-                        campaign.rewardAmountMinor,
-                      )}
-                    </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {
+                              campaign.description ||
+                              "—"
+                            }
+                          </div>
+                        </td>
 
-                    <div className="text-muted-foreground">
-                      {new Date(
-                        campaign.expiresAt,
-                      ).toLocaleDateString(
-                        "en-IN",
-                      )}
-                    </div>
+                        <td className="px-4 py-4">
+                          <div className="font-medium">
+                            {
+                              campaign
+                                .eligibleEntities
+                                ?.length ??
+                              0
+                            }
+                          </div>
 
-                    <div>
-                      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
-                        {
-                          campaign.status
-                        }
-                      </span>
-                    </div>
-                  </div>
-                ),
-              )}
-            </div>
+                          <div className="text-xs text-muted-foreground">
+                            {
+                              typeNames.join(
+                                ", ",
+                              ) ||
+                              "No attribution"
+                            }
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-4 font-medium">
+                          {money(
+                            campaign.rewardAmountMinor,
+                          )}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          {
+                            campaign.batchCount
+                          }
+                        </td>
+
+                        <td className="px-4 py-4">
+                          {new Date(
+                            campaign.expiresAt,
+                          ).toLocaleDateString(
+                            "en-IN",
+                          )}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          {
+                            campaign.status
+                          }
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <Link
+                            href={`/dashboard/qr-rewards/campaigns/${campaign.id}`}
+                            className="inline-flex h-8 items-center rounded-lg border px-3 text-xs font-medium hover:bg-muted"
+                          >
+                            Open
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  },
+                )}
+              </tbody>
+            </table>
           </div>
         )}
       </section>

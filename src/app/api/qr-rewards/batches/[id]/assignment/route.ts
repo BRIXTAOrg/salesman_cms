@@ -16,10 +16,6 @@ import {
   withTenantDb,
 } from "@/lib/auth";
 
-import {
-  qrRewardsSchemaStatus,
-} from "@/lib/qr-rewards-db";
-
 
 export const POST =
   withTenantDb(
@@ -56,24 +52,6 @@ export const POST =
         );
       }
 
-      const schema =
-        await qrRewardsSchemaStatus(
-          db,
-        );
-
-      if (!schema.ready) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "QR Rewards V3 is not provisioned.",
-          },
-          {
-            status: 503,
-          },
-        );
-      }
-
       const {
         id: batchId,
       } =
@@ -105,10 +83,6 @@ export const POST =
         );
       }
 
-
-      /*
-       * Serialize ALL assignment changes to this physical batch.
-       */
       await db.execute(sql`
         SELECT
           pg_advisory_xact_lock(
@@ -118,60 +92,6 @@ export const POST =
             )
           )
       `);
-
-
-      const batchResult =
-        await db.execute(sql`
-          SELECT
-            id,
-            batch_code
-              AS "batchCode",
-            status
-          FROM qr_reward_batches
-          WHERE
-            id =
-              ${batchId}
-          LIMIT 1
-        `);
-
-      const batch =
-        batchResult.rows[0] as
-          | {
-              id: string;
-              batchCode: string;
-              status: string;
-            }
-          | undefined;
-
-      if (!batch) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "QR batch was not found.",
-          },
-          {
-            status: 404,
-          },
-        );
-      }
-
-      if (
-        batch.status ===
-          "revoked"
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "A revoked QR batch cannot be reassigned.",
-          },
-          {
-            status: 409,
-          },
-        );
-      }
-
 
       const campaignResult =
         await db.execute(sql`
@@ -192,11 +112,12 @@ export const POST =
 
             status
 
-          FROM qr_reward_campaigns
+          FROM
+            qr_reward_campaigns
 
           WHERE
             id =
-              ${campaignId}
+              ${campaignId}::uuid
 
           LIMIT 1
         `);
@@ -219,14 +140,13 @@ export const POST =
           {
             success: false,
             error:
-              "Target Campaign was not found.",
+              "Target Campaign not found.",
           },
           {
             status: 404,
           },
         );
       }
-
 
       const now =
         Date.now();
@@ -247,7 +167,7 @@ export const POST =
           {
             success: false,
             error:
-              "Target Campaign is not currently active.",
+              "Target Campaign is not active.",
           },
           {
             status: 409,
@@ -255,74 +175,177 @@ export const POST =
         );
       }
 
-
-      const currentResult =
+      const entitiesResult =
         await db.execute(sql`
           SELECT
-            id,
-            campaign_id
-              AS "campaignId"
+            er.id,
 
-          FROM qr_reward_batch_assignments
+            et.id
+              AS "entityTypeId",
+
+            et.title
+              AS "entityTypeName",
+
+            COALESCE(
+              (
+                SELECT
+                  NULLIF(
+                    er.data ->> f.key,
+                    ''
+                  )
+
+                FROM
+                  jsonb_array_elements_text(
+                    et.searchable_fields
+                  ) AS f(key)
+
+                WHERE
+                  NULLIF(
+                    er.data ->> f.key,
+                    ''
+                  ) IS NOT NULL
+
+                LIMIT 1
+              ),
+
+              NULLIF(
+                er.data ->> 'name',
+                ''
+              ),
+
+              NULLIF(
+                er.data ->> 'title',
+                ''
+              ),
+
+              er.external_key,
+
+              er.id::text
+            ) AS label
+
+          FROM
+            qr_reward_campaign_entities ce
+
+          INNER JOIN
+            entity_records er
+              ON er.id =
+                ce.entity_record_id
+
+          INNER JOIN
+            entity_types et
+              ON et.id =
+                ce.entity_type_id
 
           WHERE
-            batch_id =
-              ${batchId}
-            AND
-            status =
-              'active'
-
-          LIMIT 1
+            ce.campaign_id =
+              ${campaignId}::uuid
         `);
 
-      const current =
-        currentResult.rows[0] as
-          | {
-              id: string;
-              campaignId: string;
-            }
-          | undefined;
+      const eligible =
+        entitiesResult.rows as Array<{
+          id: string;
+          entityTypeId: number;
+          entityTypeName: string;
+          label: string;
+        }>;
 
+      const attributionMode =
+        String(
+          body?.attributionMode ??
+            (
+              eligible.length
+                ? "claimant_selects"
+                : "none"
+            ),
+        );
 
       if (
-        current?.campaignId ===
-        campaign.id
+        ![
+          "none",
+          "fixed_entity",
+          "claimant_selects",
+        ].includes(
+          attributionMode,
+        )
       ) {
-        return NextResponse.json({
-          success: true,
-
-          idempotent:
-            true,
-
-          assignmentId:
-            current.id,
-
-          campaignId:
-            campaign.id,
-
-          campaignName:
-            campaign.name,
-        });
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Invalid attribution mode.",
+          },
+          {
+            status: 400,
+          },
+        );
       }
 
+      let fixedEntity:
+        | typeof eligible[number]
+        | undefined;
 
-      /*
-       * Count QRs that are legally reusable.
-       *
-       * CLAIMED is deliberately excluded.
-       * REVOKED is deliberately excluded.
-       */
+      if (
+        attributionMode ===
+          "fixed_entity"
+      ) {
+        const entityRecordId =
+          String(
+            body?.entityRecordId ??
+              "",
+          );
+
+        fixedEntity =
+          eligible.find(
+            (item) =>
+              String(
+                item.id,
+              ) ===
+              entityRecordId,
+          );
+
+        if (!fixedEntity) {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "Fixed Entity must belong to the target Campaign.",
+            },
+            {
+              status: 400,
+            },
+          );
+        }
+      }
+
+      if (
+        attributionMode ===
+          "claimant_selects" &&
+        eligible.length === 0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Target Campaign has no selectable Entities.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
       const reusableResult =
         await db.execute(sql`
           SELECT
             COUNT(*)::integer
               AS count
 
-          FROM qr_reward_vouchers
+          FROM
+            qr_reward_vouchers
 
           WHERE
             batch_id =
-              ${batchId}
+              ${batchId}::uuid
 
             AND
             claimed_at
@@ -348,16 +371,15 @@ export const POST =
             0,
         );
 
-
       if (
         reusableCount <=
-        0
+          0
       ) {
         return NextResponse.json(
           {
             success: false,
             error:
-              "This batch has no reusable unclaimed QR codes.",
+              "This batch has no reusable QR codes.",
           },
           {
             status: 409,
@@ -365,55 +387,46 @@ export const POST =
         );
       }
 
+      await db.execute(sql`
+        UPDATE
+          qr_reward_batch_assignments
 
-      /*
-       * End the previous assignment.
-       *
-       * This happens BEFORE inserting the new one.
-       */
-      if (current) {
-        await db.execute(sql`
-          UPDATE
-            qr_reward_batch_assignments
+        SET
+          status =
+            'ended',
 
-          SET
-            status =
-              'ended',
+          deactivated_at =
+            now()
 
-            deactivated_at =
-              now()
+        WHERE
+          batch_id =
+            ${batchId}::uuid
 
-          WHERE
-            id =
-              ${current.id}
-
-            AND
-            status =
-              'active'
-        `);
-      }
-
+          AND
+          status =
+            'active'
+      `);
 
       const assignmentId =
         randomUUID();
 
-
-      /*
-       * PostgreSQL's partial UNIQUE INDEX is the final
-       * concurrency guarantee here.
-       *
-       * Even if application logic fails, the DB refuses a
-       * second ACTIVE assignment for this batch.
-       */
       await db.execute(sql`
         INSERT INTO
           qr_reward_batch_assignments (
             id,
             batch_id,
             campaign_id,
+
+            attribution_mode,
+
+            entity_type_id,
+            entity_record_id,
+            entity_label_snapshot,
+
             reward_amount_minor,
             currency,
             expires_at,
+
             status,
             activated_at,
             created_by_user_id
@@ -421,28 +434,45 @@ export const POST =
 
         VALUES (
           ${assignmentId},
-          ${batchId},
-          ${campaign.id},
+          ${batchId}::uuid,
+          ${campaignId}::uuid,
+
+          ${attributionMode},
+
+          ${
+            fixedEntity
+              ?.entityTypeId ??
+            null
+          },
+
+          ${
+            fixedEntity
+              ?.id ??
+            null
+          }::uuid,
+
+          ${
+            fixedEntity
+              ?.label ??
+            null
+          },
+
           ${Number(
             campaign.rewardAmountMinor,
           )},
+
           ${campaign.currency},
+
           ${campaign.expiresAt},
+
           'active',
+
           now(),
+
           ${session.userId}
         )
       `);
 
-
-      /*
-       * Bring back ONLY unclaimed non-revoked physical QRs.
-       *
-       * This is the "come alive again" operation.
-       *
-       * A previously CLAIMED QR is never touched and therefore
-       * can never regain redemption power.
-       */
       await db.execute(sql`
         UPDATE
           qr_reward_vouchers
@@ -456,7 +486,7 @@ export const POST =
 
         WHERE
           batch_id =
-            ${batchId}
+            ${batchId}::uuid
 
           AND
           claimed_at
@@ -469,7 +499,6 @@ export const POST =
           )
       `);
 
-
       return NextResponse.json({
         success: true,
 
@@ -479,28 +508,19 @@ export const POST =
 
           batchId,
 
-          campaignId:
-            campaign.id,
+          campaignId,
 
           campaignName:
             campaign.name,
 
-          rewardAmountMinor:
-            Number(
-              campaign.rewardAmountMinor,
-            ),
+          attributionMode,
 
-          currency:
-            campaign.currency,
-
-          expiresAt:
-            campaign.expiresAt,
+          entity:
+            fixedEntity ??
+            null,
 
           reusableQrCount:
             reusableCount,
-
-          status:
-            "active",
         },
       });
     },

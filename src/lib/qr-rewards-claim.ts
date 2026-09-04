@@ -21,7 +21,9 @@ export type QrRewardClaimOutcome =
   | "revoked"
   | "unavailable"
   | "invalid"
-  | "request_conflict";
+  | "request_conflict"
+  | "entity_required"
+  | "entity_invalid";
 
 
 export type QrRewardClaimResult = {
@@ -40,6 +42,14 @@ export type QrRewardClaimResult = {
 
   campaignId?: string;
   campaignName?: string;
+
+  entityTypeId?: number;
+  entityTypeName?: string;
+
+  entityRecordId?: string;
+  entityLabel?: string;
+
+  attributionMode?: string;
 
   serialNumber?: number;
 
@@ -80,6 +90,10 @@ type VoucherRecord = {
     | string
     | null;
 
+  attributionMode:
+    | string
+    | null;
+
   assignmentExpiresAt:
     | unknown
     | null;
@@ -111,48 +125,31 @@ type VoucherRecord = {
   campaignExpiresAt:
     | unknown
     | null;
-};
 
-
-type ExistingClaimRecord = {
-  claimId: string;
-
-  requestId: string;
-
-  voucherId: string;
-
-  userId: number;
-
-  claimedAt: unknown;
-
-  serialNumber: number;
-
-  batchId: string;
-  batchCode: string;
-
-  assignmentId:
-    | string
-    | null;
-
-  campaignId:
-    | string
-    | null;
-
-  campaignName:
-    | string
-    | null;
-
-  rewardAmountMinor:
+  entityTypeId:
     | number
     | null;
 
-  currency:
+  entityTypeName:
     | string
     | null;
 
-  expiresAt:
-    | unknown
+  entityRecordId:
+    | string
     | null;
+
+  entityLabel:
+    | string
+    | null;
+};
+
+
+type ResolvedEntity = {
+  entityTypeId: number;
+  entityTypeName: string;
+
+  entityRecordId: string;
+  entityLabel: string;
 };
 
 
@@ -251,6 +248,9 @@ async function voucherByHash(
         a.status
           AS "assignmentStatus",
 
+        a.attribution_mode
+          AS "attributionMode",
+
         a.expires_at
           AS "assignmentExpiresAt",
 
@@ -272,7 +272,19 @@ async function voucherByHash(
           AS "campaignStartsAt",
 
         c.expires_at
-          AS "campaignExpiresAt"
+          AS "campaignExpiresAt",
+
+        a.entity_type_id
+          AS "entityTypeId",
+
+        et.title
+          AS "entityTypeName",
+
+        a.entity_record_id
+          AS "entityRecordId",
+
+        a.entity_label_snapshot
+          AS "entityLabel"
 
       FROM
         qr_reward_vouchers v
@@ -287,6 +299,7 @@ async function voucherByHash(
           ON
             a.batch_id =
               b.id
+
             AND
             a.status =
               'active'
@@ -295,6 +308,11 @@ async function voucherByHash(
         qr_reward_campaigns c
           ON c.id =
             a.campaign_id
+
+      LEFT JOIN
+        entity_types et
+          ON et.id =
+            a.entity_type_id
 
       WHERE
         v.token_hash =
@@ -307,24 +325,20 @@ async function voucherByHash(
     result.rows[0] as
       | VoucherRecord
       | undefined
-  ) ?? null;
+  ) ??
+    null;
 }
 
 
-async function claimByRequestId(
+async function claimByVoucher(
   db: AppDatabase,
-  requestId: string,
-): Promise<
-  ExistingClaimRecord | null
-> {
+  voucherId: string,
+) {
   const result =
     await db.execute(sql`
       SELECT
         cl.id
           AS "claimId",
-
-        cl.request_id
-          AS "requestId",
 
         cl.voucher_id
           AS "voucherId",
@@ -335,6 +349,33 @@ async function claimByRequestId(
         cl.claimed_at
           AS "claimedAt",
 
+        cl.assignment_id
+          AS "assignmentId",
+
+        cl.campaign_id_snapshot
+          AS "campaignId",
+
+        c.name
+          AS "campaignName",
+
+        cl.reward_amount_minor_snapshot
+          AS "rewardAmountMinor",
+
+        cl.currency_snapshot
+          AS currency,
+
+        cl.entity_type_id_snapshot
+          AS "entityTypeId",
+
+        cl.entity_type_label_snapshot
+          AS "entityTypeName",
+
+        cl.entity_record_id_snapshot
+          AS "entityRecordId",
+
+        cl.entity_label_snapshot
+          AS "entityLabel",
+
         v.serial_number
           AS "serialNumber",
 
@@ -342,31 +383,7 @@ async function claimByRequestId(
           AS "batchId",
 
         b.batch_code
-          AS "batchCode",
-
-        cl.assignment_id
-          AS "assignmentId",
-
-        COALESCE(
-          cl.campaign_id_snapshot,
-          b.campaign_id
-        ) AS "campaignId",
-
-        c.name
-          AS "campaignName",
-
-        COALESCE(
-          cl.reward_amount_minor_snapshot,
-          b.reward_amount_minor
-        ) AS "rewardAmountMinor",
-
-        COALESCE(
-          cl.currency_snapshot,
-          b.currency
-        ) AS currency,
-
-        v.expires_at
-          AS "expiresAt"
+          AS "batchCode"
 
       FROM
         qr_reward_claims cl
@@ -384,180 +401,364 @@ async function claimByRequestId(
       LEFT JOIN
         qr_reward_campaigns c
           ON c.id =
-            COALESCE(
-              cl.campaign_id_snapshot,
-              b.campaign_id
-            )
+            cl.campaign_id_snapshot
 
       WHERE
-        cl.request_id =
-          ${requestId}
+        cl.voucher_id =
+          ${voucherId}::uuid
 
       LIMIT 1
     `);
 
-  return (
-    result.rows[0] as
-      | ExistingClaimRecord
-      | undefined
-  ) ?? null;
+  return result.rows[0] as
+    | Record<
+        string,
+        unknown
+      >
+    | undefined;
 }
 
 
-function fromExisting(
-  claim:
-    ExistingClaimRecord,
-): QrRewardClaimResult {
-  return {
-    outcome:
-      "claimed",
+async function resolveEntity(
+  db: AppDatabase,
+  voucher: VoucherRecord,
+  requestedEntityRecordId:
+    | string
+    | null
+    | undefined,
+): Promise<
+  | {
+      entity:
+        | ResolvedEntity
+        | null;
+    }
+  | {
+      error:
+        "entity_required"
+        | "entity_invalid";
+    }
+> {
+  if (
+    voucher.attributionMode ===
+      "none" ||
+    !voucher.attributionMode
+  ) {
+    return {
+      entity:
+        null,
+    };
+  }
 
-    idempotent:
-      true,
 
-    voucherId:
-      claim.voucherId,
+  if (
+    voucher.attributionMode ===
+      "fixed_entity"
+  ) {
+    if (
+      !voucher.entityRecordId ||
+      !voucher.entityTypeId ||
+      !voucher.entityTypeName ||
+      !voucher.entityLabel
+    ) {
+      return {
+        error:
+          "entity_invalid",
+      };
+    }
 
-    claimId:
-      claim.claimId,
-
-    batchId:
-      claim.batchId,
-
-    batchCode:
-      claim.batchCode,
-
-    assignmentId:
-      claim.assignmentId ??
-      undefined,
-
-    campaignId:
-      claim.campaignId ??
-      undefined,
-
-    campaignName:
-      claim.campaignName ??
-      undefined,
-
-    serialNumber:
-      Number(
-        claim.serialNumber,
-      ),
-
-    rewardAmountMinor:
-      claim.rewardAmountMinor ===
-        null
-        ? undefined
-        : Number(
-            claim.rewardAmountMinor,
+    return {
+      entity: {
+        entityTypeId:
+          Number(
+            voucher.entityTypeId,
           ),
 
-    currency:
-      claim.currency ??
-      undefined,
+        entityTypeName:
+          voucher.entityTypeName,
 
-    claimedByUserId:
-      Number(
-        claim.userId,
-      ),
+        entityRecordId:
+          voucher.entityRecordId,
 
-    claimedAt:
-      iso(
-        claim.claimedAt,
-      ),
+        entityLabel:
+          voucher.entityLabel,
+      },
+    };
+  }
 
-    expiresAt:
-      iso(
-        claim.expiresAt,
-      ),
+
+  const entityId =
+    String(
+      requestedEntityRecordId ??
+        "",
+    ).trim();
+
+  if (!entityId) {
+    return {
+      error:
+        "entity_required",
+    };
+  }
+
+  const result =
+    await db.execute(sql`
+      SELECT
+        er.id,
+
+        et.id
+          AS "entityTypeId",
+
+        et.title
+          AS "entityTypeName",
+
+        COALESCE(
+          (
+            SELECT
+              NULLIF(
+                er.data ->> f.key,
+                ''
+              )
+
+            FROM
+              jsonb_array_elements_text(
+                et.searchable_fields
+              ) AS f(key)
+
+            WHERE
+              NULLIF(
+                er.data ->> f.key,
+                ''
+              ) IS NOT NULL
+
+            LIMIT 1
+          ),
+
+          NULLIF(
+            er.data ->> 'name',
+            ''
+          ),
+
+          NULLIF(
+            er.data ->> 'title',
+            ''
+          ),
+
+          er.external_key,
+
+          er.id::text
+        ) AS "entityLabel"
+
+      FROM
+        qr_reward_campaign_entities ce
+
+      INNER JOIN
+        entity_records er
+          ON er.id =
+            ce.entity_record_id
+
+      INNER JOIN
+        entity_types et
+          ON et.id =
+            ce.entity_type_id
+
+      WHERE
+        ce.campaign_id =
+          ${voucher.campaignId}::uuid
+
+        AND
+        er.id =
+          ${entityId}::uuid
+
+        AND
+        er.status =
+          'active'
+
+        AND
+        et.is_active =
+          true
+
+      LIMIT 1
+    `);
+
+  const row =
+    result.rows[0] as
+      | {
+          id: string;
+          entityTypeId: number;
+          entityTypeName: string;
+          entityLabel: string;
+        }
+      | undefined;
+
+  if (!row) {
+    return {
+      error:
+        "entity_invalid",
+    };
+  }
+
+  return {
+    entity: {
+      entityTypeId:
+        Number(
+          row.entityTypeId,
+        ),
+
+      entityTypeName:
+        String(
+          row.entityTypeName,
+        ),
+
+      entityRecordId:
+        String(
+          row.id,
+        ),
+
+      entityLabel:
+        String(
+          row.entityLabel,
+        ),
+    },
   };
 }
 
 
-function stateResult(
-  voucher:
-    VoucherRecord,
-  outcome:
-    QrRewardClaimOutcome,
+function historicalResult(
+  row:
+    Record<
+      string,
+      unknown
+    >,
 ): QrRewardClaimResult {
   return {
-    outcome,
+    outcome:
+      "already_claimed",
+
+    claimId:
+      row.claimId
+        ? String(
+            row.claimId,
+          )
+        : undefined,
 
     voucherId:
-      voucher.voucherId,
+      row.voucherId
+        ? String(
+            row.voucherId,
+          )
+        : undefined,
 
     batchId:
-      voucher.batchId,
+      row.batchId
+        ? String(
+            row.batchId,
+          )
+        : undefined,
 
     batchCode:
-      voucher.batchCode,
+      row.batchCode
+        ? String(
+            row.batchCode,
+          )
+        : undefined,
 
     assignmentId:
-      voucher.assignmentId ??
-      undefined,
+      row.assignmentId
+        ? String(
+            row.assignmentId,
+          )
+        : undefined,
 
     campaignId:
-      voucher.campaignId ??
-      undefined,
+      row.campaignId
+        ? String(
+            row.campaignId,
+          )
+        : undefined,
 
     campaignName:
-      voucher.campaignName ??
-      undefined,
+      row.campaignName
+        ? String(
+            row.campaignName,
+          )
+        : undefined,
+
+    entityTypeId:
+      row.entityTypeId
+        ? Number(
+            row.entityTypeId,
+          )
+        : undefined,
+
+    entityTypeName:
+      row.entityTypeName
+        ? String(
+            row.entityTypeName,
+          )
+        : undefined,
+
+    entityRecordId:
+      row.entityRecordId
+        ? String(
+            row.entityRecordId,
+          )
+        : undefined,
+
+    entityLabel:
+      row.entityLabel
+        ? String(
+            row.entityLabel,
+          )
+        : undefined,
 
     serialNumber:
-      Number(
-        voucher.serialNumber,
-      ),
+      row.serialNumber
+        ? Number(
+            row.serialNumber,
+          )
+        : undefined,
 
     rewardAmountMinor:
-      voucher.rewardAmountMinor ===
-        null
-        ? undefined
-        : Number(
-            voucher.rewardAmountMinor,
-          ),
+      row.rewardAmountMinor
+        ? Number(
+            row.rewardAmountMinor,
+          )
+        : undefined,
 
     currency:
-      voucher.currency ??
-      undefined,
+      row.currency
+        ? String(
+            row.currency,
+          )
+        : undefined,
 
     claimedByUserId:
-      voucher.claimedByUserId
+      row.userId
         ? Number(
-            voucher.claimedByUserId,
+            row.userId,
           )
         : undefined,
 
     claimedAt:
       iso(
-        voucher.claimedAt,
-      ),
-
-    expiresAt:
-      iso(
-        voucher.assignmentExpiresAt ??
-          voucher.voucherExpiresAt,
+        row.claimedAt,
       ),
   };
 }
 
 
-/*
- * ============================================================
- * ATOMIC QR CLAIM V3
- * ============================================================
- *
- * QR ownership remains permanent once claimed.
- *
- * Batch Campaign assignment may change ONLY for remaining
- * unused physical QRs.
- */
 export async function claimQrReward(
   db: AppDatabase,
   input: {
     qrPayload: string;
     requestId: string;
     userId: number;
+
+    /*
+     * Used only when the assignment says claimant_selects.
+     */
+    entityRecordId?:
+      | string
+      | null;
   },
 ): Promise<QrRewardClaimResult> {
   const qrPayload =
@@ -571,7 +772,6 @@ export async function claimQrReward(
       input.userId,
     );
 
-
   if (
     !Number.isInteger(
       userId,
@@ -583,7 +783,6 @@ export async function claimQrReward(
     );
   }
 
-
   if (
     requestId.length < 8 ||
     requestId.length > 160
@@ -593,7 +792,6 @@ export async function claimQrReward(
         "request_conflict",
     };
   }
-
 
   if (
     !isQrRewardPayload(
@@ -606,7 +804,6 @@ export async function claimQrReward(
     };
   }
 
-
   await db.execute(sql`
     SELECT
       pg_advisory_xact_lock(
@@ -617,19 +814,13 @@ export async function claimQrReward(
       )
   `);
 
-
-  const tokenHash =
-    sha256(
-      qrPayload,
-    );
-
-
   const voucher =
     await voucherByHash(
       db,
-      tokenHash,
+      sha256(
+        qrPayload,
+      ),
     );
-
 
   if (!voucher) {
     return {
@@ -638,45 +829,30 @@ export async function claimQrReward(
     };
   }
 
-
-  const existing =
-    await claimByRequestId(
-      db,
-      requestId,
-    );
-
-
-  if (existing) {
-    if (
-      existing.voucherId !==
-      voucher.voucherId
-    ) {
-      return {
-        outcome:
-          "request_conflict",
-      };
-    }
-
-    return fromExisting(
-      existing,
-    );
-  }
-
-
-  /*
-   * Permanent one-time ownership beats every assignment rule.
-   */
   if (
     voucher.voucherStatus ===
       "claimed" ||
     voucher.claimedAt
   ) {
-    return stateResult(
-      voucher,
-      "already_claimed",
-    );
-  }
+    const historical =
+      await claimByVoucher(
+        db,
+        voucher.voucherId,
+      );
 
+    if (historical) {
+      return historicalResult(
+        historical,
+      );
+    }
+
+    return {
+      outcome:
+        "already_claimed",
+      voucherId:
+        voucher.voucherId,
+    };
+  }
 
   if (
     voucher.voucherStatus ===
@@ -684,39 +860,27 @@ export async function claimQrReward(
     voucher.batchStatus ===
       "revoked"
   ) {
-    return stateResult(
-      voucher,
-      "revoked",
-    );
+    return {
+      outcome:
+        "revoked",
+      voucherId:
+        voucher.voucherId,
+    };
   }
 
-
-  /*
-   * No current Campaign activation.
-   */
   if (
     !voucher.assignmentId ||
     voucher.assignmentStatus !==
       "active" ||
     !voucher.campaignId
   ) {
-    return stateResult(
-      voucher,
-      "unavailable",
-    );
+    return {
+      outcome:
+        "unavailable",
+      voucherId:
+        voucher.voucherId,
+    };
   }
-
-
-  if (
-    voucher.campaignStatus ===
-      "revoked"
-  ) {
-    return stateResult(
-      voucher,
-      "revoked",
-    );
-  }
-
 
   const now =
     Date.now();
@@ -742,7 +906,6 @@ export async function claimQrReward(
       ),
     ).getTime();
 
-
   if (
     assignmentExpiry <=
       now ||
@@ -759,7 +922,7 @@ export async function claimQrReward(
 
       WHERE
         id =
-          ${voucher.voucherId}
+          ${voucher.voucherId}::uuid
 
         AND
         claimed_at
@@ -770,12 +933,14 @@ export async function claimQrReward(
           'available'
     `);
 
-    return stateResult(
-      voucher,
-      "expired",
-    );
-  }
+    return {
+      outcome:
+        "expired",
 
+      voucherId:
+        voucher.voucherId,
+    };
+  }
 
   if (
     campaignStart >
@@ -790,21 +955,60 @@ export async function claimQrReward(
       voucher.batchStatus,
     )
   ) {
-    return stateResult(
-      voucher,
-      "unavailable",
-    );
+    return {
+      outcome:
+        "unavailable",
+
+      voucherId:
+        voucher.voucherId,
+    };
   }
 
+  const entityResolution =
+    await resolveEntity(
+      db,
+      voucher,
+      input.entityRecordId,
+    );
 
-  /*
-   * ==========================================================
-   * CRITICAL CLAIM UPDATE
-   *
-   * Current ACTIVE assignment must still exist at the exact
-   * instant PostgreSQL performs AVAILABLE -> CLAIMED.
-   * ==========================================================
-   */
+  if (
+    "error" in
+    entityResolution
+  ) {
+    return {
+      outcome:
+        entityResolution.error,
+
+      voucherId:
+        voucher.voucherId,
+
+      campaignId:
+        voucher.campaignId,
+
+      campaignName:
+        voucher.campaignName ??
+        undefined,
+
+      attributionMode:
+        voucher.attributionMode ??
+        undefined,
+
+      rewardAmountMinor:
+        voucher.rewardAmountMinor
+          ? Number(
+              voucher.rewardAmountMinor,
+            )
+          : undefined,
+
+      currency:
+        voucher.currency ??
+        undefined,
+    };
+  }
+
+  const entity =
+    entityResolution.entity;
+
   const updated =
     await db.execute(sql`
       UPDATE
@@ -827,7 +1031,7 @@ export async function claimQrReward(
 
       WHERE
         v.id =
-          ${voucher.voucherId}
+          ${voucher.voucherId}::uuid
 
         AND
         v.batch_id =
@@ -835,7 +1039,7 @@ export async function claimQrReward(
 
         AND
         a.id =
-          ${voucher.assignmentId}
+          ${voucher.assignmentId}::uuid
 
         AND
         a.batch_id =
@@ -885,68 +1089,38 @@ export async function claimQrReward(
           now()
 
       RETURNING
-        v.id
-          AS "voucherId",
+        v.id,
 
         v.claimed_at
           AS "claimedAt"
     `);
 
-
   const winner =
     updated.rows[0] as
       | {
-          voucherId?: unknown;
+          id?: unknown;
           claimedAt?: unknown;
         }
       | undefined;
 
-
-  if (
-    !winner?.voucherId
-  ) {
-    const current =
-      await voucherByHash(
+  if (!winner?.id) {
+    const historical =
+      await claimByVoucher(
         db,
-        tokenHash,
+        voucher.voucherId,
       );
 
-    if (!current) {
-      return {
-        outcome:
-          "invalid",
-      };
-    }
-
-    if (
-      current.voucherStatus ===
-        "claimed" ||
-      current.claimedAt
-    ) {
-      return stateResult(
-        current,
-        "already_claimed",
+    if (historical) {
+      return historicalResult(
+        historical,
       );
     }
 
-    if (
-      current.voucherStatus ===
-        "revoked" ||
-      current.batchStatus ===
-        "revoked"
-    ) {
-      return stateResult(
-        current,
-        "revoked",
-      );
-    }
-
-    return stateResult(
-      current,
-      "unavailable",
-    );
+    return {
+      outcome:
+        "unavailable",
+    };
   }
-
 
   const claimId =
     randomUUID();
@@ -958,13 +1132,6 @@ export async function claimQrReward(
     new Date()
       .toISOString();
 
-
-  /*
-   * Snapshot the active Campaign assignment.
-   *
-   * From this point forward, future reassignment cannot
-   * alter what this claimant won.
-   */
   await db.execute(sql`
     INSERT INTO
       qr_reward_claims (
@@ -976,10 +1143,14 @@ export async function claimQrReward(
         assignment_id,
 
         campaign_id_snapshot,
-
         reward_amount_minor_snapshot,
-
         currency_snapshot,
+
+        entity_type_id_snapshot,
+        entity_record_id_snapshot,
+
+        entity_type_label_snapshot,
+        entity_label_snapshot,
 
         claimed_at
       )
@@ -987,15 +1158,15 @@ export async function claimQrReward(
     VALUES (
       ${claimId},
 
-      ${voucher.voucherId},
+      ${voucher.voucherId}::uuid,
 
       ${userId},
 
       ${requestId},
 
-      ${voucher.assignmentId},
+      ${voucher.assignmentId}::uuid,
 
-      ${voucher.campaignId},
+      ${voucher.campaignId}::uuid,
 
       ${Number(
         voucher.rewardAmountMinor,
@@ -1003,10 +1174,33 @@ export async function claimQrReward(
 
       ${voucher.currency},
 
+      ${
+        entity
+          ?.entityTypeId ??
+        null
+      },
+
+      ${
+        entity
+          ?.entityRecordId ??
+        null
+      }::uuid,
+
+      ${
+        entity
+          ?.entityTypeName ??
+        null
+      },
+
+      ${
+        entity
+          ?.entityLabel ??
+        null
+      },
+
       ${claimedAt}
     )
   `);
-
 
   return {
     outcome:
@@ -1032,6 +1226,26 @@ export async function claimQrReward(
     campaignName:
       voucher.campaignName ??
       undefined,
+
+    attributionMode:
+      voucher.attributionMode ??
+      undefined,
+
+    entityTypeId:
+      entity
+        ?.entityTypeId,
+
+    entityTypeName:
+      entity
+        ?.entityTypeName,
+
+    entityRecordId:
+      entity
+        ?.entityRecordId,
+
+    entityLabel:
+      entity
+        ?.entityLabel,
 
     serialNumber:
       Number(

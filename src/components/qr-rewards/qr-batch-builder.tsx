@@ -18,6 +18,17 @@ import {
 import QRCode from "qrcode";
 
 
+type EligibleEntity = {
+  id: string;
+
+  entityTypeId: number;
+
+  entityTypeName: string;
+
+  label: string;
+};
+
+
 type CampaignRecord = {
   id: string;
   name: string;
@@ -27,6 +38,9 @@ type CampaignRecord = {
   startsAt: string;
   expiresAt: string;
   status: string;
+
+  eligibleEntities:
+    EligibleEntity[];
 };
 
 
@@ -193,6 +207,25 @@ export function QrBatchBuilder() {
     true,
   );
 
+
+  const [
+    attributionMode,
+    setAttributionMode,
+  ] = useState<
+    "none" |
+    "fixed_entity" |
+    "claimant_selects"
+  >(
+    "none",
+  );
+
+  const [
+    fixedEntityRecordId,
+    setFixedEntityRecordId,
+  ] = useState(
+    "",
+  );
+
   const [
     quantity,
     setQuantity,
@@ -243,6 +276,41 @@ export function QrBatchBuilder() {
         selectedCampaignId,
       ],
     );
+
+
+  useEffect(
+    () => {
+      const eligible =
+        selectedCampaign
+          ?.eligibleEntities ??
+        [];
+
+      if (!eligible.length) {
+        setAttributionMode(
+          "none",
+        );
+
+        setFixedEntityRecordId(
+          "",
+        );
+
+        return;
+      }
+
+      setAttributionMode(
+        "claimant_selects",
+      );
+
+      setFixedEntityRecordId(
+        eligible[0]?.id ??
+          "",
+      );
+    },
+    [
+      selectedCampaignId,
+      selectedCampaign,
+    ],
+  );
 
 
   useEffect(() => {
@@ -394,6 +462,14 @@ export function QrBatchBuilder() {
                   selectedCampaignId,
 
                 quantity,
+
+                attributionMode,
+
+                entityRecordId:
+                  attributionMode ===
+                    "fixed_entity"
+                    ? fixedEntityRecordId
+                    : null,
               }),
           },
         );
@@ -857,6 +933,99 @@ export function QrBatchBuilder() {
                 </div>
               )}
           </Field>
+
+          <Field
+            label="Entity attribution"
+            hint="Attach this physical QR batch to a fixed Entity, or let the claimant choose from the Campaign's eligible Entities."
+          >
+            <div className="grid gap-2">
+              <select
+                value={
+                  attributionMode
+                }
+                disabled={
+                  !selectedCampaign
+                }
+                onChange={
+                  (
+                    event,
+                  ) =>
+                    setAttributionMode(
+                      event
+                        .target
+                        .value as
+                        | "none"
+                        | "fixed_entity"
+                        | "claimant_selects",
+                    )
+                }
+                className="h-10 w-full rounded-xl border bg-background px-3 text-sm"
+              >
+                <option value="none">
+                  No Entity attribution
+                </option>
+
+                {!!selectedCampaign
+                  ?.eligibleEntities
+                  ?.length && (
+                  <>
+                    <option value="claimant_selects">
+                      Claimant selects Entity
+                    </option>
+
+                    <option value="fixed_entity">
+                      Fix this batch to one Entity
+                    </option>
+                  </>
+                )}
+              </select>
+
+              {attributionMode ===
+                "fixed_entity" && (
+                <select
+                  value={
+                    fixedEntityRecordId
+                  }
+                  onChange={
+                    (
+                      event,
+                    ) =>
+                      setFixedEntityRecordId(
+                        event
+                          .target
+                          .value,
+                      )
+                  }
+                  className="h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                >
+                  {(selectedCampaign
+                    ?.eligibleEntities ??
+                    []
+                  ).map(
+                    (
+                      entity,
+                    ) => (
+                      <option
+                        key={
+                          entity.id
+                        }
+                        value={
+                          entity.id
+                        }
+                      >
+                        {
+                          entity.entityTypeName
+                        }: {
+                          entity.label
+                        }
+                      </option>
+                    ),
+                  )}
+                </select>
+              )}
+            </div>
+          </Field>
+
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
