@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -9,9 +10,12 @@ import {
   AlertTriangle,
   Download,
   Loader2,
+  Printer,
   QrCode,
   ShieldCheck,
 } from "lucide-react";
+
+import QRCode from "qrcode";
 
 
 type PrintRecord = {
@@ -72,6 +76,89 @@ function csvCell(
 }
 
 
+
+function QrImage({
+  payload,
+  size = 160,
+}: {
+  payload: string;
+  size?: number;
+}) {
+  const [
+    src,
+    setSrc,
+  ] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    QRCode.toDataURL(
+      payload,
+      {
+        width: size,
+        margin: 2,
+        errorCorrectionLevel: "M",
+      },
+    )
+      .then((url) => {
+        if (active) {
+          setSrc(url);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSrc("");
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    payload,
+    size,
+  ]);
+
+  if (!src) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-lg border bg-background"
+        style={{
+          width: size,
+          height: size,
+        }}
+      >
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      width={size}
+      height={size}
+      alt="QR voucher"
+      className="rounded-md bg-white"
+    />
+  );
+}
+
+
+function escapeHtml(
+  value: unknown,
+) {
+  return String(
+    value ?? "",
+  )
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+
 export function QrBatchBuilder() {
   const [
     campaign,
@@ -120,6 +207,14 @@ export function QrBatchBuilder() {
     setResult,
   ] = useState<MintResult | null>(
     null,
+  );
+
+
+  const [
+    printing,
+    setPrinting,
+  ] = useState(
+    false,
   );
 
 
@@ -276,6 +371,296 @@ export function QrBatchBuilder() {
     URL.revokeObjectURL(
       url,
     );
+  }
+
+
+
+  async function printQrBatch() {
+    if (
+      !result ||
+      printing
+    ) {
+      return;
+    }
+
+    const popup =
+      window.open(
+        "",
+        "_blank",
+      );
+
+    if (!popup) {
+      setError(
+        "Browser blocked the print window. Allow popups and try again.",
+      );
+      return;
+    }
+
+    setPrinting(true);
+    setError("");
+
+    try {
+      popup.document.open();
+      popup.document.write(`
+        <!doctype html>
+        <html>
+          <head>
+            <title>${escapeHtml(
+              result.batch.batchCode,
+            )} QR Labels</title>
+
+            <style>
+              @page {
+                size: A4;
+                margin: 8mm;
+              }
+
+              * {
+                box-sizing: border-box;
+              }
+
+              body {
+                margin: 0;
+                font-family:
+                  -apple-system,
+                  BlinkMacSystemFont,
+                  "Segoe UI",
+                  sans-serif;
+                color: #111;
+                background: white;
+              }
+
+              .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-end;
+                gap: 16px;
+                padding-bottom: 8mm;
+              }
+
+              .header h1 {
+                margin: 0;
+                font-size: 18px;
+              }
+
+              .header p {
+                margin: 4px 0 0;
+                color: #555;
+                font-size: 11px;
+              }
+
+              .sheet {
+                display: grid;
+                grid-template-columns:
+                  repeat(4, 1fr);
+                gap: 4mm;
+              }
+
+              .label {
+                border: 1px dashed #bbb;
+                border-radius: 3mm;
+                min-height: 42mm;
+                padding: 3mm;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                break-inside: avoid;
+                page-break-inside: avoid;
+              }
+
+              .label img {
+                width: 29mm;
+                height: 29mm;
+                object-fit: contain;
+              }
+
+              .serial {
+                margin-top: 2mm;
+                font-size: 9px;
+                font-weight: 700;
+              }
+
+              .batch {
+                margin-top: 1mm;
+                font-size: 7px;
+                color: #666;
+              }
+
+              .reward {
+                margin-top: 1mm;
+                font-size: 8px;
+                font-weight: 600;
+              }
+
+              @media print {
+                .header {
+                  display: none;
+                }
+              }
+            </style>
+          </head>
+
+          <body>
+            <div class="header">
+              <div>
+                <h1>QR Voucher Labels</h1>
+                <p>
+                  ${escapeHtml(
+                    result.campaign.name,
+                  )}
+                  ·
+                  ${escapeHtml(
+                    result.batch.batchCode,
+                  )}
+                </p>
+              </div>
+
+              <p>
+                ${result.printRecords.length.toLocaleString(
+                  "en-IN",
+                )} vouchers
+              </p>
+            </div>
+
+            <div
+              id="sheet"
+              class="sheet"
+            ></div>
+          </body>
+        </html>
+      `);
+
+      popup.document.close();
+
+      const sheet =
+        popup.document.getElementById(
+          "sheet",
+        );
+
+      if (!sheet) {
+        throw new Error(
+          "Print sheet could not be created.",
+        );
+      }
+
+      const chunkSize =
+        100;
+
+      for (
+        let start = 0;
+        start <
+        result.printRecords.length;
+        start += chunkSize
+      ) {
+        const chunk =
+          result.printRecords.slice(
+            start,
+            start + chunkSize,
+          );
+
+        const generated =
+          await Promise.all(
+            chunk.map(
+              async (
+                record,
+              ) => ({
+                record,
+                src:
+                  await QRCode.toDataURL(
+                    record.qrPayload,
+                    {
+                      width:
+                        220,
+                      margin:
+                        2,
+                      errorCorrectionLevel:
+                        "M",
+                    },
+                  ),
+              }),
+            ),
+          );
+
+        for (
+          const {
+            record,
+            src,
+          } of generated
+        ) {
+          const label =
+            popup.document.createElement(
+              "div",
+            );
+
+          label.className =
+            "label";
+
+          label.innerHTML = `
+            <img
+              src="${src}"
+              alt="QR ${escapeHtml(
+                record.serialNumber,
+              )}"
+            />
+
+            <div class="serial">
+              QR #${escapeHtml(
+                record.serialNumber,
+              )}
+            </div>
+
+            <div class="reward">
+              ₹${(
+                result.batch.rewardAmountMinor /
+                100
+              ).toLocaleString(
+                "en-IN",
+              )}
+            </div>
+
+            <div class="batch">
+              ${escapeHtml(
+                result.batch.batchCode,
+              )}
+            </div>
+          `;
+
+          sheet.appendChild(
+            label,
+          );
+        }
+
+        await new Promise<void>(
+          (resolve) =>
+            setTimeout(
+              resolve,
+              0,
+            ),
+        );
+      }
+
+      await new Promise<void>(
+        (resolve) =>
+          setTimeout(
+            resolve,
+            300,
+          ),
+      );
+
+      popup.focus();
+      popup.print();
+    } catch (cause) {
+      popup.close();
+
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not build QR print sheet.",
+      );
+    } finally {
+      setPrinting(false);
+    }
   }
 
 
@@ -531,6 +916,28 @@ export function QrBatchBuilder() {
 
                 Download voucher manifest CSV
               </button>
+
+              <button
+                type="button"
+                disabled={printing}
+                onClick={
+                  () =>
+                    void printQrBatch()
+                }
+                className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-50"
+              >
+                {printing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Building QR sheet...
+                  </>
+                ) : (
+                  <>
+                    <Printer className="h-4 w-4" />
+                    Print entire QR batch
+                  </>
+                )}
+              </button>
             </section>
 
 
@@ -553,17 +960,39 @@ export function QrBatchBuilder() {
                         }
                         className="rounded-lg bg-muted/40 p-3"
                       >
-                        <div className="text-xs font-medium">
-                          QR #
-                          {
-                            record.serialNumber
-                          }
-                        </div>
+                        <div className="flex items-center gap-4">
+                          <QrImage
+                            payload={
+                              record.qrPayload
+                            }
+                            size={
+                              110
+                            }
+                          />
 
-                        <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
-                          {
-                            record.qrPayload
-                          }
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold">
+                              QR #
+                              {
+                                record.serialNumber
+                              }
+                            </div>
+
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {
+                                inr(
+                                  result.batch.rewardAmountMinor /
+                                    100,
+                                )
+                              }
+                            </div>
+
+                            <div className="mt-2 truncate font-mono text-[10px] text-muted-foreground">
+                              {
+                                record.qrPayload
+                              }
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ),
