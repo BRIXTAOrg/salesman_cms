@@ -240,156 +240,48 @@ export const POST =
         );
       }
 
-      let campaign:
-        typeof qrRewardCampaigns.$inferSelect
-        | undefined;
-
       const suppliedCampaignId =
         String(
           body?.campaignId ?? "",
         ).trim();
 
-      if (suppliedCampaignId) {
-        [campaign] =
-          await db
-            .select()
-            .from(
-              qrRewardCampaigns,
-            )
-            .where(
-              eq(
-                qrRewardCampaigns.id,
-                suppliedCampaignId,
-              ),
-            )
-            .limit(1);
-
-        if (!campaign) {
-          return NextResponse.json(
-            {
-              success: false,
-              error:
-                "Campaign was not found.",
-            },
-            {
-              status: 404,
-            },
-          );
-        }
-      } else {
-        const campaignName =
-          String(
-            body?.campaignName ?? "",
-          ).trim();
-
-        const rewardAmountMinor =
-          Math.round(
-            Number(
-              body?.rewardAmountMinor,
-            ),
-          );
-
-        const validityDays =
-          Math.round(
-            Number(
-              body?.validityDays ?? 30,
-            ),
-          );
-
-        if (!campaignName) {
-          return NextResponse.json(
-            {
-              success: false,
-              error:
-                "Campaign name is required.",
-            },
-            {
-              status: 400,
-            },
-          );
-        }
-
-        if (
-          !Number.isFinite(
-            rewardAmountMinor,
-          ) ||
-          rewardAmountMinor <= 0
-        ) {
-          return NextResponse.json(
-            {
-              success: false,
-              error:
-                "Reward amount must be positive.",
-            },
-            {
-              status: 400,
-            },
-          );
-        }
-
-        if (
-          !Number.isFinite(
-            validityDays,
-          ) ||
-          validityDays < 1 ||
-          validityDays > 3650
-        ) {
-          return NextResponse.json(
-            {
-              success: false,
-              error:
-                "Validity must be between 1 and 3650 days.",
-            },
-            {
-              status: 400,
-            },
-          );
-        }
-
-        const starts =
-          new Date();
-
-        const expires =
-          new Date(starts);
-
-        expires.setDate(
-          expires.getDate() +
-            validityDays,
+      if (!suppliedCampaignId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "campaignId is required. Create a Campaign first, then mint batches inside it.",
+          },
+          {
+            status: 400,
+          },
         );
-
-        [campaign] =
-          await db
-            .insert(
-              qrRewardCampaigns,
-            )
-            .values({
-              id: randomUUID(),
-
-              name:
-                campaignName,
-
-              rewardAmountMinor,
-
-              currency: "INR",
-
-              startsAt:
-                starts.toISOString(),
-
-              expiresAt:
-                expires.toISOString(),
-
-              status:
-                "active",
-
-              createdByUserId:
-                session.userId,
-            })
-            .returning();
       }
 
+      const [campaign] =
+        await db
+          .select()
+          .from(
+            qrRewardCampaigns,
+          )
+          .where(
+            eq(
+              qrRewardCampaigns.id,
+              suppliedCampaignId,
+            ),
+          )
+          .limit(1);
+
       if (!campaign) {
-        throw new Error(
-          "Campaign resolution failed.",
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Campaign was not found.",
+          },
+          {
+            status: 404,
+          },
         );
       }
 

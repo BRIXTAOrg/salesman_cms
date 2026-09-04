@@ -18,6 +18,18 @@ import {
 import QRCode from "qrcode";
 
 
+type CampaignRecord = {
+  id: string;
+  name: string;
+  description?: string | null;
+  rewardAmountMinor: number;
+  currency: string;
+  startsAt: string;
+  expiresAt: string;
+  status: string;
+};
+
+
 type PrintRecord = {
   voucherId: string;
   serialNumber: number;
@@ -161,17 +173,24 @@ function escapeHtml(
 
 export function QrBatchBuilder() {
   const [
-    campaign,
-    setCampaign,
-  ] = useState(
-    "Mason Rewards",
+    campaigns,
+    setCampaigns,
+  ] = useState<CampaignRecord[]>(
+    [],
   );
 
   const [
-    reward,
-    setReward,
+    selectedCampaignId,
+    setSelectedCampaignId,
   ] = useState(
-    100,
+    "",
+  );
+
+  const [
+    loadingCampaigns,
+    setLoadingCampaigns,
+  ] = useState(
+    true,
   );
 
   const [
@@ -179,13 +198,6 @@ export function QrBatchBuilder() {
     setQuantity,
   ] = useState(
     5000,
-  );
-
-  const [
-    days,
-    setDays,
-  ] = useState(
-    30,
   );
 
   const [
@@ -218,19 +230,128 @@ export function QrBatchBuilder() {
   );
 
 
+  const selectedCampaign =
+    useMemo(
+      () =>
+        campaigns.find(
+          (item) =>
+            item.id ===
+            selectedCampaignId,
+        ) ?? null,
+      [
+        campaigns,
+        selectedCampaignId,
+      ],
+    );
+
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadCampaigns() {
+      setLoadingCampaigns(
+        true,
+      );
+
+      try {
+        const response =
+          await fetch(
+            "/api/qr-rewards/campaigns",
+            {
+              cache:
+                "no-store",
+            },
+          );
+
+        const body =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            body?.error ||
+              "Could not load campaigns.",
+          );
+        }
+
+        const rows:
+          CampaignRecord[] =
+          body.campaigns ?? [];
+
+        if (!active) {
+          return;
+        }
+
+        setCampaigns(
+          rows,
+        );
+
+        const usable =
+          rows.find(
+            (item) =>
+              item.status ===
+                "active" &&
+              new Date(
+                item.expiresAt,
+              ).getTime() >
+                Date.now(),
+          );
+
+        setSelectedCampaignId(
+          (current) =>
+            rows.some(
+              (item) =>
+                item.id ===
+                current &&
+                item.status ===
+                  "active" &&
+                new Date(
+                  item.expiresAt,
+                ).getTime() >
+                  Date.now(),
+            )
+              ? current
+              : usable?.id ?? "",
+        );
+      } catch (cause) {
+        if (active) {
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Could not load campaigns.",
+          );
+        }
+      } finally {
+        if (active) {
+          setLoadingCampaigns(
+            false,
+          );
+        }
+      }
+    }
+
+    void loadCampaigns();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+
   const liability =
     useMemo(
       () =>
-        Math.max(
-          0,
-          reward,
-        ) *
+        (
+          selectedCampaign
+            ?.rewardAmountMinor ??
+          0
+        ) /
+          100 *
         Math.max(
           0,
           quantity,
         ),
       [
-        reward,
+        selectedCampaign,
         quantity,
       ],
     );
@@ -238,6 +359,15 @@ export function QrBatchBuilder() {
 
   async function mint() {
     if (minting) {
+      return;
+    }
+
+    if (
+      !selectedCampaignId
+    ) {
+      setError(
+        "Select an active Campaign before creating a QR batch.",
+      );
       return;
     }
 
@@ -260,19 +390,10 @@ export function QrBatchBuilder() {
 
             body:
               JSON.stringify({
-                campaignName:
-                  campaign,
-
-                rewardAmountMinor:
-                  Math.round(
-                    reward *
-                      100,
-                  ),
+                campaignId:
+                  selectedCampaignId,
 
                 quantity,
-
-                validityDays:
-                  days,
               }),
           },
         );
@@ -680,48 +801,82 @@ export function QrBatchBuilder() {
         <div className="grid gap-5 p-5">
           <Field
             label="Campaign"
-            hint="Purpose of this reward programme."
+            hint="Every QR batch belongs to an existing reward Campaign."
           >
-            <input
+            <select
               value={
-                campaign
+                selectedCampaignId
+              }
+              disabled={
+                loadingCampaigns
               }
               onChange={
                 (event) =>
-                  setCampaign(
+                  setSelectedCampaignId(
                     event.target.value,
                   )
               }
-              className="h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none"
-            />
+              className="h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none disabled:opacity-60"
+            >
+              <option value="">
+                {
+                  loadingCampaigns
+                    ? "Loading campaigns..."
+                    : "Select a campaign"
+                }
+              </option>
+
+              {campaigns
+                .filter(
+                  (item) =>
+                    item.status ===
+                      "active" &&
+                    new Date(
+                      item.expiresAt,
+                    ).getTime() >
+                      Date.now(),
+                )
+                .map(
+                  (item) => (
+                    <option
+                      key={
+                        item.id
+                      }
+                      value={
+                        item.id
+                      }
+                    >
+                      {
+                        item.name
+                      }
+                    </option>
+                  ),
+                )}
+            </select>
+
+            {!loadingCampaigns &&
+              campaigns.length ===
+                0 && (
+                <div className="text-xs text-muted-foreground">
+                  No Campaign exists yet. Create one from the Campaigns tab first.
+                </div>
+              )}
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
               label="Reward per QR"
-              hint="INR."
+              hint="Inherited from the selected Campaign."
             >
-              <div className="flex h-10 items-center rounded-xl border">
-                <span className="px-3 text-sm text-muted-foreground">
-                  ₹
-                </span>
-
-                <input
-                  type="number"
-                  min={1}
-                  value={
-                    reward
-                  }
-                  onChange={
-                    (event) =>
-                      setReward(
-                        Number(
-                          event.target.value,
-                        ),
+              <div className="flex h-10 items-center rounded-xl border bg-muted/20 px-3 text-sm font-medium">
+                {
+                  selectedCampaign
+                    ? inr(
+                        selectedCampaign.rewardAmountMinor /
+                          100,
                       )
-                  }
-                  className="h-full min-w-0 flex-1 bg-transparent pr-3 text-sm outline-none"
-                />
+                    : "—"
+                }
               </div>
             </Field>
 
@@ -750,30 +905,19 @@ export function QrBatchBuilder() {
           </div>
 
           <Field
-            label="Validity"
-            hint="Unused vouchers expire after this period."
+            label="Campaign expiry"
+            hint="Every batch minted here inherits the Campaign expiry."
           >
-            <div className="flex h-10 items-center rounded-xl border">
-              <input
-                type="number"
-                min={1}
-                value={
-                  days
-                }
-                onChange={
-                  (event) =>
-                    setDays(
-                      Number(
-                        event.target.value,
-                      ),
+            <div className="flex h-10 items-center rounded-xl border bg-muted/20 px-3 text-sm font-medium">
+              {
+                selectedCampaign
+                  ? new Date(
+                      selectedCampaign.expiresAt,
+                    ).toLocaleString(
+                      "en-IN",
                     )
-                }
-                className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm outline-none"
-              />
-
-              <span className="pr-3 text-sm text-muted-foreground">
-                days
-              </span>
+                  : "—"
+              }
             </div>
           </Field>
 
@@ -804,7 +948,8 @@ export function QrBatchBuilder() {
           <button
             type="button"
             disabled={
-              minting
+              minting ||
+              !selectedCampaignId
             }
             onClick={
               () =>
@@ -845,9 +990,14 @@ export function QrBatchBuilder() {
               "en-IN",
             )}
             {" × "}
-            {inr(
-              reward,
-            )}
+            {
+              selectedCampaign
+                ? inr(
+                    selectedCampaign.rewardAmountMinor /
+                      100,
+                  )
+                : "—"
+            }
           </div>
         </section>
 
