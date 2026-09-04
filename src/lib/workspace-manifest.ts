@@ -12,6 +12,10 @@ import type {
   WorkspaceNavItem,
 } from "@/lib/workspace-types";
 
+import {
+  isQrRewardsEdition,
+} from "@/lib/qr-rewards-edition";
+
 export type WorkspaceIdentity = {
   userId: number;
   companyName: string;
@@ -70,7 +74,7 @@ function navGroups(
     }
   >,
 ): WorkspaceNavGroup[] {
-  const preferred = ["Management", "Field App Control"];
+  const preferred = ["Management", "QR Rewards", "Field App Control"];
 
   return [...map.entries()]
     .map(([key, group]) => ({
@@ -231,6 +235,55 @@ export function buildWorkspaceManifest({
       label: "Dashboard Access",
       href: "/dashboard/usersAndTeam",
       icon: "user-cog",
+    });
+  }
+
+  // ---- QR Rewards Edition ------------------------------------------
+  //
+  // This navigation exists only when this deployment identifies itself as
+  // the specialized QR Voucher Rewards edition.
+  //
+  if (canManage && isQrRewardsEdition()) {
+    addNav(nav, "QR Rewards", {
+      key: "qr_rewards_overview",
+      label: "Overview",
+      href: "/dashboard/qr-rewards",
+      icon: "qr-code",
+    });
+
+    addNav(nav, "QR Rewards", {
+      key: "qr_rewards_campaigns",
+      label: "Campaigns",
+      href: "/dashboard/qr-rewards/campaigns",
+      icon: "qr-code",
+    });
+
+    addNav(nav, "QR Rewards", {
+      key: "qr_rewards_batches",
+      label: "QR Records",
+      href: "/dashboard/qr-rewards/batches",
+      icon: "qr-code",
+    });
+
+    addNav(nav, "QR Rewards", {
+      key: "qr_rewards_claims",
+      label: "Claims",
+      href: "/dashboard/qr-rewards/claims",
+      icon: "badge-check",
+    });
+
+    addNav(nav, "QR Rewards", {
+      key: "qr_rewards_generate",
+      label: "Generate & Print",
+      href: "/dashboard/qr-rewards/generate",
+      icon: "qr-code",
+    });
+
+    addNav(nav, "QR Rewards", {
+      key: "qr_rewards_integrations",
+      label: "Integration Lab",
+      href: "/dashboard/qr-rewards/integration-lab",
+      icon: "qr-code",
     });
   }
 

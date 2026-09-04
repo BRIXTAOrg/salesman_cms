@@ -60,7 +60,16 @@ export async function POST(request: NextRequest) {
       org.schemaName,
       async (tx) => {
         const [user] = await tx
-          .select()
+          .select({
+            id: users.id,
+            email: users.email,
+            username: users.username,
+            status: users.status,
+            isDashboardUser: users.isDashboardUser,
+            dashboardLoginId: users.dashboardLoginId,
+            dashboardHashedPassword: users.dashboardHashedPassword,
+            isSalesAppUser: users.isSalesAppUser,
+          })
           .from(users)
           .where(eq(users.dashboardLoginId, email))
           .limit(1);

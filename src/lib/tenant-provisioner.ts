@@ -18,6 +18,12 @@ const ROLE_CONTEXT_SQL = path.join(
   "role-context-provision.sql",
 );
 
+const QR_REWARDS_SQL = path.join(
+  process.cwd(),
+  "drizzle",
+  "qr-rewards-provision.sql",
+);
+
 const DEFAULT_ROLES = [
   {
     orgRole: "Admin",
@@ -133,6 +139,8 @@ export async function provisionCompany(input: ProvisionCompanyInput) {
     await runSqlFile(client, TENANT_PLATFORM_SQL);
     // V3: Role Context + desired device runtime state.
     await runSqlFile(client, ROLE_CONTEXT_SQL);
+    // QR Rewards edition substrate.
+    await runSqlFile(client, QR_REWARDS_SQL);
 
     const roleIds = new Map<string, number>();
     for (const role of DEFAULT_ROLES) {

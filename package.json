@@ -5,11 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "dev:studio": "node scripts/dev-studio.mjs",
+    "dev:qr-rewards": "NEXT_PUBLIC_BRIXTA_EDITION=qr-voucher-rewards next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "check": "tsc --noEmit",
-    "check:full": "npm run check && npm run lint && npm run build"
+    "check:full": "npm run check && npm run lint && npm run build",
+    "qr-rewards:provision": "node scripts/provision-qr-rewards.mjs"
   },
   "dependencies": {
     "@corbe30/fortune-excel": "^2.3.2",

@@ -53,6 +53,19 @@ export type ResponsibilityAppBuilderRegisteredBlock = {
   config: Record<string, unknown>;
 
   /**
+   * Stable BRIXTA Platform Capability identifier.
+   *
+   * Example:
+   *
+   *   platformCapability: "qr.scan"
+   *
+   * App Builder metadata describes the block.
+   * Platform Capability Registry describes whether
+   * the actual runtime implementation exists.
+   */
+  platformCapability?: string;
+
+  /**
    * Documentation for AI + Impact Review.
    *
    * These fields do not magically implement native code.
