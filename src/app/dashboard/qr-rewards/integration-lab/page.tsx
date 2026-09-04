@@ -1,65 +1,31 @@
-import {
-  CircleDashed,
-} from "lucide-react";
+import Link from "next/link";
 
-import {
-  QrRewardsHeader,
-} from "@/components/qr-rewards/qr-rewards-header";
+import ApiIntegrationLab from "@/components/appliance/api-integration-lab";
 
-const capabilities = [
-  {
-    title: "BRIXTA Payout Sandbox",
-    body:
-      "Fake success, failure, timeout, processing and reversal events before real API credentials exist.",
-  },
-  {
-    title: "REST Integration Runtime",
-    body:
-      "Declarative POST / GET operations with server-managed secrets and response mapping.",
-  },
-  {
-    title: "Webhook Runtime",
-    body:
-      "Verified external events mapped into BRIXTA payout lifecycle states.",
-  },
-  {
-    title: "Cashfree",
-    body:
-      "Will become a live payout provider after the generic payout/runtime layer is installed.",
-  },
-];
 
-export default function IntegrationLabPage() {
+export default function IntegrationLabCompatibilityPage() {
   return (
-    <div className="min-h-full">
-      <QrRewardsHeader
-        title="Integration Lab"
-        description="Build and test the complete reward workflow before connecting production payout credentials."
-      />
-
-      <div className="mx-auto grid w-full max-w-7xl gap-4 p-6 md:grid-cols-2">
-        {capabilities.map((item) => (
-          <div
-            key={item.title}
-            className="rounded-2xl border bg-card p-5"
-          >
-            <div className="flex items-center gap-2">
-              <CircleDashed className="h-4 w-4 text-muted-foreground" />
-
-              <div className="font-semibold">
-                {item.title}
-              </div>
-            </div>
-
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              {item.body}
-            </p>
-
-            <div className="mt-4 inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-              Not installed
-            </div>
+    <div className="w-full min-w-0 max-w-full p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-[1700px] space-y-5">
+        <div className="rounded-2xl border bg-card p-5">
+          <div className="text-lg font-semibold">
+            Integration Lab moved into Logic
           </div>
-        ))}
+
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+            API integrations are platform capabilities and no longer belong to
+            QR Rewards navigation.
+          </p>
+
+          <Link
+            href="/dashboard/workspace/responsibilities"
+            className="mt-4 inline-flex rounded-lg border px-4 py-2 text-sm font-medium transition hover:bg-muted"
+          >
+            Open Responsibilities → LOGIC
+          </Link>
+        </div>
+
+        <ApiIntegrationLab />
       </div>
     </div>
   );

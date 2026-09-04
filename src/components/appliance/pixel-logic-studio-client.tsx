@@ -5,6 +5,7 @@
 import {
   AiBuilderBrief,
 } from "./ai-builder-brief";
+import ApiIntegrationLab from "./api-integration-lab";
 import { PixelLogicFlowCanvas } from "./pixel-logic-flow-canvas";
 
 import {
@@ -197,6 +198,22 @@ export default function PixelLogicStudioClient() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
+
+  /*
+   * BRIXTA_LOGIC_SURFACES_V1
+   *
+   * API integrations live INSIDE LOGIC in the authoring UI,
+   * while their definitions remain globally reusable.
+   */
+  const [
+    logicSurface,
+    setLogicSurface,
+  ] = useState<
+    "flow" |
+    "integrations"
+  >(
+    "flow",
+  );
 
   // BRIXTA_AI_USER_BRIEF_V11
   const [aiUserBrief, setAiUserBrief] =
@@ -442,12 +459,38 @@ export default function PixelLogicStudioClient() {
     }
 
     try {
-      const [roleBody, employeeBody] = await Promise.all([
+      const [
+        roleBody,
+        employeeBody,
+        integrationBody,
+      ] = await Promise.all([
         apiJson<{ roles: PixelLogicAIRole[] }>("/api/platform/roles"),
-        apiJson<{ employees: PixelLogicAIEmployee[] }>("/api/appliance/employees"),
+
+        apiJson<{ employees: PixelLogicAIEmployee[] }>(
+          "/api/appliance/employees",
+        ),
+
+        apiJson<{
+          integrations: Array<{
+            id: string;
+            key: string;
+            name: string;
+            status: string;
+            operations: Array<{
+              id: string;
+              label: string;
+              capability: string;
+              description?: string;
+              method: string;
+              path: string;
+              requestExample?: unknown;
+              responseExample?: unknown;
+            }>;
+          }>;
+        }>("/api/platform/integrations"),
       ]);
 
-      const context = buildPixelLogicAIContext({
+      const baseContext = buildPixelLogicAIContext({
         responsibilityId: selectedResponsibility.id,
         responsibilityTitle: selectedResponsibility.title,
         kernel,
@@ -455,6 +498,108 @@ export default function PixelLogicStudioClient() {
         roles: roleBody.roles ?? [],
         employees: employeeBody.employees ?? [],
       });
+
+      /*
+       * BRIXTA_API_INTEGRATION_PIXEL_AI_V1
+       *
+       * buildPixelLogicAIContext() returns the complete AI authoring
+       * CONTRACT AS A STRING.
+       *
+       * Therefore integrations are injected into that contract rather
+       * than object-spread into it.
+       */
+      const publishedApiServices =
+        (
+          integrationBody.integrations ??
+          []
+        )
+          .filter(
+            (integration) =>
+              integration.status ===
+              "published",
+          )
+          .flatMap(
+            (integration) =>
+              integration.operations.map(
+                (operation) => ({
+                  integrationId:
+                    integration.id,
+
+                  integrationKey:
+                    integration.key,
+
+                  integrationName:
+                    integration.name,
+
+                  operationId:
+                    operation.id,
+
+                  capability:
+                    operation.capability,
+
+                  description:
+                    operation.description ??
+                    operation.label,
+
+                  requestExample:
+                    operation.requestExample,
+
+                  responseExample:
+                    operation.responseExample,
+
+                  execution:
+                    "server_authoritative",
+                }),
+              ),
+          );
+
+      const apiServicePacket = {
+        apiServices:
+          publishedApiServices,
+
+        apiServiceRules: [
+          "Use published BRIXTA capability names rather than provider-specific URLs.",
+          "Never place provider credentials in Pixel Logic.",
+          "Never invent an API capability that is not present in apiServices.",
+          "Financial payout amounts remain server-authoritative.",
+          "Provider HTTP method/path/auth details belong to API Integrations, not the Pixel graph.",
+          "API credentials are server-managed and are never part of this AI context.",
+        ],
+      };
+
+      const businessRequirementMarker =
+        "\\n\\nBUSINESS REQUIREMENT\\nDescribe the workflow after this line.";
+
+      const apiServiceSection =
+        [
+          "",
+          "",
+          "======================================================================",
+          "BRIXTA PUBLISHED API SERVICES V1",
+          "======================================================================",
+          "",
+          "These are the published server-side services currently available to Pixel Logic.",
+          "Use the stable BRIXTA capability name. Do not recreate provider HTTP/auth plumbing inside the graph.",
+          "",
+          JSON.stringify(
+            apiServicePacket,
+            null,
+            2,
+          ),
+        ].join(
+          "\\n",
+        );
+
+      const context =
+        baseContext.includes(
+          businessRequirementMarker,
+        )
+          ? baseContext.replace(
+              businessRequirementMarker,
+              `${apiServiceSection}${businessRequirementMarker}`,
+            )
+          : `${baseContext}${apiServiceSection}`;
+
       // BRIXTA_AI_INTENT_CLIPBOARD_V11
       await navigator.clipboard.writeText(
         augmentBuilderAiContext(
@@ -477,6 +622,7 @@ export default function PixelLogicStudioClient() {
             "Registered Pixel Logic nodes",
             "Execution placement policy: Auto / Device / Server",
             "Installed server-side submission guard capabilities",
+            "Published API integrations and BRIXTA service capabilities",
           ],
           },
         ),
@@ -856,6 +1002,82 @@ export default function PixelLogicStudioClient() {
     }
   }
 
+  /*
+   * BRIXTA_LOGIC_API_INTEGRATIONS_SURFACE_V1
+   *
+   * This lives inside the LOGIC tab, but does not require
+   * a selected Responsibility because integrations are
+   * globally reusable capabilities.
+   */
+  if (
+    logicSurface ===
+    "integrations"
+  ) {
+    return (
+      <div className="mx-auto flex w-full min-w-0 max-w-[1700px] flex-col gap-5">
+        <Panel>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <GitBranch className="h-5 w-5 shrink-0" />
+
+                <div className="text-xl font-semibold">
+                  Logic
+                </div>
+
+                <Pill>
+                  API Integrations
+                </Pill>
+              </div>
+
+              <div className="mt-1 max-w-3xl text-sm text-muted-foreground">
+                Configure reusable external services consumed by Pixel Logic.
+              </div>
+            </div>
+
+
+            <SecondaryButton
+              type="button"
+              onClick={() =>
+                setLogicSurface(
+                  "flow",
+                )
+              }
+            >
+              ← Back to Pixel Logic
+            </SecondaryButton>
+          </div>
+
+
+          <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
+            <button
+              type="button"
+              onClick={() =>
+                setLogicSurface(
+                  "flow",
+                )
+              }
+              className="rounded-lg border px-4 py-2 text-sm text-muted-foreground transition hover:bg-muted"
+            >
+              Flow
+            </button>
+
+            <button
+              type="button"
+              className="rounded-lg border border-primary bg-primary/[0.08] px-4 py-2 text-sm font-medium"
+            >
+              API Integrations
+            </button>
+          </div>
+        </Panel>
+
+
+        <ApiIntegrationLab />
+      </div>
+    );
+  }
+
+
   const actionPorts =
     kernel?.possibilities
       .filter(
@@ -925,6 +1147,17 @@ export default function PixelLogicStudioClient() {
 
             <SecondaryButton
               type="button"
+              onClick={() =>
+                setLogicSurface(
+                  "integrations",
+                )
+              }
+            >
+              API Integrations
+            </SecondaryButton>
+
+            <SecondaryButton
+              type="button"
               onClick={() => setAiOpen((current) => !current)}
               disabled={!selectedResponsibility || loading}
             >
@@ -945,6 +1178,28 @@ export default function PixelLogicStudioClient() {
               Save logic
             </PrimaryButton>
           </div>
+        </div>
+
+        {/* BRIXTA_LOGIC_SUBNAV_V1 */}
+        <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
+          <button
+            type="button"
+            className="rounded-lg border border-primary bg-primary/[0.08] px-4 py-2 text-sm font-medium"
+          >
+            Flow
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setLogicSurface(
+                "integrations",
+              )
+            }
+            className="rounded-lg border px-4 py-2 text-sm text-muted-foreground transition hover:bg-muted"
+          >
+            API Integrations
+          </button>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3 border-t pt-4 text-sm">

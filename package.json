@@ -11,7 +11,9 @@
     "lint": "eslint .",
     "check": "tsc --noEmit",
     "check:full": "npm run check && npm run lint && npm run build",
-    "qr-rewards:provision": "node scripts/provision-qr-rewards.mjs"
+    "qr-rewards:provision": "node scripts/provision-qr-rewards.mjs",
+    "build:qr-rewards": "NEXT_PUBLIC_BRIXTA_EDITION=qr-voucher-rewards next build",
+    "start:qr-rewards": "NEXT_PUBLIC_BRIXTA_EDITION=qr-voucher-rewards next start"
   },
   "dependencies": {
     "@corbe30/fortune-excel": "^2.3.2",

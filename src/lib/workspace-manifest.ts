@@ -265,12 +265,6 @@ export function buildWorkspaceManifest({
       icon: "qr-code",
     });
 
-    addNav(nav, "QR Rewards", {
-      key: "qr_rewards_integrations",
-      label: "Integration Lab",
-      href: "/dashboard/qr-rewards/integration-lab",
-      icon: "qr-code",
-    });
   }
 
   // ---- Field App Control -------------------------------------------
