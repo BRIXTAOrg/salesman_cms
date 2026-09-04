@@ -732,12 +732,7 @@ export function QrBatchBuilder() {
             </div>
 
             <div class="reward">
-              ₹${(
-                result.batch.rewardAmountMinor /
-                100
-              ).toLocaleString(
-                "en-IN",
-              )}
+              SCAN TO CLAIM REWARD
             </div>
 
             <div class="batch">
@@ -1091,64 +1086,6 @@ export function QrBatchBuilder() {
             </section>
 
 
-            <section className="rounded-2xl border bg-card p-5">
-              <div className="text-sm font-medium">
-                Sample generated records
-              </div>
-
-              <div className="mt-4 grid gap-2">
-                {result.printRecords
-                  .slice(
-                    0,
-                    5,
-                  )
-                  .map(
-                    (record) => (
-                      <div
-                        key={
-                          record.voucherId
-                        }
-                        className="rounded-lg bg-muted/40 p-3"
-                      >
-                        <div className="flex items-center gap-4">
-                          <QrImage
-                            payload={
-                              record.qrPayload
-                            }
-                            size={
-                              110
-                            }
-                          />
-
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm font-semibold">
-                              QR #
-                              {
-                                record.serialNumber
-                              }
-                            </div>
-
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              {
-                                inr(
-                                  result.batch.rewardAmountMinor /
-                                    100,
-                                )
-                              }
-                            </div>
-
-                            <div className="mt-2 truncate font-mono text-[10px] text-muted-foreground">
-                              {
-                                record.qrPayload
-                              }
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ),
-                  )}
-              </div>
-            </section>
           </>
         )}
       </div>

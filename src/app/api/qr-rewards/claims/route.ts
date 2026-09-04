@@ -21,18 +21,17 @@ export const GET =
       _request,
       db,
     ) => {
-      const status =
+      const schema =
         await qrRewardsSchemaStatus(
           db,
         );
 
-      if (!status.ready) {
+      if (!schema.ready) {
         return NextResponse.json(
           {
             success: false,
-            notProvisioned: true,
             error:
-              "QR Rewards records are not provisioned for this tenant.",
+              "QR Rewards V3 is not provisioned.",
           },
           {
             status: 503,
@@ -44,31 +43,69 @@ export const GET =
         await db.execute(sql`
           SELECT
             cl.id,
-            cl.request_id AS "requestId",
-            cl.user_id AS "userId",
-            cl.claimed_at AS "claimedAt",
 
-            v.id AS "voucherId",
-            v.serial_number AS "serialNumber",
+            cl.request_id
+              AS "requestId",
 
-            b.id AS "batchId",
-            b.batch_code AS "batchCode",
-            b.reward_amount_minor AS "rewardAmountMinor",
-            b.currency,
+            cl.user_id
+              AS "userId",
 
-            c.id AS "campaignId",
-            c.name AS "campaignName"
+            cl.claimed_at
+              AS "claimedAt",
 
-          FROM qr_reward_claims cl
+            cl.assignment_id
+              AS "assignmentId",
 
-          INNER JOIN qr_reward_vouchers v
-            ON v.id = cl.voucher_id
+            v.id
+              AS "voucherId",
 
-          INNER JOIN qr_reward_batches b
-            ON b.id = v.batch_id
+            v.serial_number
+              AS "serialNumber",
 
-          INNER JOIN qr_reward_campaigns c
-            ON c.id = b.campaign_id
+            b.id
+              AS "batchId",
+
+            b.batch_code
+              AS "batchCode",
+
+            COALESCE(
+              cl.reward_amount_minor_snapshot,
+              b.reward_amount_minor
+            ) AS "rewardAmountMinor",
+
+            COALESCE(
+              cl.currency_snapshot,
+              b.currency
+            ) AS currency,
+
+            COALESCE(
+              cl.campaign_id_snapshot,
+              b.campaign_id
+            ) AS "campaignId",
+
+            c.name
+              AS "campaignName"
+
+          FROM
+            qr_reward_claims cl
+
+          INNER JOIN
+            qr_reward_vouchers v
+              ON v.id =
+                cl.voucher_id
+
+          INNER JOIN
+            qr_reward_batches b
+              ON b.id =
+                v.batch_id
+
+          LEFT JOIN
+            qr_reward_campaigns c
+              ON c.id =
+                COALESCE(
+                  cl.campaign_id_snapshot,
+                  b.campaign_id
+                )
 
           ORDER BY
             cl.claimed_at DESC
@@ -78,7 +115,9 @@ export const GET =
 
       return NextResponse.json({
         success: true,
-        claims: result.rows,
+
+        claims:
+          result.rows,
       });
     },
   );

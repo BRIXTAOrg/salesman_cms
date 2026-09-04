@@ -25,7 +25,8 @@ export type QrRewardClaimOutcome =
 
 
 export type QrRewardClaimResult = {
-  outcome: QrRewardClaimOutcome;
+  outcome:
+    QrRewardClaimOutcome;
 
   idempotent?: boolean;
 
@@ -34,6 +35,8 @@ export type QrRewardClaimResult = {
 
   batchId?: string;
   batchCode?: string;
+
+  assignmentId?: string;
 
   campaignId?: string;
   campaignName?: string;
@@ -57,28 +60,63 @@ type VoucherRecord = {
   voucherStatus: string;
   voucherExpiresAt: unknown;
 
-  claimedByUserId: number | null;
-  claimedAt: unknown;
+  claimedByUserId:
+    | number
+    | null;
+
+  claimedAt:
+    | unknown
+    | null;
 
   batchId: string;
   batchCode: string;
   batchStatus: string;
 
-  rewardAmountMinor: number;
-  currency: string;
-  batchExpiresAt: unknown;
+  assignmentId:
+    | string
+    | null;
 
-  campaignId: string;
-  campaignName: string;
-  campaignStatus: string;
+  assignmentStatus:
+    | string
+    | null;
 
-  campaignStartsAt: unknown;
-  campaignExpiresAt: unknown;
+  assignmentExpiresAt:
+    | unknown
+    | null;
+
+  rewardAmountMinor:
+    | number
+    | null;
+
+  currency:
+    | string
+    | null;
+
+  campaignId:
+    | string
+    | null;
+
+  campaignName:
+    | string
+    | null;
+
+  campaignStatus:
+    | string
+    | null;
+
+  campaignStartsAt:
+    | unknown
+    | null;
+
+  campaignExpiresAt:
+    | unknown
+    | null;
 };
 
 
 type ExistingClaimRecord = {
   claimId: string;
+
   requestId: string;
 
   voucherId: string;
@@ -92,13 +130,29 @@ type ExistingClaimRecord = {
   batchId: string;
   batchCode: string;
 
-  rewardAmountMinor: number;
-  currency: string;
+  assignmentId:
+    | string
+    | null;
 
-  campaignId: string;
-  campaignName: string;
+  campaignId:
+    | string
+    | null;
 
-  expiresAt: unknown;
+  campaignName:
+    | string
+    | null;
+
+  rewardAmountMinor:
+    | number
+    | null;
+
+  currency:
+    | string
+    | null;
+
+  expiresAt:
+    | unknown
+    | null;
 };
 
 
@@ -129,7 +183,9 @@ function iso(
     value instanceof Date
       ? value
       : new Date(
-          String(value),
+          String(
+            value,
+          ),
         );
 
   if (
@@ -147,10 +203,6 @@ function iso(
 export function isQrRewardPayload(
   value: string,
 ) {
-  /*
-   * randomBytes(32).toString("base64url")
-   * produces a 43-character URL-safe bearer secret.
-   */
   return /^BRX:Q:1:[A-Za-z0-9_-]{43}$/.test(
     value,
   );
@@ -160,44 +212,93 @@ export function isQrRewardPayload(
 async function voucherByHash(
   db: AppDatabase,
   tokenHash: string,
-): Promise<VoucherRecord | null> {
+): Promise<
+  VoucherRecord | null
+> {
   const result =
     await db.execute(sql`
       SELECT
-        v.id AS "voucherId",
-        v.serial_number AS "serialNumber",
+        v.id
+          AS "voucherId",
 
-        v.status AS "voucherStatus",
-        v.expires_at AS "voucherExpiresAt",
+        v.serial_number
+          AS "serialNumber",
 
-        v.claimed_by_user_id AS "claimedByUserId",
-        v.claimed_at AS "claimedAt",
+        v.status
+          AS "voucherStatus",
 
-        b.id AS "batchId",
-        b.batch_code AS "batchCode",
-        b.status AS "batchStatus",
+        v.expires_at
+          AS "voucherExpiresAt",
 
-        b.reward_amount_minor AS "rewardAmountMinor",
-        b.currency,
-        b.expires_at AS "batchExpiresAt",
+        v.claimed_by_user_id
+          AS "claimedByUserId",
 
-        c.id AS "campaignId",
-        c.name AS "campaignName",
-        c.status AS "campaignStatus",
+        v.claimed_at
+          AS "claimedAt",
 
-        c.starts_at AS "campaignStartsAt",
-        c.expires_at AS "campaignExpiresAt"
+        b.id
+          AS "batchId",
 
-      FROM qr_reward_vouchers v
+        b.batch_code
+          AS "batchCode",
 
-      INNER JOIN qr_reward_batches b
-        ON b.id = v.batch_id
+        b.status
+          AS "batchStatus",
 
-      INNER JOIN qr_reward_campaigns c
-        ON c.id = b.campaign_id
+        a.id
+          AS "assignmentId",
+
+        a.status
+          AS "assignmentStatus",
+
+        a.expires_at
+          AS "assignmentExpiresAt",
+
+        a.reward_amount_minor
+          AS "rewardAmountMinor",
+
+        a.currency,
+
+        c.id
+          AS "campaignId",
+
+        c.name
+          AS "campaignName",
+
+        c.status
+          AS "campaignStatus",
+
+        c.starts_at
+          AS "campaignStartsAt",
+
+        c.expires_at
+          AS "campaignExpiresAt"
+
+      FROM
+        qr_reward_vouchers v
+
+      INNER JOIN
+        qr_reward_batches b
+          ON b.id =
+            v.batch_id
+
+      LEFT JOIN
+        qr_reward_batch_assignments a
+          ON
+            a.batch_id =
+              b.id
+            AND
+            a.status =
+              'active'
+
+      LEFT JOIN
+        qr_reward_campaigns c
+          ON c.id =
+            a.campaign_id
 
       WHERE
-        v.token_hash = ${tokenHash}
+        v.token_hash =
+          ${tokenHash}
 
       LIMIT 1
     `);
@@ -213,45 +314,84 @@ async function voucherByHash(
 async function claimByRequestId(
   db: AppDatabase,
   requestId: string,
-): Promise<ExistingClaimRecord | null> {
+): Promise<
+  ExistingClaimRecord | null
+> {
   const result =
     await db.execute(sql`
       SELECT
-        cl.id AS "claimId",
-        cl.request_id AS "requestId",
+        cl.id
+          AS "claimId",
 
-        cl.voucher_id AS "voucherId",
+        cl.request_id
+          AS "requestId",
 
-        cl.user_id AS "userId",
+        cl.voucher_id
+          AS "voucherId",
 
-        cl.claimed_at AS "claimedAt",
+        cl.user_id
+          AS "userId",
 
-        v.serial_number AS "serialNumber",
+        cl.claimed_at
+          AS "claimedAt",
 
-        b.id AS "batchId",
-        b.batch_code AS "batchCode",
+        v.serial_number
+          AS "serialNumber",
 
-        b.reward_amount_minor AS "rewardAmountMinor",
-        b.currency,
+        b.id
+          AS "batchId",
 
-        c.id AS "campaignId",
-        c.name AS "campaignName",
+        b.batch_code
+          AS "batchCode",
 
-        v.expires_at AS "expiresAt"
+        cl.assignment_id
+          AS "assignmentId",
 
-      FROM qr_reward_claims cl
+        COALESCE(
+          cl.campaign_id_snapshot,
+          b.campaign_id
+        ) AS "campaignId",
 
-      INNER JOIN qr_reward_vouchers v
-        ON v.id = cl.voucher_id
+        c.name
+          AS "campaignName",
 
-      INNER JOIN qr_reward_batches b
-        ON b.id = v.batch_id
+        COALESCE(
+          cl.reward_amount_minor_snapshot,
+          b.reward_amount_minor
+        ) AS "rewardAmountMinor",
 
-      INNER JOIN qr_reward_campaigns c
-        ON c.id = b.campaign_id
+        COALESCE(
+          cl.currency_snapshot,
+          b.currency
+        ) AS currency,
+
+        v.expires_at
+          AS "expiresAt"
+
+      FROM
+        qr_reward_claims cl
+
+      INNER JOIN
+        qr_reward_vouchers v
+          ON v.id =
+            cl.voucher_id
+
+      INNER JOIN
+        qr_reward_batches b
+          ON b.id =
+            v.batch_id
+
+      LEFT JOIN
+        qr_reward_campaigns c
+          ON c.id =
+            COALESCE(
+              cl.campaign_id_snapshot,
+              b.campaign_id
+            )
 
       WHERE
-        cl.request_id = ${requestId}
+        cl.request_id =
+          ${requestId}
 
       LIMIT 1
     `);
@@ -264,8 +404,9 @@ async function claimByRequestId(
 }
 
 
-function resultFromExistingClaim(
-  claim: ExistingClaimRecord,
+function fromExisting(
+  claim:
+    ExistingClaimRecord,
 ): QrRewardClaimResult {
   return {
     outcome:
@@ -286,11 +427,17 @@ function resultFromExistingClaim(
     batchCode:
       claim.batchCode,
 
+    assignmentId:
+      claim.assignmentId ??
+      undefined,
+
     campaignId:
-      claim.campaignId,
+      claim.campaignId ??
+      undefined,
 
     campaignName:
-      claim.campaignName,
+      claim.campaignName ??
+      undefined,
 
     serialNumber:
       Number(
@@ -298,12 +445,16 @@ function resultFromExistingClaim(
       ),
 
     rewardAmountMinor:
-      Number(
-        claim.rewardAmountMinor,
-      ),
+      claim.rewardAmountMinor ===
+        null
+        ? undefined
+        : Number(
+            claim.rewardAmountMinor,
+          ),
 
     currency:
-      claim.currency,
+      claim.currency ??
+      undefined,
 
     claimedByUserId:
       Number(
@@ -324,8 +475,10 @@ function resultFromExistingClaim(
 
 
 function stateResult(
-  voucher: VoucherRecord,
-  outcome: QrRewardClaimOutcome,
+  voucher:
+    VoucherRecord,
+  outcome:
+    QrRewardClaimOutcome,
 ): QrRewardClaimResult {
   return {
     outcome,
@@ -339,11 +492,17 @@ function stateResult(
     batchCode:
       voucher.batchCode,
 
+    assignmentId:
+      voucher.assignmentId ??
+      undefined,
+
     campaignId:
-      voucher.campaignId,
+      voucher.campaignId ??
+      undefined,
 
     campaignName:
-      voucher.campaignName,
+      voucher.campaignName ??
+      undefined,
 
     serialNumber:
       Number(
@@ -351,12 +510,16 @@ function stateResult(
       ),
 
     rewardAmountMinor:
-      Number(
-        voucher.rewardAmountMinor,
-      ),
+      voucher.rewardAmountMinor ===
+        null
+        ? undefined
+        : Number(
+            voucher.rewardAmountMinor,
+          ),
 
     currency:
-      voucher.currency,
+      voucher.currency ??
+      undefined,
 
     claimedByUserId:
       voucher.claimedByUserId
@@ -372,25 +535,22 @@ function stateResult(
 
     expiresAt:
       iso(
-        voucher.voucherExpiresAt,
+        voucher.assignmentExpiresAt ??
+          voucher.voucherExpiresAt,
       ),
   };
 }
 
 
-/**
- * ATOMIC QR REWARD CLAIM
+/*
+ * ============================================================
+ * ATOMIC QR CLAIM V3
+ * ============================================================
  *
- * This function MUST execute inside the tenant transaction supplied by
- * withTenantDb / withTenantSchema.
+ * QR ownership remains permanent once claimed.
  *
- * Concurrency rules:
- *
- * - Same requestId is serialized by a PostgreSQL advisory transaction lock.
- * - Same voucher is serialized by PostgreSQL row locking during UPDATE.
- * - UPDATE succeeds only while voucher status is AVAILABLE.
- * - qr_reward_claims.voucher_id is UNIQUE as a second hard invariant.
- * - qr_reward_claims.request_id is UNIQUE for idempotency.
+ * Batch Campaign assignment may change ONLY for remaining
+ * unused physical QRs.
  */
 export async function claimQrReward(
   db: AppDatabase,
@@ -447,12 +607,6 @@ export async function claimQrReward(
   }
 
 
-  /*
-   * Serialize ALL operations sharing the same idempotency request.
-   *
-   * This also prevents one accidental requestId from being used
-   * concurrently against two different vouchers.
-   */
   await db.execute(sql`
     SELECT
       pg_advisory_xact_lock(
@@ -485,22 +639,16 @@ export async function claimQrReward(
   }
 
 
-  /*
-   * Idempotency:
-   *
-   * If this request already created this SAME claim,
-   * return the original success.
-   */
-  const existingRequest =
+  const existing =
     await claimByRequestId(
       db,
       requestId,
     );
 
 
-  if (existingRequest) {
+  if (existing) {
     if (
-      existingRequest.voucherId !==
+      existing.voucherId !==
       voucher.voucherId
     ) {
       return {
@@ -509,15 +657,19 @@ export async function claimQrReward(
       };
     }
 
-    return resultFromExistingClaim(
-      existingRequest,
+    return fromExisting(
+      existing,
     );
   }
 
 
+  /*
+   * Permanent one-time ownership beats every assignment rule.
+   */
   if (
     voucher.voucherStatus ===
-    "claimed"
+      "claimed" ||
+    voucher.claimedAt
   ) {
     return stateResult(
       voucher,
@@ -530,7 +682,32 @@ export async function claimQrReward(
     voucher.voucherStatus ===
       "revoked" ||
     voucher.batchStatus ===
-      "revoked" ||
+      "revoked"
+  ) {
+    return stateResult(
+      voucher,
+      "revoked",
+    );
+  }
+
+
+  /*
+   * No current Campaign activation.
+   */
+  if (
+    !voucher.assignmentId ||
+    voucher.assignmentStatus !==
+      "active" ||
+    !voucher.campaignId
+  ) {
+    return stateResult(
+      voucher,
+      "unavailable",
+    );
+  }
+
+
+  if (
     voucher.campaignStatus ===
       "revoked"
   ) {
@@ -541,24 +718,13 @@ export async function claimQrReward(
   }
 
 
-  if (
-    voucher.voucherStatus ===
-    "expired"
-  ) {
-    return stateResult(
-      voucher,
-      "expired",
-    );
-  }
-
-
   const now =
     Date.now();
 
-  const voucherExpiry =
+  const assignmentExpiry =
     new Date(
       String(
-        voucher.voucherExpiresAt,
+        voucher.assignmentExpiresAt,
       ),
     ).getTime();
 
@@ -578,20 +744,30 @@ export async function claimQrReward(
 
 
   if (
-    voucherExpiry <= now ||
-    campaignExpiry <= now
+    assignmentExpiry <=
+      now ||
+    campaignExpiry <=
+      now
   ) {
-    /*
-     * Materialize the expiry state where possible.
-     */
     await db.execute(sql`
-      UPDATE qr_reward_vouchers
+      UPDATE
+        qr_reward_vouchers
+
       SET
-        status = 'expired'
+        status =
+          'expired'
+
       WHERE
-        id = ${voucher.voucherId}
-        AND status = 'available'
-        AND expires_at <= now()
+        id =
+          ${voucher.voucherId}
+
+        AND
+        claimed_at
+          IS NULL
+
+        AND
+        status =
+          'available'
     `);
 
     return stateResult(
@@ -602,7 +778,8 @@ export async function claimQrReward(
 
 
   if (
-    campaignStart > now ||
+    campaignStart >
+      now ||
     voucher.campaignStatus !==
       "active" ||
     ![
@@ -621,54 +798,98 @@ export async function claimQrReward(
 
 
   /*
-   * =============================================================
-   * THE CRITICAL ATOMIC OPERATION
-   * =============================================================
+   * ==========================================================
+   * CRITICAL CLAIM UPDATE
    *
-   * Two users may enter this statement simultaneously.
-   *
-   * PostgreSQL ensures only one transaction can successfully
-   * transition AVAILABLE -> CLAIMED.
+   * Current ACTIVE assignment must still exist at the exact
+   * instant PostgreSQL performs AVAILABLE -> CLAIMED.
+   * ==========================================================
    */
   const updated =
     await db.execute(sql`
-      UPDATE qr_reward_vouchers AS v
+      UPDATE
+        qr_reward_vouchers AS v
 
       SET
-        status = 'claimed',
-        claimed_by_user_id = ${userId},
-        claimed_at = now()
+        status =
+          'claimed',
+
+        claimed_by_user_id =
+          ${userId},
+
+        claimed_at =
+          now()
 
       FROM
         qr_reward_batches AS b,
+        qr_reward_batch_assignments AS a,
         qr_reward_campaigns AS c
 
       WHERE
-        v.id = ${voucher.voucherId}
+        v.id =
+          ${voucher.voucherId}
 
-        AND v.batch_id = b.id
+        AND
+        v.batch_id =
+          b.id
 
-        AND b.campaign_id = c.id
+        AND
+        a.id =
+          ${voucher.assignmentId}
 
-        AND v.status = 'available'
+        AND
+        a.batch_id =
+          b.id
 
-        AND v.expires_at > now()
+        AND
+        a.status =
+          'active'
 
-        AND b.status IN (
+        AND
+        a.campaign_id =
+          c.id
+
+        AND
+        v.status =
+          'available'
+
+        AND
+        v.claimed_at
+          IS NULL
+
+        AND
+        v.expires_at >
+          now()
+
+        AND
+        a.expires_at >
+          now()
+
+        AND
+        b.status IN (
           'ready',
           'partially_printed',
           'printed'
         )
 
-        AND c.status = 'active'
+        AND
+        c.status =
+          'active'
 
-        AND c.starts_at <= now()
+        AND
+        c.starts_at <=
+          now()
 
-        AND c.expires_at > now()
+        AND
+        c.expires_at >
+          now()
 
       RETURNING
-        v.id AS "voucherId",
-        v.claimed_at AS "claimedAt"
+        v.id
+          AS "voucherId",
+
+        v.claimed_at
+          AS "claimedAt"
     `);
 
 
@@ -681,13 +902,9 @@ export async function claimQrReward(
       | undefined;
 
 
-  /*
-   * We lost the race.
-   *
-   * Re-read authoritative state after PostgreSQL has serialized
-   * the competing UPDATE.
-   */
-  if (!winner?.voucherId) {
+  if (
+    !winner?.voucherId
+  ) {
     const current =
       await voucherByHash(
         db,
@@ -703,7 +920,8 @@ export async function claimQrReward(
 
     if (
       current.voucherStatus ===
-      "claimed"
+        "claimed" ||
+      current.claimedAt
     ) {
       return stateResult(
         current,
@@ -715,32 +933,11 @@ export async function claimQrReward(
       current.voucherStatus ===
         "revoked" ||
       current.batchStatus ===
-        "revoked" ||
-      current.campaignStatus ===
         "revoked"
     ) {
       return stateResult(
         current,
         "revoked",
-      );
-    }
-
-    const currentExpiry =
-      new Date(
-        String(
-          current.voucherExpiresAt,
-        ),
-      ).getTime();
-
-    if (
-      current.voucherStatus ===
-        "expired" ||
-      currentExpiry <=
-        Date.now()
-    ) {
-      return stateResult(
-        current,
-        "expired",
       );
     }
 
@@ -758,28 +955,54 @@ export async function claimQrReward(
     iso(
       winner.claimedAt,
     ) ??
-    new Date().toISOString();
+    new Date()
+      .toISOString();
 
 
   /*
-   * UNIQUE(voucher_id) is our database-level second line of defense.
+   * Snapshot the active Campaign assignment.
    *
-   * If this INSERT cannot happen, this entire tenant transaction
-   * rolls back — including the AVAILABLE -> CLAIMED update.
+   * From this point forward, future reassignment cannot
+   * alter what this claimant won.
    */
   await db.execute(sql`
-    INSERT INTO qr_reward_claims (
-      id,
-      voucher_id,
-      user_id,
-      request_id,
-      claimed_at
-    )
+    INSERT INTO
+      qr_reward_claims (
+        id,
+        voucher_id,
+        user_id,
+        request_id,
+
+        assignment_id,
+
+        campaign_id_snapshot,
+
+        reward_amount_minor_snapshot,
+
+        currency_snapshot,
+
+        claimed_at
+      )
+
     VALUES (
       ${claimId},
+
       ${voucher.voucherId},
+
       ${userId},
+
       ${requestId},
+
+      ${voucher.assignmentId},
+
+      ${voucher.campaignId},
+
+      ${Number(
+        voucher.rewardAmountMinor,
+      )},
+
+      ${voucher.currency},
+
       ${claimedAt}
     )
   `);
@@ -788,9 +1011,6 @@ export async function claimQrReward(
   return {
     outcome:
       "claimed",
-
-    idempotent:
-      false,
 
     voucherId:
       voucher.voucherId,
@@ -803,11 +1023,15 @@ export async function claimQrReward(
     batchCode:
       voucher.batchCode,
 
+    assignmentId:
+      voucher.assignmentId,
+
     campaignId:
       voucher.campaignId,
 
     campaignName:
-      voucher.campaignName,
+      voucher.campaignName ??
+      undefined,
 
     serialNumber:
       Number(
@@ -820,7 +1044,8 @@ export async function claimQrReward(
       ),
 
     currency:
-      voucher.currency,
+      voucher.currency ??
+      undefined,
 
     claimedByUserId:
       userId,
@@ -829,7 +1054,7 @@ export async function claimQrReward(
 
     expiresAt:
       iso(
-        voucher.voucherExpiresAt,
+        voucher.assignmentExpiresAt,
       ),
   };
 }

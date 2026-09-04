@@ -245,23 +245,9 @@ export function buildWorkspaceManifest({
   //
   if (canManage && isQrRewardsEdition()) {
     addNav(nav, "QR Rewards", {
-      key: "qr_rewards_overview",
-      label: "Overview",
-      href: "/dashboard/qr-rewards",
-      icon: "qr-code",
-    });
-
-    addNav(nav, "QR Rewards", {
       key: "qr_rewards_campaigns",
       label: "Campaigns",
       href: "/dashboard/qr-rewards/campaigns",
-      icon: "qr-code",
-    });
-
-    addNav(nav, "QR Rewards", {
-      key: "qr_rewards_batches",
-      label: "QR Records",
-      href: "/dashboard/qr-rewards/batches",
       icon: "qr-code",
     });
 
@@ -274,7 +260,7 @@ export function buildWorkspaceManifest({
 
     addNav(nav, "QR Rewards", {
       key: "qr_rewards_generate",
-      label: "Generate & Print",
+      label: "Generate Batch",
       href: "/dashboard/qr-rewards/generate",
       icon: "qr-code",
     });

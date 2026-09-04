@@ -24,6 +24,7 @@ import {
 } from "@/lib/qr-rewards-db";
 
 import {
+  qrRewardBatchAssignments,
   qrRewardBatches,
   qrRewardCampaigns,
   qrRewardVouchers,
@@ -56,9 +57,11 @@ function sha256(
 function batchCode() {
   return [
     "BRX",
+
     Date.now()
       .toString(36)
       .toUpperCase(),
+
     randomBytes(3)
       .toString("hex")
       .toUpperCase(),
@@ -72,18 +75,17 @@ export const GET =
       _request,
       db,
     ) => {
-      const status =
+      const schema =
         await qrRewardsSchemaStatus(
           db,
         );
 
-      if (!status.ready) {
+      if (!schema.ready) {
         return NextResponse.json(
           {
             success: false,
-            notProvisioned: true,
             error:
-              "QR Rewards records are not provisioned for this tenant.",
+              "QR Rewards V3 is not provisioned for this tenant.",
           },
           {
             status: 503,
@@ -95,16 +97,45 @@ export const GET =
         await db.execute(sql`
           SELECT
             b.id,
-            b.batch_code AS "batchCode",
-            b.quantity,
-            b.reward_amount_minor AS "rewardAmountMinor",
-            b.currency,
-            b.expires_at AS "expiresAt",
-            b.status,
-            b.created_at AS "createdAt",
 
-            c.id AS "campaignId",
-            c.name AS "campaignName",
+            b.batch_code
+              AS "batchCode",
+
+            b.quantity,
+
+            b.status,
+
+            b.created_at
+              AS "createdAt",
+
+            /*
+             * Original Campaign is immutable historical origin.
+             */
+            b.campaign_id
+              AS "originCampaignId",
+
+            origin_c.name
+              AS "originCampaignName",
+
+            /*
+             * Current Campaign comes from ACTIVE assignment.
+             */
+            a.id
+              AS "activeAssignmentId",
+
+            a.campaign_id
+              AS "campaignId",
+
+            current_c.name
+              AS "campaignName",
+
+            a.reward_amount_minor
+              AS "rewardAmountMinor",
+
+            a.currency,
+
+            a.expires_at
+              AS "expiresAt",
 
             COUNT(v.id)::integer
               AS "voucherCount",
@@ -112,43 +143,68 @@ export const GET =
             COUNT(v.id)
               FILTER (
                 WHERE
-                  v.status = 'available'
+                  v.status =
+                    'available'
               )::integer
               AS "availableCount",
 
             COUNT(v.id)
               FILTER (
                 WHERE
-                  v.status = 'claimed'
+                  v.status =
+                    'claimed'
               )::integer
               AS "claimedCount",
 
             COUNT(v.id)
               FILTER (
                 WHERE
-                  v.status = 'expired'
+                  v.status =
+                    'expired'
               )::integer
               AS "expiredCount",
 
             COUNT(v.id)
               FILTER (
                 WHERE
-                  v.status = 'revoked'
+                  v.status =
+                    'revoked'
               )::integer
               AS "revokedCount"
 
           FROM qr_reward_batches b
 
-          INNER JOIN qr_reward_campaigns c
-            ON c.id = b.campaign_id
+          INNER JOIN qr_reward_campaigns origin_c
+            ON origin_c.id =
+              b.campaign_id
+
+          LEFT JOIN qr_reward_batch_assignments a
+            ON
+              a.batch_id =
+                b.id
+              AND
+              a.status =
+                'active'
+
+          LEFT JOIN qr_reward_campaigns current_c
+            ON current_c.id =
+              a.campaign_id
 
           LEFT JOIN qr_reward_vouchers v
-            ON v.batch_id = b.id
+            ON v.batch_id =
+              b.id
 
           GROUP BY
             b.id,
-            c.id,
-            c.name
+            origin_c.id,
+            origin_c.name,
+            a.id,
+            a.campaign_id,
+            a.reward_amount_minor,
+            a.currency,
+            a.expires_at,
+            current_c.id,
+            current_c.name
 
           ORDER BY
             b.created_at DESC
@@ -156,7 +212,9 @@ export const GET =
 
       return NextResponse.json({
         success: true,
-        batches: result.rows,
+
+        batches:
+          result.rows,
       });
     },
   );
@@ -190,18 +248,17 @@ export const POST =
         );
       }
 
-      const status =
+      const schema =
         await qrRewardsSchemaStatus(
           db,
         );
 
-      if (!status.ready) {
+      if (!schema.ready) {
         return NextResponse.json(
           {
             success: false,
-            notProvisioned: true,
             error:
-              "QR Rewards records are not provisioned for this tenant.",
+              "QR Rewards V3 is not provisioned for this tenant.",
           },
           {
             status: 503,
@@ -212,7 +269,9 @@ export const POST =
       const body =
         await request
           .json()
-          .catch(() => null);
+          .catch(
+            () => null,
+          );
 
       const quantity =
         Math.round(
@@ -221,18 +280,18 @@ export const POST =
           ),
         );
 
-      if (
-        !Number.isFinite(
-          quantity,
-        ) ||
-        quantity < 1 ||
-        quantity > 10_000
-      ) {
+      const campaignId =
+        String(
+          body?.campaignId ??
+            "",
+        ).trim();
+
+      if (!campaignId) {
         return NextResponse.json(
           {
             success: false,
             error:
-              "Quantity must be between 1 and 10,000 vouchers per batch.",
+              "Select a Campaign before generating a QR batch.",
           },
           {
             status: 400,
@@ -240,17 +299,18 @@ export const POST =
         );
       }
 
-      const suppliedCampaignId =
-        String(
-          body?.campaignId ?? "",
-        ).trim();
-
-      if (!suppliedCampaignId) {
+      if (
+        !Number.isFinite(
+          quantity,
+        ) ||
+        quantity < 1 ||
+        quantity > 10000
+      ) {
         return NextResponse.json(
           {
             success: false,
             error:
-              "campaignId is required. Create a Campaign first, then mint batches inside it.",
+              "Quantity must be between 1 and 10,000.",
           },
           {
             status: 400,
@@ -267,7 +327,7 @@ export const POST =
           .where(
             eq(
               qrRewardCampaigns.id,
-              suppliedCampaignId,
+              campaignId,
             ),
           )
           .limit(1);
@@ -285,36 +345,26 @@ export const POST =
         );
       }
 
+      const now =
+        Date.now();
+
       if (
         campaign.status !==
-        "active"
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Only active campaigns may mint vouchers.",
-          },
-          {
-            status: 409,
-          },
-        );
-      }
-
-      const expiresAt =
-        campaign.expiresAt;
-
-      if (
+          "active" ||
         new Date(
-          expiresAt,
+          campaign.startsAt,
+        ).getTime() >
+          now ||
+        new Date(
+          campaign.expiresAt,
         ).getTime() <=
-        Date.now()
+          now
       ) {
         return NextResponse.json(
           {
             success: false,
             error:
-              "Campaign has already expired.",
+              "Campaign is not currently active.",
           },
           {
             status: 409,
@@ -323,6 +373,9 @@ export const POST =
       }
 
       const batchId =
+        randomUUID();
+
+      const assignmentId =
         randomUUID();
 
       const code =
@@ -337,6 +390,10 @@ export const POST =
             id:
               batchId,
 
+            /*
+             * ORIGINAL Campaign.
+             * Never mutate this during reassignment.
+             */
             campaignId:
               campaign.id,
 
@@ -351,7 +408,8 @@ export const POST =
             currency:
               campaign.currency,
 
-            expiresAt,
+            expiresAt:
+              campaign.expiresAt,
 
             status:
               "ready",
@@ -361,13 +419,46 @@ export const POST =
           })
           .returning();
 
+
+      await db
+        .insert(
+          qrRewardBatchAssignments,
+        )
+        .values({
+          id:
+            assignmentId,
+
+          batchId,
+
+          campaignId:
+            campaign.id,
+
+          rewardAmountMinor:
+            campaign.rewardAmountMinor,
+
+          currency:
+            campaign.currency,
+
+          expiresAt:
+            campaign.expiresAt,
+
+          status:
+            "active",
+
+          createdByUserId:
+            session.userId,
+        });
+
+
       const printable:
-        PrintableVoucher[] = [];
+        PrintableVoucher[] =
+        [];
 
       const dbRows:
         Array<
           typeof qrRewardVouchers.$inferInsert
         > = [];
+
 
       for (
         let index = 0;
@@ -377,9 +468,6 @@ export const POST =
         const voucherId =
           randomUUID();
 
-        /*
-         * 256 bits of random bearer entropy.
-         */
         const secret =
           randomBytes(32)
             .toString(
@@ -387,10 +475,10 @@ export const POST =
             );
 
         /*
-         * Nothing financial is encoded in the QR.
+         * Physical QR contains no Campaign/reward.
          *
-         * Reward, expiry and campaign all remain
-         * server-authoritative.
+         * This is precisely what makes unused printed QRs
+         * reusable under a later Campaign assignment.
          */
         const payload =
           `BRX:Q:1:${secret}`;
@@ -412,8 +500,11 @@ export const POST =
           status:
             "available",
 
+          /*
+           * Kept synchronized with CURRENT assignment.
+           */
           expiresAt:
-            batch.expiresAt,
+            campaign.expiresAt,
         });
 
         printable.push({
@@ -427,20 +518,16 @@ export const POST =
         });
       }
 
-      /*
-       * Chunk large inserts to avoid one giant SQL statement.
-       *
-       * withTenantDb already wraps this entire request in one
-       * tenant-scoped transaction, so a failure rolls back the
-       * campaign, batch and every voucher.
-       */
+
       const CHUNK_SIZE =
         500;
 
       for (
         let offset = 0;
-        offset < dbRows.length;
-        offset += CHUNK_SIZE
+        offset <
+        dbRows.length;
+        offset +=
+        CHUNK_SIZE
       ) {
         await db
           .insert(
@@ -455,25 +542,31 @@ export const POST =
           );
       }
 
+
       return NextResponse.json(
         {
           success: true,
 
           campaign,
 
+          assignment: {
+            id:
+              assignmentId,
+
+            campaignId:
+              campaign.id,
+
+            status:
+              "active",
+          },
+
           batch,
 
-          /*
-           * BEARER SECRETS.
-           *
-           * Returned at mint time for print/export.
-           * They are deliberately NOT stored plaintext.
-           */
           printRecords:
             printable,
 
           warning:
-            "printRecords contain bearer voucher secrets. Treat the generated file as sensitive.",
+            "printRecords contain bearer voucher secrets. Treat them as sensitive.",
         },
         {
           status: 201,

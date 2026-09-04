@@ -2,16 +2,8 @@ import Link from "next/link";
 
 const links = [
   {
-    href: "/dashboard/qr-rewards",
-    label: "Overview",
-  },
-  {
     href: "/dashboard/qr-rewards/campaigns",
     label: "Campaigns",
-  },
-  {
-    href: "/dashboard/qr-rewards/batches",
-    label: "QR Records",
   },
   {
     href: "/dashboard/qr-rewards/claims",
@@ -19,7 +11,7 @@ const links = [
   },
   {
     href: "/dashboard/qr-rewards/generate",
-    label: "Generate & Print",
+    label: "Generate Batch",
   },
   {
     href: "/dashboard/qr-rewards/integration-lab",

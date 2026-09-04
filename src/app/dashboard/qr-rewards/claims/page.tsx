@@ -12,7 +12,7 @@ export default function ClaimsPage() {
     <div className="min-h-full">
       <QrRewardsHeader
         title="Claims"
-        description="Test and inspect the server-authoritative single-use redemption ledger before connecting the mobile QR scanner."
+        description="Ledger of successful single-use QR reward claims."
       />
 
       <div className="mx-auto w-full max-w-7xl p-6">

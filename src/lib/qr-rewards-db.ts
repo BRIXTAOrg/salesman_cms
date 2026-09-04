@@ -9,7 +9,7 @@ import type {
 } from "@/lib/drizzle";
 
 export const QR_REWARDS_SCHEMA_VERSION =
-  1;
+  3;
 
 export async function qrRewardsSchemaStatus(
   db: AppDatabase,

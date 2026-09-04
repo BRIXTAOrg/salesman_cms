@@ -145,23 +145,6 @@ registerPlatformCapability({
 
 
 registerPlatformCapability({
-  key: "voucher.batch.print",
-  label: "Voucher Print Jobs",
-  description:
-    "Create printable QR sheets and labels from voucher batches.",
-  kind: "administration",
-  privileged: true,
-
-  runtime: {
-    cms: "not_installed",
-    android: "not_installed",
-    ios: "not_installed",
-    backend: "not_installed",
-  },
-});
-
-
-registerPlatformCapability({
   key: "payout.sandbox",
   label: "BRIXTA Payout Sandbox",
   description:

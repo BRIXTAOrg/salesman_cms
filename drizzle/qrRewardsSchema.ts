@@ -369,6 +369,157 @@ export const qrRewardVouchers = pgTable(
 );
 
 
+
+export const qrRewardBatchAssignments = pgTable(
+  "qr_reward_batch_assignments",
+  {
+    id: uuid(
+      "id",
+    ).primaryKey(),
+
+    batchId: uuid(
+      "batch_id",
+    )
+      .notNull()
+      .references(
+        () =>
+          qrRewardBatches.id,
+        {
+          onDelete:
+            "restrict",
+        },
+      ),
+
+    campaignId: uuid(
+      "campaign_id",
+    )
+      .notNull()
+      .references(
+        () =>
+          qrRewardCampaigns.id,
+        {
+          onDelete:
+            "restrict",
+        },
+      ),
+
+    /*
+     * Commercial snapshot for THIS activation.
+     *
+     * Reassigning the same physical QR batch later may
+     * give the remaining unused QRs a different reward.
+     */
+    rewardAmountMinor: integer(
+      "reward_amount_minor",
+    ).notNull(),
+
+    currency: varchar(
+      "currency",
+      {
+        length: 3,
+      },
+    )
+      .notNull()
+      .default(
+        "INR",
+      ),
+
+    expiresAt: timestamp(
+      "expires_at",
+      {
+        withTimezone: true,
+        mode: "string",
+      },
+    ).notNull(),
+
+    status: varchar(
+      "status",
+      {
+        length: 32,
+      },
+    )
+      .notNull()
+      .default(
+        "active",
+      ),
+
+    activatedAt: timestamp(
+      "activated_at",
+      {
+        withTimezone: true,
+        mode: "string",
+      },
+    )
+      .notNull()
+      .defaultNow(),
+
+    deactivatedAt: timestamp(
+      "deactivated_at",
+      {
+        withTimezone: true,
+        mode: "string",
+      },
+    ),
+
+    createdByUserId: integer(
+      "created_by_user_id",
+    ),
+
+    createdAt: timestamp(
+      "created_at",
+      {
+        withTimezone: true,
+        mode: "string",
+      },
+    )
+      .notNull()
+      .defaultNow(),
+  },
+
+  (table) => [
+    index(
+      "idx_qr_reward_batch_assignments_batch",
+    ).on(
+      table.batchId,
+    ),
+
+    index(
+      "idx_qr_reward_batch_assignments_campaign",
+    ).on(
+      table.campaignId,
+    ),
+
+    index(
+      "idx_qr_reward_batch_assignments_status",
+    ).on(
+      table.status,
+    ),
+
+    /*
+     * CRITICAL INVARIANT:
+     *
+     * A physical QR batch may never be simultaneously
+     * active under two Campaigns.
+     */
+    uniqueIndex(
+      "qr_reward_batch_assignments_one_active_per_batch",
+    )
+      .on(
+        table.batchId,
+      )
+      .where(
+        sql`${table.status} = 'active'`,
+      ),
+
+    check(
+      "qr_reward_batch_assignment_reward_positive",
+      sql`${table.rewardAmountMinor} > 0`,
+    ),
+  ],
+);
+
+
+
 export const qrRewardClaims = pgTable(
   "qr_reward_claims",
   {
@@ -393,6 +544,45 @@ export const qrRewardClaims = pgTable(
     userId: integer(
       "user_id",
     ).notNull(),
+
+    /*
+     * Snapshot which Campaign assignment actually produced
+     * this financial entitlement.
+     *
+     * Nullable only for legacy claims created before V3.
+     */
+    assignmentId: uuid(
+      "assignment_id",
+    ).references(
+      () =>
+        qrRewardBatchAssignments.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    campaignIdSnapshot: uuid(
+      "campaign_id_snapshot",
+    ).references(
+      () =>
+        qrRewardCampaigns.id,
+      {
+        onDelete:
+          "restrict",
+      },
+    ),
+
+    rewardAmountMinorSnapshot: integer(
+      "reward_amount_minor_snapshot",
+    ),
+
+    currencySnapshot: varchar(
+      "currency_snapshot",
+      {
+        length: 3,
+      },
+    ),
 
     /*
      * Client/backend idempotency identifier.
