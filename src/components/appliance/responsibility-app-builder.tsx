@@ -2351,7 +2351,7 @@ function BrainBar({
           </div>
         </div>
         <select
-          className={`${inputClass} w-auto min-w-[180px]`}
+          className={`${inputClass} w-full max-w-full sm:w-auto sm:min-w-[180px]`}
           value=""
           onChange={(event) => {
             if (event.target.value)
@@ -5651,7 +5651,7 @@ function PlayPhone({ kernel }: { kernel: ResponsibilityKernel }) {
     kernel.runtimeWorld.states.find((state) => state.id === simulation.stateId)
       ?.label ?? simulation.stateId;
   return (
-    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+    <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
       <div className="min-w-0">
         <div className="mb-4 grid gap-3 sm:grid-cols-2">
           <Field label="Preview as">
@@ -6839,7 +6839,7 @@ export default function ResponsibilityAppBuilder({
           )}
         </Panel>
 
-        <div className="grid min-w-0 gap-4 2xl:grid-cols-[330px_minmax(390px,560px)_minmax(340px,1fr)]">
+        <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(240px,0.72fr)_minmax(0,1.15fr)_minmax(260px,0.9fr)]">
           <Panel className="min-w-0 2xl:max-h-[calc(100vh-190px)] 2xl:overflow-y-auto">
             <div className="sticky top-0 z-10 -mx-1 bg-background px-1 pb-3">
               <div className="font-semibold">What do you want?</div>

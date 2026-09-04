@@ -38,9 +38,9 @@ export default function DashboardShell({
         jobRoles={jobRoles}
       />
 
-      <SidebarInset className="min-h-svh bg-muted/15">
+      <SidebarInset className="min-h-svh w-full min-w-0 max-w-full overflow-x-clip bg-muted/15">
         <SiteHeader />
-        <main className="flex min-w-0 flex-1 flex-col">
+        <main className="flex w-full min-w-0 max-w-full flex-1 flex-col overflow-x-clip">
           {children}
         </main>
       </SidebarInset>

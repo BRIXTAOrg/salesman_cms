@@ -656,7 +656,7 @@ export default function DataSourcesClient() {
             </p>
           </div>
 
-          <div className="flex min-w-[280px] items-end gap-2">
+          <div className="flex w-full min-w-0 max-w-full flex-wrap items-end gap-2 sm:w-auto sm:min-w-[280px]">
             <Field label="Responsibility">
               <select
                 className={inputClass}

@@ -534,6 +534,33 @@ export function buildResponsibilityAppBuilderAIContext(
       kernel: input.kernel,
     },
 
+    deliveryTarget:
+      input.kernel.metadata.deliveryTargets ??
+      {
+        brixtaApp: {
+          enabled: true,
+        },
+      },
+
+    externalWebRuntime: {
+      renderer:
+        "The External Link uses the SAME brixta_stac_v1 uiDocument through the lightweight Flutter-Web BrixtaStacUi host.",
+
+      rule:
+        "External Link is a delivery target, NOT a second application definition.",
+
+      publicAccessRules: [
+        "When deliveryTargets.externalWeb.access is public, do not require an authenticated BRIXTA employee unless the user explicitly asks for authentication.",
+        "Do not depend on current_user/current_manager for an anonymous public flow.",
+        "Do not invent internal dashboard/navigation/attendance screens for an External Link.",
+        "URL path parameters such as {token} are runtime context, not editable captures.",
+        "Use only public backend capabilities declared by deliveryTargets.externalWeb.allowedCapabilities.",
+        "Never place authoritative reward amounts, fraud decisions, payout authority or secrets in client UI state.",
+        "Server responses remain authoritative for eligibility, calculated reward, claim ownership and payout state.",
+        "If a native capability is unavailable on Flutter Web, report it in unsupportedCapabilities rather than pretending it works.",
+      ],
+    },
+
     organization: {
       roles: input.roles,
 

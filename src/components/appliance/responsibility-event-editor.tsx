@@ -467,7 +467,7 @@ export default function ResponsibilityEventEditor({
                       <div className="mt-1 text-xs text-muted-foreground">Create/update/delete, change state/context, assign/notify/query/trigger—any combination.</div>
                     </div>
                     <select
-                      className={`${inputClass} w-auto min-w-[220px]`}
+                      className={`${inputClass} w-full max-w-full sm:w-auto sm:min-w-[220px]`}
                       value=""
                       onChange={(e) => {
                         if (!e.target.value) return;

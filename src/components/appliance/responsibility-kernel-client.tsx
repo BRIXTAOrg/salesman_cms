@@ -12,6 +12,7 @@ import {
   Save,
   Settings2,
   Sparkles,
+  Globe2,
   UsersRound,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -43,6 +44,7 @@ import { RESPONSIBILITY_KERNEL_METADATA_KEY } from "@/lib/responsibility-kernel-
 import { validateResponsibilityKernel } from "@/lib/responsibility-kernel-validation";
 
 import ResponsibilityAppBuilder from "./responsibility-app-builder";
+import ResponsibilityExternalLinkBuilder from "./responsibility-external-link-builder";
 import { apiJson, cx } from "./client";
 import {
   EmptyState,
@@ -299,6 +301,15 @@ export default function ResponsibilityKernelClient() {
   const [createOpen, setCreateOpen] = useState(false);
   const [checkOpen, setCheckOpen] = useState(false);
   const [developerOpen, setDeveloperOpen] = useState(false);
+
+  /*
+   * One Responsibility, multiple delivery surfaces.
+   *
+   * This changes the authoring VIEW only.
+   * Save/Publish still persists the same canonical Kernel.
+   */
+  const [builderSurface, setBuilderSurface] =
+    useState<"app" | "external">("app");
 
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -746,7 +757,7 @@ export default function ResponsibilityKernelClient() {
   }
 
   return (
-    <div className="min-w-0 space-y-4 pb-8">
+    <div className="w-full min-w-0 max-w-full overflow-x-clip space-y-4 pb-8">
       <div className="rounded-2xl border bg-background/95 p-3 shadow-sm sm:p-4">
         <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
@@ -967,21 +978,66 @@ export default function ResponsibilityKernelClient() {
           }
           description={
             responsibilities.length === 0
-              ? "Use New above. Choose the target Role(s), then build the phone."
-              : "Select a Responsibility above to open its App Builder."
+              ? "Use New above. Choose the target Role(s), then build the experience."
+              : "Select a Responsibility above to open its builders."
           }
         />
       ) : (
-        <ResponsibilityAppBuilder
-          responsibilityId={selectedResponsibility.id}
-          responsibilityTitle={selectedResponsibility.title}
-          kernel={kernel}
-          dataSources={dataSources}
-          roles={roles}
-          employees={employees}
-          departments={departments}
-          onChange={setKernel}
-        />
+        <>
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-2">
+            <button
+              type="button"
+              onClick={() => setBuilderSurface("app")}
+              className={cx(
+                "rounded-lg px-4 py-2 text-sm font-medium transition",
+                builderSurface === "app"
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:bg-muted",
+              )}
+            >
+              <Sparkles className="mr-2 inline h-4 w-4" />
+              App Builder
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setBuilderSurface("external")}
+              className={cx(
+                "rounded-lg px-4 py-2 text-sm font-medium transition",
+                builderSurface === "external"
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:bg-muted",
+              )}
+            >
+              <Globe2 className="mr-2 inline h-4 w-4" />
+              External Link
+            </button>
+
+            <div className="ml-auto px-2 text-[11px] text-muted-foreground">
+              Same Responsibility · same UI · same Pixel Logic
+            </div>
+          </div>
+
+          {builderSurface === "app" ? (
+            <ResponsibilityAppBuilder
+              responsibilityId={selectedResponsibility.id}
+              responsibilityTitle={selectedResponsibility.title}
+              kernel={kernel}
+              dataSources={dataSources}
+              roles={roles}
+              employees={employees}
+              departments={departments}
+              onChange={setKernel}
+            />
+          ) : (
+            <ResponsibilityExternalLinkBuilder
+              responsibilityId={selectedResponsibility.id}
+              responsibilityTitle={selectedResponsibility.title}
+              kernel={kernel}
+              onChange={setKernel}
+            />
+          )}
+        </>
       )}
 
       {checkOpen && (

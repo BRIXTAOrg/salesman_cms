@@ -2,7 +2,7 @@ import ResponsibilitiesClient from "@/components/appliance/responsibilities-clie
 
 export default function AllResponsibilitiesPage() {
   return (
-    <div className="min-w-0 overflow-x-auto">
+    <div className="w-full min-w-0 max-w-full overflow-x-clip">
       <ResponsibilitiesClient />
     </div>
   );

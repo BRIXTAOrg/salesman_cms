@@ -202,7 +202,7 @@ export function FlutterLivePreview(props: Props) {
 
   return (
     <div className="mt-4 overflow-hidden rounded-xl border bg-background">
-      <div className="flex items-center justify-between border-b px-4 py-3">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-3 sm:px-4">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Smartphone className="h-4 w-4" />
@@ -220,7 +220,13 @@ export function FlutterLivePreview(props: Props) {
       </div>
 
       <div className="bg-muted/20 p-3">
-        <div className="mx-auto h-[720px] max-w-[390px] overflow-hidden rounded-[32px] border-[6px] border-foreground/90 bg-background">
+        <div
+          className="mx-auto max-w-full overflow-hidden rounded-[clamp(18px,3vw,32px)] border-[clamp(3px,0.5vw,6px)] border-foreground/90 bg-background"
+          style={{
+            width: "min(390px, 100%, calc(72svh * 13 / 24))",
+            aspectRatio: "13 / 24",
+          }}
+        >
           <iframe
             ref={iframeRef}
             title="BRIXTA Flutter preview"

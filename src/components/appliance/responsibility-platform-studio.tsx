@@ -42,7 +42,7 @@ export default function ResponsibilityPlatformStudio() {
   const [tab, setTab] = useState<TabKey>("studio");
 
   return (
-    <div className="min-h-full min-w-0 overflow-x-hidden">
+    <div className="min-h-full w-full min-w-0 max-w-full overflow-x-clip">
       <div className="relative z-10 min-w-0 border-b bg-background px-3 py-3 sm:px-4 md:px-6">
         <div className="grid w-full min-w-0 grid-cols-2 gap-2 lg:grid-cols-4">
           {tabs.map((item) => {
@@ -76,25 +76,25 @@ export default function ResponsibilityPlatformStudio() {
       </div>
 
       {tab === "studio" && (
-        <div className="w-full min-w-0 px-3 pb-6 pt-5 sm:px-4 md:px-6">
+        <div className="w-full min-w-0 max-w-full overflow-x-clip px-3 pb-6 pt-5 sm:px-4 md:px-6">
           <ResponsibilityKernelClient />
         </div>
       )}
 
       {tab === "logic" && (
-        <div className="w-full min-w-0 px-3 pb-6 pt-5 sm:px-4 md:px-6">
+        <div className="w-full min-w-0 max-w-full overflow-x-clip px-3 pb-6 pt-5 sm:px-4 md:px-6">
           <PixelLogicStudioClient />
         </div>
       )}
 
       {tab === "entities" && (
-        <div className="w-full min-w-0 px-3 pb-6 pt-5 sm:px-4 md:px-6">
+        <div className="w-full min-w-0 max-w-full overflow-x-clip px-3 pb-6 pt-5 sm:px-4 md:px-6">
           <EntitiesClient />
         </div>
       )}
 
       {tab === "data" && (
-        <div className="w-full min-w-0 px-3 pb-6 pt-5 sm:px-4 md:px-6">
+        <div className="w-full min-w-0 max-w-full overflow-x-clip px-3 pb-6 pt-5 sm:px-4 md:px-6">
           <DataSourcesClient />
         </div>
       )}

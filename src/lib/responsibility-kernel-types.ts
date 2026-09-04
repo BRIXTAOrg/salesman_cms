@@ -354,6 +354,77 @@ export type KernelUiDefinition = {
   };
 };
 
+
+/*
+ * BRIXTA_RESPONSIBILITY_DELIVERY_TARGETS_V1
+ *
+ * One Responsibility definition may be delivered through multiple hosts.
+ *
+ * brixta_app:
+ *   authenticated employee Flutter runtime.
+ *
+ * external_web:
+ *   lightweight Flutter-Web host using the SAME uiDocument and Pixel Logic,
+ *   but with a public/optional-auth capability boundary.
+ */
+export type ResponsibilityExternalWebAccess =
+  | "public"
+  | "optional_auth"
+  | "required_auth";
+
+export type ResponsibilityExternalWebDelivery = {
+  enabled: boolean;
+
+  runtime:
+    "flutter_web";
+
+  access:
+    ResponsibilityExternalWebAccess;
+
+  /*
+   * Stable tenant/schema routing key.
+   *
+   * Example:
+   *   eurofoampillows
+   */
+  tenantKey: string;
+
+  /*
+   * Examples:
+   *
+   * /x/{tenant}/dealer-onboarding
+   *
+   * /r/{tenant}/{token}
+   */
+  routePattern: string;
+
+  /*
+   * Server-side services the External Runtime is expected
+   * to call. This is authoring metadata only.
+   *
+   * Runtime authorization still comes from the backend's
+   * public service registry.
+   */
+  allowedCapabilities: string[];
+
+  /*
+   * Builder hint only.
+   *
+   * Actual deployment/publish state remains authoritative
+   * in the deployment/runtime layer.
+   */
+  description?: string;
+};
+
+export type ResponsibilityDeliveryTargets = {
+  brixtaApp?: {
+    enabled: boolean;
+  };
+
+  externalWeb?: ResponsibilityExternalWebDelivery;
+};
+
+
 export type ResponsibilityKernel = {
   kernelVersion: 3;
   runtimeWorld: {
@@ -370,6 +441,12 @@ export type ResponsibilityKernel = {
     createdFrom?: string;
     tags?: string[];
     ui?: KernelUiDefinition;
+
+    /*
+     * Delivery is metadata around the SAME Responsibility.
+     * It does not create another app definition.
+     */
+    deliveryTargets?: ResponsibilityDeliveryTargets;
   };
 };
 

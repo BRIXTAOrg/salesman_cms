@@ -759,6 +759,26 @@ export function buildPixelLogicAIContext({
       },
     },
 
+    deliveryTarget:
+      kernel?.metadata.deliveryTargets ??
+      {
+        brixtaApp: {
+          enabled: true,
+        },
+      },
+
+    externalWebExecutionRules: [
+      "External Link uses the same Responsibility IR and same Pixel Logic program; it is not a parallel workflow.",
+      "For public External Link access, assume there may be no BRIXTA employee session.",
+      "URL parameters belong to external request/runtime context.",
+      "Browser/device effects are never financial authority.",
+      "Public service calls must remain inside the External Link capability allow-list.",
+      "Reward amount, eligibility, fraud decisions, atomic voucher claim and payout amount are server-authoritative.",
+      "Do not manufacture payout amounts in Pixel Logic or client state.",
+      "Do not execute unsupported employee-only native capabilities on external_web.",
+      "When a capability is unavailable for external_web, report it instead of silently substituting behavior.",
+    ],
+
     presentationContext: buildPixelPresentationContext(kernel),
 
     interfaceAuthoring: {
