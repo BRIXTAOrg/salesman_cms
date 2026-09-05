@@ -85,6 +85,25 @@ export default function ResponsibilityExternalLinkBuilder({
     );
 
 
+  const publicActions =
+    useMemo(
+      () =>
+        kernel.possibilities
+          .flatMap(
+            (item) =>
+              item.type ===
+                "action"
+                ? [
+                    item.action,
+                  ]
+                : [],
+          ),
+      [
+        kernel.possibilities,
+      ],
+    );
+
+
   const issues =
     useMemo(
       () =>
@@ -170,6 +189,12 @@ export default function ResponsibilityExternalLinkBuilder({
                 .allowedCapabilities ??
               config
                 .allowedCapabilities,
+
+            allowedActionIds:
+              values
+                .allowedActionIds ??
+              config
+                .allowedActionIds,
           },
         },
       },
@@ -194,6 +219,23 @@ export default function ResponsibilityExternalLinkBuilder({
       allowedCapabilities:
         [
           ...QR_REWARD_EXTERNAL_CAPABILITIES,
+        ],
+      allowedActionIds:
+        [
+          ...new Set([
+            ...config.allowedActionIds,
+            ...publicActions
+              .filter(
+                (action) =>
+                  /claim|redeem/i.test(
+                    `${action.id} ${action.label}`,
+                  ),
+              )
+              .map(
+                (action) =>
+                  action.id,
+              ),
+          ]),
         ],
 
       description:
@@ -455,6 +497,73 @@ export default function ResponsibilityExternalLinkBuilder({
 
 
         <div className="mt-4">
+          <Field label="Public actions">
+            <div className="space-y-2 rounded-xl border p-3">
+              {publicActions.length === 0 ? (
+                <div className="text-xs text-muted-foreground">
+                  This Responsibility has no actions yet.
+                </div>
+              ) : (
+                publicActions.map((action) => {
+                  const checked =
+                    config.allowedActionIds.includes(
+                      action.id,
+                    );
+
+                  return (
+                    <label
+                      key={action.id}
+                      className="flex items-start gap-3 rounded-lg border p-3 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => {
+                          const next =
+                            event.target.checked
+                              ? [
+                                  ...new Set([
+                                    ...config.allowedActionIds,
+                                    action.id,
+                                  ]),
+                                ]
+                              : config.allowedActionIds.filter(
+                                  (id) =>
+                                    id !== action.id,
+                                );
+
+                          patch({
+                            allowedActionIds:
+                              next,
+                          });
+                        }}
+                      />
+
+                      <span className="min-w-0">
+                        <span className="block font-medium">
+                          {action.label}
+                        </span>
+
+                        <span className="mt-0.5 block font-mono text-[10px] text-muted-foreground">
+                          {action.id}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          </Field>
+
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Only checked actions are callable by the signed External Runtime.
+            Employee-only actor actions remain rejected by the backend even if
+            accidentally selected here.
+          </p>
+        </div>
+
+
+        <div className="mt-4">
           <Field label="Description">
             <textarea
               className={
@@ -523,7 +632,7 @@ export default function ResponsibilityExternalLinkBuilder({
         </div>
 
         <p className="mt-2 text-xs text-muted-foreground">
-          URL preview only until the External Runtime deployment endpoint is installed. For QR routes, {"{token}"} is supplied by the physical QR.
+          This is the published External Runtime route. For QR routes, {"{token}"} is supplied by the physical QR.
         </p>
       </Panel>
 

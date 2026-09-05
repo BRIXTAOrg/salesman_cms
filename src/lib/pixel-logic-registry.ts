@@ -737,6 +737,39 @@ const specs: PixelLogicNodeSpec[] = [
   },
 
   {
+    type: "effect.service_execute",
+    label: "Execute API service",
+    description:
+      "Ask the authoritative BRIXTA backend to execute a published server-side capability. Provider URLs and credentials never enter Pixel Logic.",
+    category: "Integrations",
+    kind: "integration",
+    inputs: [
+      flowIn,
+      {
+        key: "input",
+        label: "Service input",
+        kind: "data",
+        valueType: "object",
+      },
+    ],
+    outputs: [flowOut],
+    configFields: [
+      {
+        key: "capability",
+        label: "BRIXTA capability",
+        kind: "text",
+        placeholder: "payout.request",
+      },
+      {
+        key: "resultKey",
+        label: "Queue result key",
+        kind: "text",
+        placeholder: "payout_request",
+      },
+    ],
+  },
+
+  {
     type: "effect.set_computed",
     label: "Set computed value",
     description: "Emit an instruction to set a computed field/value.",

@@ -219,6 +219,19 @@ function executeCoreNode(
       effect.targetKey = String(cfg.actionId ?? "");
     } else if (kind === "trigger_responsibility") {
       effect.targetKey = String(cfg.responsibilityKey ?? "");
+    } else if (kind === "service_execute") {
+      effect.targetKey =
+        String(
+          cfg.capability ??
+          "",
+        );
+
+      effect.value =
+        inputs.input ??
+        inputs.value ??
+        cfg.input ??
+        {};
+
     } else if (kind === "append_history") {
       effect.value = cfg.label;
     }

@@ -116,6 +116,7 @@ export const EFFECT_CATALOG: Array<{ kind: KernelEffectKind; label: string }> = 
   ["freeze_data", "Freeze evidence / data"],
   ["trigger_action", "Trigger action"],
   ["trigger_responsibility", "Trigger another Responsibility"],
+  ["service_execute", "Execute API service"],
   ["append_history", "Append history"],
 ].map(([kind, label]) => ({ kind: kind as KernelEffectKind, label }));
 

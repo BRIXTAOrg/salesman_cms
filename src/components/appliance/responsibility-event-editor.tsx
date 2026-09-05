@@ -187,6 +187,52 @@ function EffectEditor({
         </Field>
       )}
 
+      {effect.kind === "service_execute" && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="BRIXTA capability">
+            <input
+              className={inputClass}
+              value={String(
+                effect.config.capability ??
+                effect.targetKey ??
+                "",
+              )}
+              onChange={(event) =>
+                onChange({
+                  ...effect,
+                  targetKey: event.target.value,
+                  config: {
+                    ...effect.config,
+                    capability: event.target.value,
+                  },
+                })
+              }
+              placeholder="payout.request"
+            />
+          </Field>
+
+          <Field label="Queue result key">
+            <input
+              className={inputClass}
+              value={String(
+                effect.config.resultKey ??
+                "",
+              )}
+              onChange={(event) =>
+                onChange({
+                  ...effect,
+                  config: {
+                    ...effect.config,
+                    resultKey: event.target.value,
+                  },
+                })
+              }
+              placeholder="service_request"
+            />
+          </Field>
+        </div>
+      )}
+
       {effect.kind === "append_history" && (
         <Field label="History message">
           <input className={inputClass} value={String(effect.config.label ?? "")} onChange={(event) => onChange({ ...effect, config: { ...effect.config, label: event.target.value } })} placeholder="Leave submitted" />

@@ -47,15 +47,19 @@ type StoredRegistry = {
 function encryptionKey() {
   const source =
     process.env
-      .BRIXTA_INTEGRATION_SECRET_KEY ||
-    process.env
-      .JWT_SECRET;
+      .BRIXTA_INTEGRATION_SECRET_KEY
+      ?.trim();
 
+  /*
+   * No JWT fallback.
+   *
+   * CMS + backend must use the same dedicated encryption key.
+   */
   if (
     !source
   ) {
     throw new Error(
-      "Set BRIXTA_INTEGRATION_SECRET_KEY or JWT_SECRET before storing API credentials.",
+      "BRIXTA_INTEGRATION_SECRET_KEY is required before storing API credentials.",
     );
   }
 

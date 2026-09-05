@@ -175,6 +175,85 @@ export const POST =
         );
       }
 
+      /*
+       * QR_REWARD_REASSIGN_RULEBOOK_SNAPSHOT_V1
+       *
+       * Claimed QRs remain dead.
+       * Reusable unclaimed QRs receive the exact policy snapshot
+       * of the NEW active Campaign assignment.
+       */
+      const policyResult =
+        await db.execute(sql`
+          SELECT
+            c.scheme_id
+              AS "schemeId",
+
+            rb.id
+              AS "rulebookId",
+
+            rb.version
+              AS "rulebookVersion",
+
+            rb.rules_hash
+              AS "rulesHash"
+
+          FROM
+            qr_reward_campaigns c
+
+          INNER JOIN
+            qr_reward_rulebooks rb
+              ON rb.id =
+                c.current_rulebook_id
+
+              AND rb.scheme_id =
+                c.scheme_id
+
+          WHERE
+            c.id =
+              ${campaignId}::uuid
+
+            AND rb.status =
+              'published'
+
+          LIMIT 1
+        `);
+
+      const policy =
+        policyResult.rows[0] as
+          | {
+              schemeId:
+                string;
+
+              rulebookId:
+                string;
+
+              rulebookVersion:
+                number;
+
+              rulesHash:
+                string;
+            }
+          | undefined;
+
+      if (
+        !policy
+      ) {
+        return NextResponse.json(
+          {
+            success:
+              false,
+
+            error:
+              "Target Campaign does not have a published Rulebook.",
+          },
+          {
+            status:
+              409,
+          },
+        );
+      }
+
+
       const entitiesResult =
         await db.execute(sql`
           SELECT
@@ -417,6 +496,11 @@ export const POST =
             batch_id,
             campaign_id,
 
+            scheme_id,
+            rulebook_id,
+            rulebook_version,
+            rules_hash,
+
             attribution_mode,
 
             entity_type_id,
@@ -436,6 +520,13 @@ export const POST =
           ${assignmentId},
           ${batchId}::uuid,
           ${campaignId}::uuid,
+
+          ${policy.schemeId}::uuid,
+          ${policy.rulebookId}::uuid,
+          ${Number(
+            policy.rulebookVersion,
+          )},
+          ${policy.rulesHash},
 
           ${attributionMode},
 

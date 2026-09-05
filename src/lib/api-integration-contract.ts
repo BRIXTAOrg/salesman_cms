@@ -2,7 +2,7 @@ export const API_INTEGRATION_AI_FORMAT =
   "brixta.api-integration" as const;
 
 export const API_INTEGRATION_AI_FORMAT_VERSION =
-  1 as const;
+  2 as const;
 
 
 export type ApiIntegrationStatus =
@@ -22,13 +22,6 @@ export type ApiCredentialField = {
   key: string;
   label: string;
 
-  /*
-   * header:
-   *   x-client-id: <secret>
-   *
-   * bearer:
-   *   Authorization: Bearer <secret>
-   */
   kind:
     | "header"
     | "bearer";
@@ -54,10 +47,9 @@ export type ApiIntegrationOperation = {
   label: string;
 
   /*
-   * Stable BRIXTA capability exposed to Pixel Logic.
+   * Stable BRIXTA capability.
    *
-   * Example:
-   * payout.request
+   * Provider URLs/auth must never leak into Pixel.
    */
   capability: string;
 
@@ -66,20 +58,97 @@ export type ApiIntegrationOperation = {
   method:
     ApiIntegrationMethod;
 
-  /*
-   * Relative to baseUrl.
-   *
-   * Examples:
-   * /transfers
-   * /transfers/{transferId}
-   */
   path: string;
 
   staticHeaders?:
     Record<string, string>;
 
+  /*
+   * PROVIDER TRANSLATION CONTRACT V2
+   *
+   * Template expressions:
+   *
+   * {{input.foo}}
+   * {{input.nested.foo}}
+   * {{idempotencyKey}}
+   */
+  requestTemplate?: unknown;
+
+  queryTemplate?:
+    Record<string, unknown>;
+
+  responseMapping?:
+    Record<string, string>;
+
+  idempotencyHeader?: string;
+
   requestExample?: unknown;
   responseExample?: unknown;
+};
+
+
+export type ApiWebhookSignature = {
+  kind:
+    | "hmac_sha256_base64"
+    | "hmac_sha256_hex";
+
+  credentialKey: string;
+
+  signatureHeader: string;
+
+  timestampHeader?: string;
+
+  signedPayload:
+    | "body"
+    | "timestamp_body"
+    | "timestamp_dot_body";
+
+  toleranceSeconds?: number;
+};
+
+
+export type ApiWebhookEvent = {
+  eventIdPath?: string;
+
+  /*
+   * Provider transfer/reference path.
+   */
+  referencePath: string;
+
+  referenceTarget?:
+    | "provider_transfer_ref"
+    | "request_id";
+
+  /*
+   * Primary status path.
+   */
+  statusPath: string;
+
+  /*
+   * Some providers split terminal state between a detailed
+   * status code and an event type.
+   */
+  fallbackStatusPath?: string;
+
+  statusMap:
+    Record<
+      string,
+      | "processing"
+      | "paid"
+      | "failed"
+      | "reversed"
+    >;
+};
+
+
+export type ApiIntegrationWebhook = {
+  enabled: boolean;
+
+  signature:
+    ApiWebhookSignature;
+
+  event:
+    ApiWebhookEvent;
 };
 
 
@@ -92,10 +161,6 @@ export type ApiIntegrationDefinition = {
 
   baseUrl: string;
 
-  /*
-   * Human/API documentation supplied to AI.
-   * Never place credentials in here.
-   */
   documentation: string;
 
   auth:
@@ -103,6 +168,9 @@ export type ApiIntegrationDefinition = {
 
   operations:
     ApiIntegrationOperation[];
+
+  webhook?:
+    ApiIntegrationWebhook;
 
   status:
     ApiIntegrationStatus;
@@ -132,13 +200,10 @@ export type ApiIntegrationTestRequest = {
 
   body?: unknown;
 
-  /*
-   * Optional non-auth test headers.
-   * Server-managed authentication is applied afterward
-   * and cannot be overridden from the browser.
-   */
   headers?:
     Record<string, string>;
+
+  idempotencyKey?: string;
 };
 
 
@@ -148,7 +213,8 @@ function objectValue(
 ): Record<string, unknown> {
   if (
     !value ||
-    typeof value !== "object" ||
+    typeof value !==
+      "object" ||
     Array.isArray(value)
   ) {
     throw new Error(
@@ -161,12 +227,28 @@ function objectValue(
 }
 
 
+function optionalObject(
+  value: unknown,
+) {
+  return (
+    value &&
+    typeof value ===
+      "object" &&
+    !Array.isArray(value)
+  )
+    ? value as
+        Record<string, unknown>
+    : undefined;
+}
+
+
 function stringValue(
   value: unknown,
   path: string,
 ) {
   if (
-    typeof value !== "string" ||
+    typeof value !==
+      "string" ||
     !value.trim()
   ) {
     throw new Error(
@@ -181,9 +263,60 @@ function stringValue(
 function optionalString(
   value: unknown,
 ) {
-  return typeof value === "string"
+  return typeof value ===
+    "string"
     ? value.trim()
     : "";
+}
+
+
+function stringRecord(
+  value: unknown,
+) {
+  const record =
+    optionalObject(
+      value,
+    );
+
+  if (
+    !record
+  ) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.entries(
+      record,
+    ).map(
+      (
+        [
+          key,
+          child,
+        ],
+      ) => [
+        key,
+        String(
+          child,
+        ),
+      ],
+    ),
+  );
+}
+
+
+function unknownRecord(
+  value: unknown,
+) {
+  const record =
+    optionalObject(
+      value,
+    );
+
+  return record
+    ? {
+        ...record,
+      }
+    : undefined;
 }
 
 
@@ -273,13 +406,231 @@ export function blankApiIntegration(
 }
 
 
+function parseOperation(
+  item: unknown,
+  index: number,
+): ApiIntegrationOperation {
+  const operation =
+    objectValue(
+      item,
+      `integration.operations[${index}]`,
+    );
+
+  return {
+    id:
+      stringValue(
+        operation.id,
+        `integration.operations[${index}].id`,
+      ),
+
+    label:
+      stringValue(
+        operation.label,
+        `integration.operations[${index}].label`,
+      ),
+
+    capability:
+      stringValue(
+        operation.capability,
+        `integration.operations[${index}].capability`,
+      ),
+
+    description:
+      optionalString(
+        operation.description,
+      ) ||
+      undefined,
+
+    method:
+      parseMethod(
+        operation.method,
+        `integration.operations[${index}].method`,
+      ),
+
+    path:
+      stringValue(
+        operation.path,
+        `integration.operations[${index}].path`,
+      ),
+
+    staticHeaders:
+      stringRecord(
+        operation.staticHeaders,
+      ),
+
+    requestTemplate:
+      operation.requestTemplate,
+
+    queryTemplate:
+      unknownRecord(
+        operation.queryTemplate,
+      ),
+
+    responseMapping:
+      stringRecord(
+        operation.responseMapping,
+      ),
+
+    idempotencyHeader:
+      optionalString(
+        operation.idempotencyHeader,
+      ) ||
+      undefined,
+
+    requestExample:
+      operation.requestExample,
+
+    responseExample:
+      operation.responseExample,
+  };
+}
+
+
+function parseWebhook(
+  raw: unknown,
+): ApiIntegrationWebhook | undefined {
+  if (
+    raw ===
+    undefined ||
+    raw ===
+    null
+  ) {
+    return undefined;
+  }
+
+  const webhook =
+    objectValue(
+      raw,
+      "integration.webhook",
+    );
+
+  const signature =
+    objectValue(
+      webhook.signature,
+      "integration.webhook.signature",
+    );
+
+  const event =
+    objectValue(
+      webhook.event,
+      "integration.webhook.event",
+    );
+
+  const kind =
+    stringValue(
+      signature.kind,
+      "integration.webhook.signature.kind",
+    ) as
+      ApiWebhookSignature[
+        "kind"
+      ];
+
+  const signedPayload =
+    stringValue(
+      signature.signedPayload,
+      "integration.webhook.signature.signedPayload",
+    ) as
+      ApiWebhookSignature[
+        "signedPayload"
+      ];
+
+  return {
+    enabled:
+      webhook.enabled ===
+      true,
+
+    signature: {
+      kind,
+
+      credentialKey:
+        stringValue(
+          signature.credentialKey,
+          "integration.webhook.signature.credentialKey",
+        ),
+
+      signatureHeader:
+        stringValue(
+          signature.signatureHeader,
+          "integration.webhook.signature.signatureHeader",
+        ),
+
+      timestampHeader:
+        optionalString(
+          signature.timestampHeader,
+        ) ||
+        undefined,
+
+      signedPayload,
+
+      toleranceSeconds:
+        Number.isFinite(
+          Number(
+            signature.toleranceSeconds,
+          ),
+        )
+          ? Number(
+              signature.toleranceSeconds,
+            )
+          : undefined,
+    },
+
+    event: {
+      eventIdPath:
+        optionalString(
+          event.eventIdPath,
+        ) ||
+        undefined,
+
+      referencePath:
+        stringValue(
+          event.referencePath,
+          "integration.webhook.event.referencePath",
+        ),
+
+      referenceTarget:
+        (
+          optionalString(
+            event.referenceTarget,
+          ) ||
+          "provider_transfer_ref"
+        ) as
+          ApiWebhookEvent[
+            "referenceTarget"
+          ],
+
+      statusPath:
+        stringValue(
+          event.statusPath,
+          "integration.webhook.event.statusPath",
+        ),
+
+      fallbackStatusPath:
+        optionalString(
+          event.fallbackStatusPath,
+        ) ||
+        undefined,
+
+      statusMap:
+        (
+          stringRecord(
+            event.statusMap,
+          ) ??
+          {}
+        ) as
+          ApiWebhookEvent[
+            "statusMap"
+          ],
+    },
+  };
+}
+
+
 export function validateApiIntegration(
   integration:
     ApiIntegrationDefinition,
 ) {
   const issues:
     string[] = [];
-
 
   if (
     !integration.id.trim()
@@ -289,7 +640,6 @@ export function validateApiIntegration(
     );
   }
 
-
   if (
     !integration.name.trim()
   ) {
@@ -298,7 +648,6 @@ export function validateApiIntegration(
     );
   }
 
-
   if (
     !integration.key.trim()
   ) {
@@ -306,7 +655,6 @@ export function validateApiIntegration(
       "Integration key is required.",
     );
   }
-
 
   if (
     !/^[a-z][a-z0-9_]*$/.test(
@@ -317,7 +665,6 @@ export function validateApiIntegration(
       "Integration key must begin with a letter and contain only lowercase letters, numbers and underscores.",
     );
   }
-
 
   try {
     const url =
@@ -343,7 +690,6 @@ export function validateApiIntegration(
     );
   }
 
-
   if (
     integration.operations.length ===
     0
@@ -353,13 +699,11 @@ export function validateApiIntegration(
     );
   }
 
-
   const operationIds =
     new Set<string>();
 
   const capabilities =
     new Set<string>();
-
 
   for (
     const operation of
@@ -379,7 +723,6 @@ export function validateApiIntegration(
       operation.id,
     );
 
-
     if (
       capabilities.has(
         operation.capability,
@@ -394,17 +737,21 @@ export function validateApiIntegration(
       operation.capability,
     );
 
-
     if (
       !operation.path.startsWith(
         "/",
+      ) ||
+      operation.path.startsWith(
+        "//",
+      ) ||
+      operation.path.includes(
+        "://",
       )
     ) {
       issues.push(
-        `Operation ${operation.id} path must begin with '/'.`,
+        `Operation ${operation.id} must use a relative path beginning with '/'.`,
       );
     }
-
 
     if (
       !/^[a-z][a-zA-Z0-9_.-]*$/.test(
@@ -416,7 +763,6 @@ export function validateApiIntegration(
       );
     }
   }
-
 
   const credentialKeys =
     new Set<string>();
@@ -440,7 +786,6 @@ export function validateApiIntegration(
       field.key,
     );
 
-
     if (
       field.kind ===
         "header" &&
@@ -453,6 +798,95 @@ export function validateApiIntegration(
     }
   }
 
+  const webhook =
+    integration.webhook;
+
+  if (
+    webhook?.enabled
+  ) {
+    if (
+      ![
+        "hmac_sha256_base64",
+        "hmac_sha256_hex",
+      ].includes(
+        webhook.signature.kind,
+      )
+    ) {
+      issues.push(
+        "Webhook signature kind is unsupported.",
+      );
+    }
+
+    if (
+      !credentialKeys.has(
+        webhook.signature
+          .credentialKey,
+      )
+    ) {
+      issues.push(
+        `Webhook credential "${webhook.signature.credentialKey}" is not declared in auth.credentialFields.`,
+      );
+    }
+
+    if (
+      !webhook.signature
+        .signatureHeader
+        .trim()
+    ) {
+      issues.push(
+        "Webhook signature header is required.",
+      );
+    }
+
+    if (
+      !webhook.event
+        .referencePath
+        .trim()
+    ) {
+      issues.push(
+        "Webhook referencePath is required.",
+      );
+    }
+
+    if (
+      !webhook.event
+        .statusPath
+        .trim()
+    ) {
+      issues.push(
+        "Webhook statusPath is required.",
+      );
+    }
+
+    const allowedStates =
+      new Set([
+        "processing",
+        "paid",
+        "failed",
+        "reversed",
+      ]);
+
+    for (
+      const [
+        providerState,
+        brixtaState,
+      ] of Object.entries(
+        webhook.event
+          .statusMap,
+      )
+    ) {
+      if (
+        !providerState ||
+        !allowedStates.has(
+          brixtaState,
+        )
+      ) {
+        issues.push(
+          `Invalid webhook status mapping: ${providerState} -> ${brixtaState}`,
+        );
+      }
+    }
+  }
 
   return issues;
 }
@@ -469,11 +903,12 @@ export function parseApiIntegrationAIImport(
       /^```(?:json)?\s*([\s\S]*?)\s*```$/i,
     );
 
-  if (fenced) {
+  if (
+    fenced
+  ) {
     source =
       fenced[1].trim();
   }
-
 
   let parsed:
     unknown;
@@ -493,13 +928,11 @@ export function parseApiIntegrationAIImport(
     );
   }
 
-
   const root =
     objectValue(
       parsed,
       "root",
     );
-
 
   if (
     root.format !==
@@ -510,25 +943,32 @@ export function parseApiIntegrationAIImport(
     );
   }
 
-
-  if (
+  /*
+   * V1 remains import-compatible.
+   */
+  const version =
     Number(
       root.formatVersion,
-    ) !==
-    API_INTEGRATION_AI_FORMAT_VERSION
+    );
+
+  if (
+    ![
+      1,
+      2,
+    ].includes(
+      version,
+    )
   ) {
     throw new Error(
-      `formatVersion must be ${API_INTEGRATION_AI_FORMAT_VERSION}.`,
+      "formatVersion must be 1 or 2.",
     );
   }
-
 
   const raw =
     objectValue(
       root.integration,
       "integration",
     );
-
 
   const authRaw =
     objectValue(
@@ -542,13 +982,11 @@ export function parseApiIntegrationAIImport(
       "integration.auth",
     );
 
-
   const authType =
     optionalString(
       authRaw.type,
     ) ||
     "none";
-
 
   if (
     ![
@@ -564,7 +1002,6 @@ export function parseApiIntegrationAIImport(
     );
   }
 
-
   const credentialFieldsRaw =
     Array.isArray(
       authRaw
@@ -573,7 +1010,6 @@ export function parseApiIntegrationAIImport(
       ? authRaw
           .credentialFields
       : [];
-
 
   const credentialFields:
     ApiCredentialField[] =
@@ -589,8 +1025,7 @@ export function parseApiIntegrationAIImport(
           );
 
         /*
-         * AI must describe secret SLOTS,
-         * not secret VALUES.
+         * AI describes slots, never secret values.
          */
         if (
           "value" in
@@ -602,16 +1037,23 @@ export function parseApiIntegrationAIImport(
         }
 
         const kind =
-          optionalString(
-            field.kind,
-          ) ||
-          "header";
+          (
+            optionalString(
+              field.kind,
+            ) ||
+            "header"
+          ) as
+            ApiCredentialField[
+              "kind"
+            ];
 
         if (
-          kind !==
-            "header" &&
-          kind !==
-            "bearer"
+          ![
+            "header",
+            "bearer",
+          ].includes(
+            kind,
+          )
         ) {
           throw new Error(
             `Invalid credential kind at index ${index}.`,
@@ -646,112 +1088,12 @@ export function parseApiIntegrationAIImport(
       },
     );
 
-
   const operationsRaw =
     Array.isArray(
       raw.operations,
     )
       ? raw.operations
       : [];
-
-
-  const operations:
-    ApiIntegrationOperation[] =
-    operationsRaw.map(
-      (
-        item,
-        index,
-      ) => {
-        const operation =
-          objectValue(
-            item,
-            `integration.operations[${index}]`,
-          );
-
-        const staticHeaders =
-          operation
-            .staticHeaders &&
-          typeof operation
-            .staticHeaders ===
-            "object" &&
-          !Array.isArray(
-            operation
-              .staticHeaders,
-          )
-            ? Object.fromEntries(
-                Object.entries(
-                  operation
-                    .staticHeaders as
-                    Record<
-                      string,
-                      unknown
-                    >,
-                ).map(
-                  (
-                    [
-                      key,
-                      value,
-                    ],
-                  ) => [
-                    key,
-                    String(
-                      value,
-                    ),
-                  ],
-                ),
-              )
-            : undefined;
-
-        return {
-          id:
-            stringValue(
-              operation.id,
-              `integration.operations[${index}].id`,
-            ),
-
-          label:
-            stringValue(
-              operation.label,
-              `integration.operations[${index}].label`,
-            ),
-
-          capability:
-            stringValue(
-              operation.capability,
-              `integration.operations[${index}].capability`,
-            ),
-
-          description:
-            optionalString(
-              operation.description,
-            ) ||
-            undefined,
-
-          method:
-            parseMethod(
-              operation.method,
-              `integration.operations[${index}].method`,
-            ),
-
-          path:
-            stringValue(
-              operation.path,
-              `integration.operations[${index}].path`,
-            ),
-
-          staticHeaders,
-
-          requestExample:
-            operation
-              .requestExample,
-
-          responseExample:
-            operation
-              .responseExample,
-        };
-      },
-    );
-
 
   const result:
     ApiIntegrationDefinition = {
@@ -778,7 +1120,8 @@ export function parseApiIntegrationAIImport(
     description:
       optionalString(
         raw.description,
-      ),
+      ) ||
+      undefined,
 
     baseUrl:
       stringValue(
@@ -794,19 +1137,26 @@ export function parseApiIntegrationAIImport(
     auth: {
       type:
         authType as
-        ApiIntegrationAuth[
-          "type"
-        ],
+          ApiIntegrationAuth[
+            "type"
+          ],
 
       credentialFields,
     },
 
-    operations,
+    operations:
+      operationsRaw.map(
+        parseOperation,
+      ),
+
+    webhook:
+      parseWebhook(
+        raw.webhook,
+      ),
 
     status:
       "draft",
   };
-
 
   const issues =
     validateApiIntegration(
@@ -823,7 +1173,6 @@ export function parseApiIntegrationAIImport(
     );
   }
 
-
   return result;
 }
 
@@ -834,7 +1183,7 @@ export function buildApiIntegrationAIContext(
 ) {
   return {
     contract:
-      "BRIXTA API INTEGRATION AI CONTRACT V1",
+      "BRIXTA API INTEGRATION AI CONTRACT V2",
 
     output: {
       format:
@@ -850,30 +1199,25 @@ export function buildApiIntegrationAIContext(
     currentIntegration:
       integration,
 
-    objective:
-      [
-        "Read the supplied API documentation/cURL/OpenAPI/sample request and response material.",
-        "Produce a reusable server-side REST integration definition.",
-        "Map provider-specific operations onto stable BRIXTA capability names.",
-        "Describe credential SLOTS only. Never include actual credential values.",
-      ],
-
-    capabilityExamples: [
-      "payout.request",
-      "payout.getStatus",
-      "upi.validate",
-      "messaging.send",
-      "crm.createLead",
-      "maps.distance",
+    objective: [
+      "Read supplied API documentation, OpenAPI, Postman, cURL and sample requests/responses.",
+      "Create stable BRIXTA capabilities instead of provider-specific business logic.",
+      "Translate BRIXTA service input into provider HTTP using requestTemplate/queryTemplate.",
+      "Translate provider response fields back using responseMapping.",
+      "Describe webhook signature verification and lifecycle mapping when the provider supports webhooks.",
     ],
 
-    securityRules: [
-      "NEVER return API keys, client secrets, passwords, bearer tokens or signing secrets.",
-      "Credentials are entered separately into BRIXTA after AI import.",
-      "Do not put secrets in staticHeaders.",
-      "Do not make the client/browser authoritative for financial amounts.",
-      "For payout APIs, prefer stable capability names such as payout.request and payout.getStatus.",
-      "Keep provider-specific URLs and headers inside the Integration definition, not Pixel Logic.",
+    rules: [
+      "Never include credential VALUES.",
+      "Credential fields describe secret slots only.",
+      "Every provider operation must map to a stable BRIXTA capability.",
+      "Provider authentication remains server-side.",
+      "Financial amounts and beneficiaries are server-authoritative.",
+      "requestTemplate may use {{input.foo}} expressions.",
+      "queryTemplate may use {{input.foo}} expressions.",
+      "responseMapping values are dot-paths into provider JSON.",
+      "Use webhook status mapping to processing, paid, failed or reversed.",
+      "Use payout.request, payout.getStatus and upi.validate where those semantics match.",
     ],
 
     expectedShape: {
@@ -884,20 +1228,23 @@ export function buildApiIntegrationAIContext(
         API_INTEGRATION_AI_FORMAT_VERSION,
 
       integration: {
+        id:
+          "provider-id",
+
         key:
-          "cashfree_payouts",
+          "provider_key",
 
         name:
-          "Cashfree Payouts",
+          "Provider",
 
         description:
-          "Cashfree payout provider.",
+          "Provider integration",
 
         baseUrl:
-          "https://sandbox.example.com",
+          "https://sandbox.provider.example",
 
         documentation:
-          "Optional concise notes.",
+          "Optional normalized provider notes.",
 
         auth: {
           type:
@@ -920,33 +1267,16 @@ export function buildApiIntegrationAIContext(
               required:
                 true,
             },
-
-            {
-              key:
-                "client_secret",
-
-              label:
-                "Client Secret",
-
-              kind:
-                "header",
-
-              headerName:
-                "x-client-secret",
-
-              required:
-                true,
-            },
           ],
         },
 
         operations: [
           {
             id:
-              "create_transfer",
+              "request_payout",
 
             label:
-              "Create transfer",
+              "Request payout",
 
             capability:
               "payout.request",
@@ -962,12 +1292,376 @@ export function buildApiIntegrationAIContext(
                 "application/json",
             },
 
-            requestExample: {},
+            requestTemplate: {
+              amount:
+                "{{input.amountText}}",
+            },
 
-            responseExample: {},
+            queryTemplate:
+              {},
+
+            responseMapping: {
+              status:
+                "status",
+
+              providerTransferRef:
+                "transfer_id",
+            },
           },
         ],
+
+        webhook: {
+          enabled:
+            true,
+
+          signature: {
+            kind:
+              "hmac_sha256_base64",
+
+            credentialKey:
+              "client_secret",
+
+            signatureHeader:
+              "x-webhook-signature",
+
+            timestampHeader:
+              "x-webhook-timestamp",
+
+            signedPayload:
+              "timestamp_body",
+
+            toleranceSeconds:
+              300,
+          },
+
+          event: {
+            referencePath:
+              "data.transfer_id",
+
+            referenceTarget:
+              "provider_transfer_ref",
+
+            statusPath:
+              "data.status_code",
+
+            fallbackStatusPath:
+              "type",
+
+            statusMap: {
+              COMPLETED:
+                "paid",
+            },
+          },
+        },
       },
     },
+  };
+}
+
+
+/*
+ * CASHFREE PAYOUTS V2 CERTIFICATION PRESET
+ *
+ * Provider-specific data is confined to the Integration definition.
+ * Pixel/Responsibility code still sees only:
+ *
+ *   upi.validate
+ *   payout.request
+ *   payout.getStatus
+ */
+export function cashfreePayoutsV2Template(
+  id: string,
+): ApiIntegrationDefinition {
+  return {
+    id,
+
+    key:
+      "cashfree_payouts_v2",
+
+    name:
+      "Cashfree Payouts V2",
+
+    description:
+      "Cashfree Verify-and-Pay UPI payout integration for BRIXTA QR Rewards.",
+
+    baseUrl:
+      "https://sandbox.cashfree.com/payout",
+
+    documentation:
+      "Cashfree Payouts V2. Validate VPA first, then process the validated payout using the returned single-use transfer token. Use transfer status and V2 webhooks for reconciliation.",
+
+    auth: {
+      type:
+        "headers",
+
+      credentialFields: [
+        {
+          key:
+            "client_id",
+
+          label:
+            "Cashfree Client ID",
+
+          kind:
+            "header",
+
+          headerName:
+            "x-client-id",
+
+          required:
+            true,
+        },
+        {
+          key:
+            "client_secret",
+
+          label:
+            "Cashfree Client Secret",
+
+          kind:
+            "header",
+
+          headerName:
+            "x-client-secret",
+
+          required:
+            true,
+        },
+      ],
+    },
+
+    operations: [
+      {
+        id:
+          "validate_upi",
+
+        label:
+          "Validate UPI / VPA",
+
+        capability:
+          "upi.validate",
+
+        description:
+          "Validate the VPA and receive the single-use transfer token.",
+
+        method:
+          "POST",
+
+        path:
+          "/validatePayout",
+
+        staticHeaders: {
+          "content-type":
+            "application/json",
+
+          "x-api-version":
+            "2024-01-01",
+        },
+
+        requestTemplate: {
+          transfer_id:
+            "{{input.providerTransferId}}",
+
+          vpa:
+            "{{input.vpa}}",
+        },
+
+        responseMapping: {
+          transferToken:
+            "transfer_token",
+
+          accountStatus:
+            "account_status",
+
+          beneficiaryName:
+            "name_at_bank",
+        },
+
+        requestExample: {
+          providerTransferId:
+            "brxtest123",
+
+          vpa:
+            "success@upi",
+        },
+      },
+
+      {
+        id:
+          "process_validated_payout",
+
+        label:
+          "Process validated UPI payout",
+
+        capability:
+          "payout.request",
+
+        description:
+          "Use the token returned by upi.validate to initiate the UPI payout.",
+
+        method:
+          "POST",
+
+        path:
+          "/transfers",
+
+        staticHeaders: {
+          "content-type":
+            "application/json",
+
+          "x-api-version":
+            "2024-01-01",
+        },
+
+        requestTemplate: {
+          transfer_amount:
+            "{{input.amountText}}",
+
+          transfer_id:
+            "{{input.providerTransferId}}",
+
+          transfer_token:
+            "{{input.transferToken}}",
+
+          transfer_mode:
+            "upi",
+
+          transfer_remarks:
+            "BRIXTA QR reward",
+        },
+
+        responseMapping: {
+          status:
+            "status",
+
+          statusCode:
+            "status_code",
+
+          providerTransferRef:
+            "transfer_id",
+
+          cfTransferId:
+            "cf_transfer_id",
+
+          utr:
+            "transfer_utr",
+        },
+      },
+
+      {
+        id:
+          "get_payout_status",
+
+        label:
+          "Get payout status",
+
+        capability:
+          "payout.getStatus",
+
+        description:
+          "Reconcile a transfer using BRIXTA's deterministic provider transfer ID.",
+
+        method:
+          "GET",
+
+        path:
+          "/transfers",
+
+        staticHeaders: {
+          "x-api-version":
+            "2024-01-01",
+        },
+
+        queryTemplate: {
+          transfer_id:
+            "{{input.providerTransferId}}",
+        },
+
+        responseMapping: {
+          status:
+            "status",
+
+          statusCode:
+            "status_code",
+
+          providerTransferRef:
+            "transfer_id",
+
+          cfTransferId:
+            "cf_transfer_id",
+
+          utr:
+            "transfer_utr",
+        },
+      },
+    ],
+
+    webhook: {
+      enabled:
+        true,
+
+      signature: {
+        kind:
+          "hmac_sha256_base64",
+
+        credentialKey:
+          "client_secret",
+
+        signatureHeader:
+          "x-webhook-signature",
+
+        timestampHeader:
+          "x-webhook-timestamp",
+
+        signedPayload:
+          "timestamp_body",
+
+        toleranceSeconds:
+          300,
+      },
+
+      event: {
+        referencePath:
+          "data.transfer_id",
+
+        referenceTarget:
+          "provider_transfer_ref",
+
+        statusPath:
+          "data.status_code",
+
+        fallbackStatusPath:
+          "type",
+
+        statusMap: {
+          COMPLETED:
+            "paid",
+
+          SENT_TO_BENEFICIARY:
+            "processing",
+
+          RECEIVED:
+            "processing",
+
+          TRANSFER_ACKNOWLEDGED:
+            "paid",
+
+          TRANSFER_SUCCESS:
+            "processing",
+
+          TRANSFER_FAILED:
+            "failed",
+
+          TRANSFER_REVERSED:
+            "reversed",
+
+          TRANSFER_REJECTED:
+            "failed",
+        },
+      },
+    },
+
+    status:
+      "draft",
   };
 }

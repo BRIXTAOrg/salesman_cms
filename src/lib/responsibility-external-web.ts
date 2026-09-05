@@ -23,6 +23,9 @@ export const DEFAULT_EXTERNAL_WEB_DELIVERY:
     allowedCapabilities:
       [],
 
+    allowedActionIds:
+      [],
+
     description:
       "",
   };
@@ -110,6 +113,15 @@ export function externalWebDelivery(
           .deliveryTargets
           ?.externalWeb
           ?.allowedCapabilities ??
+        []
+      ),
+    ],
+    allowedActionIds: [
+      ...(
+        kernel.metadata
+          .deliveryTargets
+          ?.externalWeb
+          ?.allowedActionIds ??
         []
       ),
     ],

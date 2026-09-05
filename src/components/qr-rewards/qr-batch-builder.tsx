@@ -48,6 +48,7 @@ type PrintRecord = {
   voucherId: string;
   serialNumber: number;
   qrPayload: string;
+  publicUrl?: string;
 };
 
 
@@ -101,6 +102,65 @@ function csvCell(
   )}"`;
 }
 
+
+
+/*
+ * Physical QR:
+ *
+ * phone camera
+ *   -> https://rewards.brixta.com/r/{tenant}/{secret}
+ *
+ * qrPayload remains the canonical BRX:Q:1:{secret} representation.
+ */
+function printableQrValue(
+  record: PrintRecord,
+) {
+  if (
+    record.publicUrl
+  ) {
+    return record.publicUrl;
+  }
+
+  const origin =
+    (
+      process.env
+        .NEXT_PUBLIC_BRIXTA_EXTERNAL_ORIGIN ||
+      "https://rewards.brixta.com"
+    )
+      .trim()
+      .replace(
+        /\/+$/,
+        "",
+      );
+
+  const tenant =
+    (
+      process.env
+        .NEXT_PUBLIC_BRIXTA_TENANT_KEY ||
+      ""
+    ).trim();
+
+  const secret =
+    record.qrPayload.replace(
+      /^BRX:Q:1:/,
+      "",
+    );
+
+  if (
+    tenant &&
+    /^[A-Za-z0-9_-]{43}$/.test(
+      secret,
+    )
+  ) {
+    return `${origin}/r/${encodeURIComponent(
+      tenant,
+    )}/${encodeURIComponent(
+      secret,
+    )}`;
+  }
+
+  return record.qrPayload;
+}
 
 
 function QrImage({
@@ -510,6 +570,7 @@ export function QrBatchBuilder() {
         "voucher_id",
         "serial_number",
         "qr_payload",
+        "public_url",
       ],
 
       ...result.printRecords.map(
@@ -518,6 +579,9 @@ export function QrBatchBuilder() {
           record.voucherId,
           record.serialNumber,
           record.qrPayload,
+          printableQrValue(
+            record,
+          ),
         ],
       ),
     ];
@@ -765,7 +829,7 @@ export function QrBatchBuilder() {
                 record,
                 src:
                   await QRCode.toDataURL(
-                    record.qrPayload,
+                    printableQrValue(record),
                     {
                       width:
                         220,

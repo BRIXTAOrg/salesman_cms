@@ -23,6 +23,7 @@ import {
 import {
   blankApiIntegration,
   buildApiIntegrationAIContext,
+  cashfreePayoutsV2Template,
   integrationKey,
   parseApiIntegrationAIImport,
   validateApiIntegration,
@@ -320,6 +321,58 @@ export default function ApiIntegrationLab() {
 
     setMessage(
       "New integration draft.",
+    );
+  }
+
+
+  function startCashfreeV2() {
+    const next =
+      cashfreePayoutsV2Template(
+        newId(),
+      );
+
+    setDraft(
+      next,
+    );
+
+    setCredentialStatus(
+      {},
+    );
+
+    setSecrets(
+      {},
+    );
+
+    setAiText(
+      "",
+    );
+
+    setTestResult(
+      null,
+    );
+
+    setTestOperationId(
+      "validate_upi",
+    );
+
+    setTestRequest(
+      JSON.stringify(
+        {
+          body: {
+            providerTransferId:
+              "brxtest12345",
+
+            vpa:
+              "success@upi",
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    setMessage(
+      "Cashfree Payouts V2 sandbox preset loaded. Enter credentials, test validate_upi, then publish.",
     );
   }
 
@@ -761,6 +814,16 @@ export default function ApiIntegrationLab() {
             >
               <Plus className="h-4 w-4" />
               New Integration
+            </SecondaryButton>
+
+            <SecondaryButton
+              type="button"
+              onClick={
+                startCashfreeV2
+              }
+            >
+              <Rocket className="h-4 w-4" />
+              Cashfree V2
             </SecondaryButton>
 
             <SecondaryButton

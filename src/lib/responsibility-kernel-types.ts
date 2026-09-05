@@ -292,6 +292,7 @@ export type KernelEffectKind =
   | "freeze_data"
   | "trigger_action"
   | "trigger_responsibility"
+  | "service_execute"
   | "append_history"
   | "ui_animate"
   | "ui_show"
@@ -406,6 +407,14 @@ export type ResponsibilityExternalWebDelivery = {
    * public service registry.
    */
   allowedCapabilities: string[];
+
+  /*
+   * Explicit actions callable from the External Runtime.
+   *
+   * Public delivery never implies every Responsibility action
+   * is public.
+   */
+  allowedActionIds: string[];
 
   /*
    * Builder hint only.

@@ -1,6 +1,14 @@
 import "server-only";
 
 import {
+  randomUUID,
+} from "node:crypto";
+
+import {
+  lookup,
+} from "node:dns/promises";
+
+import {
   isIP,
 } from "node:net";
 
@@ -9,6 +17,7 @@ import type {
 } from "@/lib/drizzle";
 
 import type {
+  ApiIntegrationOperation,
   ApiIntegrationTestRequest,
 } from "@/lib/api-integration-contract";
 
@@ -18,34 +27,225 @@ import {
 } from "@/lib/api-integration-store";
 
 
+function objectValue(
+  value: unknown,
+): Record<string, unknown> {
+  return (
+    value &&
+    typeof value ===
+      "object" &&
+    !Array.isArray(value)
+  )
+    ? value as
+        Record<string, unknown>
+    : {};
+}
+
+
+function readPath(
+  value: unknown,
+  path: string,
+) {
+  let current =
+    value;
+
+  for (
+    const part of
+    path
+      .split(".")
+      .filter(Boolean)
+  ) {
+    if (
+      !current ||
+      typeof current !==
+        "object"
+    ) {
+      return undefined;
+    }
+
+    current =
+      (
+        current as
+          Record<string, unknown>
+      )[part];
+  }
+
+  return current;
+}
+
+
+function templateExpression(
+  expression: string,
+  input: unknown,
+  idempotencyKey: string,
+) {
+  const clean =
+    expression.trim();
+
+  if (
+    clean ===
+    "idempotencyKey"
+  ) {
+    return idempotencyKey;
+  }
+
+  if (
+    clean ===
+    "input"
+  ) {
+    return input;
+  }
+
+  if (
+    clean.startsWith(
+      "input.",
+    )
+  ) {
+    return readPath(
+      input,
+      clean.slice(
+        "input.".length,
+      ),
+    );
+  }
+
+  return (
+    readPath(
+      input,
+      clean,
+    ) ??
+    readPath(
+      input,
+      `pathParams.${clean}`,
+    )
+  );
+}
+
+
+function renderTemplate(
+  value: unknown,
+  input: unknown,
+  idempotencyKey: string,
+): unknown {
+  if (
+    typeof value ===
+    "string"
+  ) {
+    const exact =
+      value.match(
+        /^\{\{\s*([^}]+)\s*\}\}$/,
+      );
+
+    if (
+      exact
+    ) {
+      return templateExpression(
+        exact[1],
+        input,
+        idempotencyKey,
+      );
+    }
+
+    return value.replace(
+      /\{\{\s*([^}]+)\s*\}\}/g,
+      (
+        _match,
+        expression,
+      ) => {
+        const result =
+          templateExpression(
+            String(
+              expression,
+            ),
+            input,
+            idempotencyKey,
+          );
+
+        return result ===
+          undefined ||
+          result ===
+          null
+          ? ""
+          : String(
+              result,
+            );
+      },
+    );
+  }
+
+  if (
+    Array.isArray(value)
+  ) {
+    return value.map(
+      (item) =>
+        renderTemplate(
+          item,
+          input,
+          idempotencyKey,
+        ),
+    );
+  }
+
+  if (
+    value &&
+    typeof value ===
+      "object"
+  ) {
+    return Object.fromEntries(
+      Object.entries(
+        value as
+          Record<string, unknown>,
+      ).map(
+        (
+          [
+            key,
+            child,
+          ],
+        ) => [
+          key,
+          renderTemplate(
+            child,
+            input,
+            idempotencyKey,
+          ),
+        ],
+      ),
+    );
+  }
+
+  return value;
+}
+
+
 function isPrivateIp(
-  host: string,
+  address: string,
 ) {
   const version =
     isIP(
-      host,
+      address,
     );
 
   if (
-    version === 4
+    version ===
+    4
   ) {
-    const parts =
-      host.split(
-        ".",
-      )
-        .map(
-          Number,
-        );
-
     const [
       a,
       b,
     ] =
-      parts;
+      address
+        .split(".")
+        .map(Number);
 
     return (
+      a === 0 ||
       a === 10 ||
       a === 127 ||
+      (
+        a === 100 &&
+        b >= 64 &&
+        b <= 127
+      ) ||
       (
         a === 169 &&
         b === 254
@@ -58,19 +258,21 @@ function isPrivateIp(
       (
         a === 192 &&
         b === 168
-      )
+      ) ||
+      a >= 224
     );
   }
 
-
   if (
-    version === 6
+    version ===
+    6
   ) {
     const lower =
-      host.toLowerCase();
+      address.toLowerCase();
 
     return (
-      lower === "::1" ||
+      lower ===
+        "::1" ||
       lower.startsWith(
         "fc",
       ) ||
@@ -83,36 +285,17 @@ function isPrivateIp(
     );
   }
 
-
   return false;
 }
 
 
-function safeBaseUrl(
+async function safeBaseUrl(
   value: string,
 ) {
   const url =
     new URL(
       value,
     );
-
-
-  const production =
-    process.env
-      .NODE_ENV ===
-    "production";
-
-
-  if (
-    production &&
-    url.protocol !==
-      "https:"
-  ) {
-    throw new Error(
-      "Production integrations must use HTTPS.",
-    );
-  }
-
 
   if (
     ![
@@ -127,119 +310,179 @@ function safeBaseUrl(
     );
   }
 
-
-  const host =
-    url.hostname
-      .toLowerCase();
-
-
   if (
-    production &&
-    (
-      host ===
-        "localhost" ||
-      host.endsWith(
-        ".local",
-      ) ||
-      isPrivateIp(
-        host,
-      )
-    )
+    process.env.NODE_ENV ===
+      "production" &&
+    url.protocol !==
+      "https:"
   ) {
     throw new Error(
-      "Private/internal network integration targets are blocked in production.",
+      "Production integrations must use HTTPS.",
     );
   }
 
+  if (
+    url.username ||
+    url.password
+  ) {
+    throw new Error(
+      "Embedded URL credentials are forbidden.",
+    );
+  }
+
+  const hostname =
+    url.hostname
+      .replace(
+        /^\[|\]$/g,
+        "",
+      )
+      .toLowerCase();
+
+  if (
+    hostname ===
+      "localhost" ||
+    hostname.endsWith(
+      ".local",
+    )
+  ) {
+    if (
+      process.env.NODE_ENV ===
+      "production"
+    ) {
+      throw new Error(
+        "Private/internal integration target blocked.",
+      );
+    }
+
+    return url;
+  }
+
+  const addresses =
+    isIP(
+      hostname,
+    )
+      ? [
+          {
+            address:
+              hostname,
+          },
+        ]
+      : await lookup(
+          hostname,
+          {
+            all:
+              true,
+          },
+        );
+
+  if (
+    process.env.NODE_ENV ===
+      "production" &&
+    addresses.some(
+      (item) =>
+        isPrivateIp(
+          item.address,
+        ),
+    )
+  ) {
+    throw new Error(
+      "Integration host resolves to a private/internal address.",
+    );
+  }
 
   return url;
 }
 
 
-function operationUrl(
-  baseUrl: string,
-  path: string,
-  request:
-    ApiIntegrationTestRequest,
+function operationPath(
+  operation:
+    ApiIntegrationOperation,
+  input: unknown,
+  idempotencyKey: string,
 ) {
-  let resolvedPath =
-    path;
-
-
-  for (
-    const [
-      key,
-      value,
-    ] of Object.entries(
-      request.pathParams ??
-      {},
-    )
-  ) {
-    resolvedPath =
-      resolvedPath.replaceAll(
-        `{${key}}`,
-        encodeURIComponent(
-          String(
-            value,
-          ),
-        ),
-      );
-  }
-
-
   if (
-    /\{[^}]+\}/.test(
-      resolvedPath,
+    !operation.path.startsWith(
+      "/",
+    ) ||
+    operation.path.startsWith(
+      "//",
+    ) ||
+    operation.path.includes(
+      "://",
     )
   ) {
     throw new Error(
-      `Missing path parameter for ${resolvedPath}.`,
+      "Integration operation path must be relative.",
     );
   }
 
+  return operation.path
+    .replace(
+      /\{\{\s*([^}]+)\s*\}\}/g,
+      (
+        _match,
+        expression,
+      ) => {
+        const value =
+          templateExpression(
+            String(
+              expression,
+            ),
+            input,
+            idempotencyKey,
+          );
 
-  const base =
-    safeBaseUrl(
-      baseUrl,
-    );
+        if (
+          value ===
+          undefined ||
+          value ===
+          null
+        ) {
+          throw new Error(
+            `Missing path value: ${String(expression)}`,
+          );
+        }
 
-
-  const url =
-    new URL(
-      resolvedPath.replace(
-        /^\/+/,
-        "",
-      ),
-      `${
-        base
-          .toString()
-          .replace(
-            /\/+$/,
-            "",
-          )
-      }/`,
-    );
-
-
-  for (
-    const [
-      key,
-      value,
-    ] of Object.entries(
-      request.query ??
-      {},
+        return encodeURIComponent(
+          String(
+            value,
+          ),
+        );
+      },
     )
-  ) {
-    url.searchParams.set(
-      key,
-      String(
-        value,
-      ),
+    .replace(
+      /\{([a-zA-Z0-9_.-]+)\}/g,
+      (
+        _match,
+        expression,
+      ) => {
+        const value =
+          templateExpression(
+            String(
+              expression,
+            ),
+            input,
+            idempotencyKey,
+          );
+
+        if (
+          value ===
+          undefined ||
+          value ===
+          null
+        ) {
+          throw new Error(
+            `Missing path parameter: ${String(expression)}`,
+          );
+        }
+
+        return encodeURIComponent(
+          String(
+            value,
+          ),
+        );
+      },
     );
-  }
-
-
-  return url;
 }
 
 
@@ -256,7 +499,6 @@ export async function executeApiIntegrationOperation(
       integrationId,
     );
 
-
   if (
     !integration
   ) {
@@ -265,17 +507,13 @@ export async function executeApiIntegrationOperation(
     );
   }
 
-
   const operation =
     integration.operations
       .find(
-        (
-          item,
-        ) =>
+        (item) =>
           item.id ===
           operationId,
       );
-
 
   if (
     !operation
@@ -285,12 +523,10 @@ export async function executeApiIntegrationOperation(
     );
   }
 
-
   const credentials =
     integrationCredentials(
       integration,
     );
-
 
   for (
     const field of
@@ -310,18 +546,104 @@ export async function executeApiIntegrationOperation(
     }
   }
 
+  const bodyRecord =
+    objectValue(
+      request.body,
+    );
+
+  const providerInput = {
+    ...bodyRecord,
+
+    body:
+      request.body,
+
+    pathParams:
+      request.pathParams ??
+      {},
+
+    query:
+      request.query ??
+      {},
+  };
+
+  const idempotencyKey =
+    request.idempotencyKey
+      ?.trim() ||
+    `integration-test-${randomUUID()}`;
+
+  const base =
+    await safeBaseUrl(
+      integration.baseUrl,
+    );
+
+  const path =
+    operationPath(
+      operation,
+      providerInput,
+      idempotencyKey,
+    );
+
+  const url =
+    new URL(
+      path.replace(
+        /^\/+/,
+        "",
+      ),
+      `${base
+        .toString()
+        .replace(
+          /\/+$/,
+          "",
+        )}/`,
+    );
+
+  const renderedQuery =
+    operation.queryTemplate
+      ? objectValue(
+          renderTemplate(
+            operation.queryTemplate,
+            providerInput,
+            idempotencyKey,
+          ),
+        )
+      : {};
+
+  for (
+    const [
+      key,
+      value,
+    ] of Object.entries({
+      ...renderedQuery,
+      ...(
+        request.query ??
+        {}
+      ),
+    })
+  ) {
+    if (
+      value !==
+        undefined &&
+      value !==
+        null
+    ) {
+      url.searchParams.set(
+        key,
+        String(
+          value,
+        ),
+      );
+    }
+  }
 
   const headers =
     new Headers();
-
 
   for (
     const [
       key,
       value,
     ] of Object.entries(
-      operation
-        .staticHeaders ??
+      operation.staticHeaders ??
       {},
     )
   ) {
@@ -330,7 +652,6 @@ export async function executeApiIntegrationOperation(
       value,
     );
   }
-
 
   for (
     const [
@@ -347,10 +668,17 @@ export async function executeApiIntegrationOperation(
     );
   }
 
+  if (
+    operation.idempotencyHeader
+  ) {
+    headers.set(
+      operation.idempotencyHeader,
+      idempotencyKey,
+    );
+  }
 
   /*
-   * Authentication is intentionally applied LAST.
-   * Browser/test input cannot override server-owned credentials.
+   * Authentication always wins over test/browser headers.
    */
   for (
     const field of
@@ -368,7 +696,6 @@ export async function executeApiIntegrationOperation(
       continue;
     }
 
-
     if (
       field.kind ===
       "bearer"
@@ -377,37 +704,47 @@ export async function executeApiIntegrationOperation(
         "authorization",
         `Bearer ${value}`,
       );
-    } else {
+    } else if (
+      field.headerName
+    ) {
       headers.set(
-        field.headerName!,
+        field.headerName,
         value,
       );
     }
   }
 
-
-  const method =
-    operation.method;
-
-
-  const canHaveBody =
-    ![
-      "GET",
-      "DELETE",
-    ].includes(
-      method,
-    );
-
+  const providerBody =
+    operation.requestTemplate !==
+      undefined
+      ? renderTemplate(
+          operation.requestTemplate,
+          providerInput,
+          idempotencyKey,
+        )
+      : request.body;
 
   let body:
     string | undefined;
 
-
   if (
-    canHaveBody &&
-    request.body !==
+    ![
+      "GET",
+      "DELETE",
+    ].includes(
+      operation.method,
+    ) &&
+    providerBody !==
       undefined
   ) {
+    body =
+      typeof providerBody ===
+        "string"
+        ? providerBody
+        : JSON.stringify(
+            providerBody,
+          );
+
     if (
       !headers.has(
         "content-type",
@@ -418,16 +755,7 @@ export async function executeApiIntegrationOperation(
         "application/json",
       );
     }
-
-    body =
-      typeof request.body ===
-        "string"
-        ? request.body
-        : JSON.stringify(
-            request.body,
-          );
   }
-
 
   const controller =
     new AbortController();
@@ -439,33 +767,27 @@ export async function executeApiIntegrationOperation(
       20_000,
     );
 
-
   try {
     const response =
       await fetch(
-        operationUrl(
-          integration.baseUrl,
-          operation.path,
-          request,
-        ),
+        url,
         {
-          method,
+          method:
+            operation.method,
+
           headers,
+
           body,
+
           signal:
             controller.signal,
 
-          /*
-           * Prevent a configured public URL from redirecting
-           * the server into an unintended network target.
-           */
           redirect:
             "manual",
         },
       );
 
-
-    const text =
+    const raw =
       (
         await response.text()
       ).slice(
@@ -473,22 +795,41 @@ export async function executeApiIntegrationOperation(
         100_000,
       );
 
-
     let data:
       unknown =
-      text;
+      raw;
 
     try {
       data =
-        text
+        raw
           ? JSON.parse(
-              text,
+              raw,
             )
           : null;
     } catch {
-      // Keep text response.
+      // Keep provider text.
     }
 
+    const mapped =
+      Object.fromEntries(
+        Object.entries(
+          operation.responseMapping ??
+          {},
+        ).map(
+          (
+            [
+              key,
+              path,
+            ],
+          ) => [
+            key,
+            readPath(
+              data,
+              path,
+            ),
+          ],
+        ),
+      );
 
     return {
       integrationId:
@@ -506,6 +847,9 @@ export async function executeApiIntegrationOperation(
       method:
         operation.method,
 
+      url:
+        url.toString(),
+
       status:
         response.status,
 
@@ -513,6 +857,8 @@ export async function executeApiIntegrationOperation(
         response.ok,
 
       data,
+
+      mapped,
     };
   } finally {
     clearTimeout(

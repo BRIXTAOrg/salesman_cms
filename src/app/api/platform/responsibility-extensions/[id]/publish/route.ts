@@ -36,6 +36,7 @@ import {
 import {
   compiledResponsibilityManifests,
   dataSources,
+  platformMeta,
   platformAuditEvents,
   responsibilityExtensions,
   responsibilityVersions,
@@ -44,6 +45,9 @@ import { capabilityAssignmentRules } from "../../../../../../../drizzle/applianc
 import { mobileCapabilities, roles } from "../../../../../../../drizzle/schema";
 
 const BUILDER_TARGET_ROLE_IDS_KEY = "builderTargetRoleIds";
+
+const PUBLIC_QR_REWARD_RESPONSIBILITY_KEY =
+  "public_qr_reward_responsibility_v1";
 
 function builderTargetRoleIds(metadata: Record<string, unknown> | undefined) {
   const raw = metadata?.[BUILDER_TARGET_ROLE_IDS_KEY];
@@ -363,6 +367,107 @@ export const POST = withTenantDb<Context>(
       manifest: manifest as unknown as Record<string, unknown>,
       manifestHash,
     });
+
+
+    /*
+     * QR physical route -> published Responsibility binding.
+     *
+     * QR claims remain authoritative in salesapp_backend. This only tells
+     * the lightweight Flutter-Web host which published Responsibility/UI/
+     * Pixel contract should render for /r/{tenant}/{token}.
+     */
+    const qrExternalDelivery =
+      publishedKernel
+        ?.metadata
+        .deliveryTargets
+        ?.externalWeb;
+
+    await db
+      .delete(
+        platformMeta,
+      )
+      .where(
+        and(
+          eq(
+            platformMeta.key,
+            PUBLIC_QR_REWARD_RESPONSIBILITY_KEY,
+          ),
+          sql`${platformMeta.value} ->> 'responsibilityId' = ${String(responsibilityId)}`,
+        ),
+      );
+
+    if (
+      qrExternalDelivery
+        ?.enabled ===
+        true &&
+      qrExternalDelivery
+        .tenantKey
+        .trim() &&
+      qrExternalDelivery
+        .routePattern ===
+        "/r/{tenant}/{token}"
+    ) {
+      await db
+        .insert(
+          platformMeta,
+        )
+        .values({
+          key:
+            PUBLIC_QR_REWARD_RESPONSIBILITY_KEY,
+
+          value: {
+            responsibilityId,
+
+            responsibilityKey:
+              responsibility.key,
+
+            publishedVersion:
+              nextVersion,
+
+            manifestHash,
+
+            tenantKey:
+              qrExternalDelivery
+                .tenantKey,
+
+            routePattern:
+              qrExternalDelivery
+                .routePattern,
+          },
+
+          updatedAt:
+            now,
+        })
+        .onConflictDoUpdate({
+          target:
+            platformMeta.key,
+
+          set: {
+            value: {
+              responsibilityId,
+
+              responsibilityKey:
+                responsibility.key,
+
+              publishedVersion:
+                nextVersion,
+
+              manifestHash,
+
+              tenantKey:
+                qrExternalDelivery
+                  .tenantKey,
+
+              routePattern:
+                qrExternalDelivery
+                  .routePattern,
+            },
+
+            updatedAt:
+              now,
+          },
+        });
+    }
 
     // This is the point at which currently-installed employee apps see the new
     // generated app contract. withTenantDb/withTenantSchema already wraps this

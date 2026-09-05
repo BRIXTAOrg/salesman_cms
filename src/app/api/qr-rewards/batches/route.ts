@@ -28,13 +28,24 @@ import {
   qrRewardBatches,
   qrRewardCampaigns,
   qrRewardVouchers,
+  qrRewardRulebooks,
 } from "../../../../../drizzle/qrRewardsSchema";
 
 
 type PrintableVoucher = {
   voucherId: string;
   serialNumber: number;
+
+  /*
+   * Canonical internal bearer representation.
+   * This is what is hashed server-side.
+   */
   qrPayload: string;
+
+  /*
+   * Physical/mobile-camera representation.
+   */
+  publicUrl: string;
 };
 
 
@@ -66,6 +77,22 @@ function createBatchCode() {
       .toString("hex")
       .toUpperCase(),
   ].join("-");
+}
+
+
+function publicQrOrigin() {
+  return (
+    process.env
+      .BRIXTA_EXTERNAL_ORIGIN ??
+    process.env
+      .NEXT_PUBLIC_BRIXTA_EXTERNAL_ORIGIN ??
+    "https://rewards.brixta.com"
+  )
+    .trim()
+    .replace(
+      /\/+$/,
+      "",
+    );
 }
 
 
@@ -428,6 +455,72 @@ export const POST =
         );
       }
 
+      /*
+       * QR_REWARD_BATCH_RULEBOOK_SNAPSHOT_V1
+       *
+       * A physical QR activation never follows a mutable Campaign.
+       * Freeze the exact published Scheme + Rulebook contract now.
+       */
+      if (
+        !campaign.schemeId ||
+        !campaign.currentRulebookId
+      ) {
+        return NextResponse.json(
+          {
+            success:
+              false,
+
+            error:
+              "Campaign does not have a published Rulebook.",
+          },
+          {
+            status:
+              409,
+          },
+        );
+      }
+
+      const [rulebook] =
+        await db
+          .select()
+          .from(
+            qrRewardRulebooks,
+          )
+          .where(
+            eq(
+              qrRewardRulebooks.id,
+              campaign.currentRulebookId,
+            ),
+          )
+          .limit(1);
+
+      if (
+        !rulebook ||
+        rulebook.status !==
+          "published" ||
+        String(
+          rulebook.schemeId,
+        ) !==
+          String(
+            campaign.schemeId,
+          )
+      ) {
+        return NextResponse.json(
+          {
+            success:
+              false,
+
+            error:
+              "Campaign Rulebook is unavailable or does not belong to its Scheme.",
+          },
+          {
+            status:
+              409,
+          },
+        );
+      }
+
+
       const now =
         Date.now();
 
@@ -599,7 +692,22 @@ export const POST =
           campaignId:
             campaign.id,
 
-          attributionMode,
+                    /*
+           * Immutable commercial-policy snapshot.
+           */
+          schemeId:
+            rulebook.schemeId,
+
+          rulebookId:
+            rulebook.id,
+
+          rulebookVersion:
+            rulebook.version,
+
+          rulesHash:
+            rulebook.rulesHash,
+
+attributionMode,
 
           entityTypeId:
             fixedEntity
@@ -686,7 +794,14 @@ export const POST =
 
           qrPayload:
             payload,
-        });
+                  publicUrl:
+            `${publicQrOrigin()}/r/${encodeURIComponent(
+              session.schemaName,
+            )}/${encodeURIComponent(
+              secret,
+            )}`,
+
+});
       }
 
       for (
