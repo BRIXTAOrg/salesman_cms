@@ -193,6 +193,15 @@ export function CampaignRecords() {
     >([]);
 
   const [
+    useEntireEntityType,
+    setUseEntireEntityType,
+  ] =
+    useState(
+      false,
+    );
+
+
+  const [
     name,
     setName,
   ] =
@@ -499,8 +508,22 @@ export function CampaignRecords() {
 
                 validityDays,
 
+                entitySelectionMode:
+                  useEntireEntityType
+                    ? "all_active_type"
+                    : "explicit",
+
+                entityTypeId:
+                  selectedTypeId
+                    ? Number(
+                        selectedTypeId,
+                      )
+                    : null,
+
                 entityRecordIds:
-                  selectedRecordIds,
+                  useEntireEntityType
+                    ? []
+                    : selectedRecordIds,
               }),
           },
         );
@@ -522,6 +545,7 @@ export function CampaignRecords() {
       setReward(100);
       setValidityDays(30);
       setSelectedRecordIds([]);
+      setUseEntireEntityType(false);
 
       await load();
     } catch (cause) {
@@ -731,6 +755,10 @@ export function CampaignRecords() {
                       setSelectedRecordIds(
                         [],
                       );
+
+                      setUseEntireEntityType(
+                        false,
+                      );
                     }
                   }
                   className="h-10 rounded-xl border bg-background px-3 text-sm"
@@ -761,6 +789,44 @@ export function CampaignRecords() {
               </label>
 
               {selectedTypeId && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-background p-4">
+                  <input
+                    type="checkbox"
+                    checked={
+                      useEntireEntityType
+                    }
+                    onChange={
+                      (event) => {
+                        setUseEntireEntityType(
+                          event.target.checked,
+                        );
+
+                        if (
+                          event.target.checked
+                        ) {
+                          setSelectedRecordIds(
+                            [],
+                          );
+                        }
+                      }
+                    }
+                    className="mt-1"
+                  />
+
+                  <span>
+                    <span className="block text-sm font-medium">
+                      Use the entire imported Entity list
+                    </span>
+
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                      Every active row in this Entity Type becomes eligible for this Campaign.
+                      Use this for complete Dealer CSV/XLSX lists.
+                    </span>
+                  </span>
+                </label>
+              )}
+
+              {selectedTypeId && !useEntireEntityType && (
                 <div className="grid gap-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">

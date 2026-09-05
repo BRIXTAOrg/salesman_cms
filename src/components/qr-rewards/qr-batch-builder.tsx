@@ -26,6 +26,12 @@ type EligibleEntity = {
   entityTypeName: string;
 
   label: string;
+
+  externalKey?:
+    string | null;
+
+  sourceTrace?:
+    Record<string, unknown> | null;
 };
 
 
@@ -49,6 +55,13 @@ type PrintRecord = {
   serialNumber: number;
   qrPayload: string;
   publicUrl?: string;
+
+  entityTypeId?: number;
+  entityTypeName?: string;
+  entityRecordId?: string;
+  entityExternalKey?: string | null;
+  entityLabel?: string;
+  sourceTrace?: Record<string, unknown>;
 };
 
 
@@ -274,7 +287,8 @@ export function QrBatchBuilder() {
   ] = useState<
     "none" |
     "fixed_entity" |
-    "claimant_selects"
+    "claimant_selects" |
+    "voucher_bound_entity"
   >(
     "none",
   );
@@ -285,6 +299,17 @@ export function QrBatchBuilder() {
   ] = useState(
     "",
   );
+
+  const [
+    entityAllocations,
+    setEntityAllocations,
+  ] = useState<
+    Record<
+      string,
+      number
+    >
+  >({});
+
 
   const [
     quantity,
@@ -354,11 +379,19 @@ export function QrBatchBuilder() {
           "",
         );
 
+        setEntityAllocations(
+          {},
+        );
+
         return;
       }
 
       setAttributionMode(
-        "claimant_selects",
+        "voucher_bound_entity",
+      );
+
+      setEntityAllocations(
+        {},
       );
 
       setFixedEntityRecordId(
@@ -465,6 +498,43 @@ export function QrBatchBuilder() {
   }, []);
 
 
+  const allocationTotal =
+    useMemo(
+      () =>
+        Object.values(
+          entityAllocations,
+        ).reduce(
+          (
+            total,
+            raw,
+          ) => {
+            const value =
+              Math.round(
+                Number(
+                  raw,
+                ),
+              );
+
+            return (
+              total +
+              (
+                Number.isFinite(
+                  value,
+                ) &&
+                value > 0
+                  ? value
+                  : 0
+              )
+            );
+          },
+          0,
+        ),
+      [
+        entityAllocations,
+      ],
+    );
+
+
   const liability =
     useMemo(
       () =>
@@ -495,6 +565,22 @@ export function QrBatchBuilder() {
     ) {
       setError(
         "Select an active Campaign before creating a QR batch.",
+      );
+      return;
+    }
+
+    if (
+      attributionMode ===
+        "voucher_bound_entity" &&
+      allocationTotal !==
+        quantity
+    ) {
+      setError(
+        `Dealer / Entity allocations must total exactly ${quantity.toLocaleString(
+          "en-IN",
+        )} QRs. Current total: ${allocationTotal.toLocaleString(
+          "en-IN",
+        )}.`,
       );
       return;
     }
@@ -530,6 +616,40 @@ export function QrBatchBuilder() {
                     "fixed_entity"
                     ? fixedEntityRecordId
                     : null,
+
+
+                entityAllocations:
+                  attributionMode ===
+                    "voucher_bound_entity"
+                    ? Object.entries(
+                        entityAllocations,
+                      )
+                        .filter(
+                          ([
+                            _id,
+                            value,
+                          ]) =>
+                            Number(
+                              value,
+                            ) >
+                            0,
+                        )
+                        .map(
+                          ([
+                            entityRecordId,
+                            value,
+                          ]) => ({
+                            entityRecordId,
+
+                            quantity:
+                              Math.round(
+                                Number(
+                                  value,
+                                ),
+                              ),
+                          }),
+                        )
+                    : [],
               }),
           },
         );
@@ -571,6 +691,14 @@ export function QrBatchBuilder() {
         "serial_number",
         "qr_payload",
         "public_url",
+        "entity_type",
+        "entity_record_id",
+        "entity_external_key",
+        "entity_label",
+        "source_import_run_id",
+        "source_file_name",
+        "source_file_sha256",
+        "source_row_number",
       ],
 
       ...result.printRecords.map(
@@ -582,6 +710,34 @@ export function QrBatchBuilder() {
           printableQrValue(
             record,
           ),
+
+          record.entityTypeName ??
+            "",
+
+          record.entityRecordId ??
+            "",
+
+          record.entityExternalKey ??
+            "",
+
+          record.entityLabel ??
+            "",
+
+          record.sourceTrace
+            ?.importRunId ??
+            "",
+
+          record.sourceTrace
+            ?.fileName ??
+            "",
+
+          record.sourceTrace
+            ?.fileSha256 ??
+            "",
+
+          record.sourceTrace
+            ?.rowNumber ??
+            "",
         ],
       ),
     ];
@@ -880,6 +1036,19 @@ export function QrBatchBuilder() {
                 result.batch.batchCode,
               )}
             </div>
+
+
+            ${
+              record.entityLabel
+                ? `
+                  <div class="batch">
+                    ${escapeHtml(
+                      record.entityLabel,
+                    )}
+                  </div>
+                `
+                : ""
+            }
           `;
 
           sheet.appendChild(
@@ -1000,7 +1169,7 @@ export function QrBatchBuilder() {
 
           <Field
             label="Entity attribution"
-            hint="Attach this physical QR batch to a fixed Entity, or let the claimant choose from the Campaign's eligible Entities."
+            hint="For traceability, bind each physical QR to its Dealer / Entity before distribution. The claimant never chooses it."
           >
             <div className="grid gap-2">
               <select
@@ -1020,7 +1189,8 @@ export function QrBatchBuilder() {
                         .value as
                         | "none"
                         | "fixed_entity"
-                        | "claimant_selects",
+                        | "claimant_selects"
+                        | "voucher_bound_entity",
                     )
                 }
                 className="h-10 w-full rounded-xl border bg-background px-3 text-sm"
@@ -1033,8 +1203,12 @@ export function QrBatchBuilder() {
                   ?.eligibleEntities
                   ?.length && (
                   <>
+                    <option value="voucher_bound_entity">
+                      Bind each physical QR to an Entity — traceable
+                    </option>
+
                     <option value="claimant_selects">
-                      Claimant selects Entity
+                      Claimant selects Entity — legacy/manual
                     </option>
 
                     <option value="fixed_entity">
@@ -1086,6 +1260,121 @@ export function QrBatchBuilder() {
                     ),
                   )}
                 </select>
+              )}
+
+              {attributionMode ===
+                "voucher_bound_entity" && (
+                <div className="grid gap-3 rounded-xl border bg-muted/10 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium">
+                        Physical QR distribution
+                      </div>
+
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Give each Dealer / Entity the exact number of physical QR codes you will physically distribute to them.
+                      </div>
+                    </div>
+
+                    <div
+                      className={
+                        allocationTotal ===
+                        quantity
+                          ? "text-sm font-semibold"
+                          : "text-sm font-semibold text-destructive"
+                      }
+                    >
+                      {allocationTotal.toLocaleString(
+                        "en-IN",
+                      )}
+                      {" / "}
+                      {quantity.toLocaleString(
+                        "en-IN",
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="max-h-80 overflow-auto rounded-xl border bg-background">
+                    {(selectedCampaign
+                      ?.eligibleEntities ??
+                      []
+                    ).map(
+                      (
+                        entity,
+                      ) => (
+                        <label
+                          key={
+                            entity.id
+                          }
+                          className="grid grid-cols-[1fr_110px] items-center gap-3 border-b px-3 py-2 last:border-b-0"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-medium">
+                              {
+                                entity.label
+                              }
+                            </span>
+
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {
+                                entity.externalKey ||
+                                entity.entityTypeName
+                              }
+                            </span>
+                          </span>
+
+                          <input
+                            type="number"
+                            min={0}
+                            max={
+                              quantity
+                            }
+                            value={
+                              entityAllocations[
+                                entity.id
+                              ] ??
+                              0
+                            }
+                            onChange={
+                              (
+                                event,
+                              ) => {
+                                const value =
+                                  Math.max(
+                                    0,
+                                    Math.round(
+                                      Number(
+                                        event.target.value,
+                                      ) ||
+                                      0,
+                                    ),
+                                  );
+
+                                setEntityAllocations(
+                                  (
+                                    current,
+                                  ) => ({
+                                    ...current,
+
+                                    [entity.id]:
+                                      value,
+                                  }),
+                                );
+                              }
+                            }
+                            aria-label={`Allocated QRs for ${entity.label}`}
+                            className="h-9 rounded-lg border bg-background px-2 text-right text-sm"
+                          />
+                        </label>
+                      ),
+                    )}
+                  </div>
+
+                  <div className="text-xs leading-5 text-muted-foreground">
+                    Serial numbers are allocated deterministically in this list order.
+                    The generated manifest records the exact QR → Entity relationship.
+                  </div>
+                </div>
               )}
             </div>
           </Field>
@@ -1159,9 +1448,9 @@ export function QrBatchBuilder() {
                 </div>
 
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                  These vouchers have no owner when minted.
-                  Claim ownership is assigned later by the
-                  atomic redemption service.
+                  Claimant ownership is assigned only by the atomic redemption service.
+                  Business distribution lineage may already be bound to a Dealer / Entity
+                  before the physical QR leaves your control.
                 </p>
               </div>
             </div>
@@ -1177,7 +1466,13 @@ export function QrBatchBuilder() {
             type="button"
             disabled={
               minting ||
-              !selectedCampaignId
+              !selectedCampaignId ||
+              (
+                attributionMode ===
+                  "voucher_bound_entity" &&
+                allocationTotal !==
+                  quantity
+              )
             }
             onClick={
               () =>

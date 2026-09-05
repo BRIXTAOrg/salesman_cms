@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import ExcelJS from "exceljs";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
@@ -468,6 +469,32 @@ export const POST = withTenantDb(
       ]),
     ].slice(0, 8);
 
+    /*
+     * BRIXTA_ENTITY_IMPORT_TRACEABILITY_V1
+     *
+     * Every imported row carries immutable source provenance.
+     */
+    const importRunId =
+      randomUUID();
+
+    const importedAt =
+      new Date()
+        .toISOString();
+
+    const fileSha256 =
+      createHash(
+        "sha256",
+      )
+        .update(
+          Buffer.from(
+            await file.arrayBuffer(),
+          ),
+        )
+        .digest(
+          "hex",
+        );
+
+
     const [entityType] = await db
       .insert(entityTypes)
       .values({
@@ -487,10 +514,12 @@ export const POST = withTenantDb(
           createdBy: "simple_data_manager_v1_0_1",
           import: {
             fileName: parsed.fileName,
+            fileSha256,
+            importRunId,
             displayField: displayKey,
             uniqueField: uniqueKey,
             rowCount: parsed.rows.length,
-            importedAt: new Date().toISOString(),
+            importedAt,
           },
         },
       })
@@ -515,6 +544,10 @@ export const POST = withTenantDb(
           entityTypeId: entityType.id,
           entityTypeKey: key,
           uniqueField: uniqueKey,
+          importRunId,
+          fileName: parsed.fileName,
+          fileSha256,
+          importedAt,
           importedBy: "simple_data_manager_v1_0_1",
         },
       })
@@ -526,7 +559,26 @@ export const POST = withTenantDb(
       entityTypeId: entityType.id,
       externalKey: externalKeys[index],
       status: "active",
-      data: row,
+      data: {
+        ...row,
+
+        /*
+         * Reserved immutable provenance namespace.
+         * It is intentionally NOT exposed as an editable/imported column.
+         */
+        __brixta_trace: {
+          importRunId,
+          fileName:
+            parsed.fileName,
+          fileSha256,
+          importedAt,
+          rowNumber:
+            index + 2,
+          uniqueKey:
+            externalKeys[index],
+        },
+      },
+
       createdByUserId: session.userId,
       updatedByUserId: session.userId,
     }));

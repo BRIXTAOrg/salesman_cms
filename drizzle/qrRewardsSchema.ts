@@ -958,6 +958,229 @@ export const qrRewardBatchAssignments = pgTable(
 
 
 
+
+/*
+ * QR REWARDS V6 — PHYSICAL QR TRACEABILITY
+ *
+ * A Campaign says which Entities are eligible.
+ *
+ * This table says where THIS EXACT PHYSICAL QR was distributed.
+ *
+ * Never overwrite custody history.
+ * End the old binding and append a new one.
+ */
+export const qrRewardVoucherEntityBindings =
+  pgTable(
+    "qr_reward_voucher_entity_bindings",
+    {
+      id: uuid(
+        "id",
+      ).primaryKey(),
+
+      voucherId: uuid(
+        "voucher_id",
+      )
+        .notNull()
+        .references(
+          () =>
+            qrRewardVouchers.id,
+          {
+            onDelete:
+              "restrict",
+          },
+        ),
+
+      /*
+       * Assignment active when this custody record was created.
+       * The physical binding itself may survive a Campaign
+       * reassignment until explicitly ended/rebound.
+       */
+      assignmentId: uuid(
+        "assignment_id",
+      )
+        .notNull()
+        .references(
+          () =>
+            qrRewardBatchAssignments.id,
+          {
+            onDelete:
+              "restrict",
+          },
+        ),
+
+      entityTypeId: integer(
+        "entity_type_id",
+      )
+        .notNull()
+        .references(
+          () =>
+            entityTypes.id,
+          {
+            onDelete:
+              "restrict",
+          },
+        ),
+
+      entityRecordId: uuid(
+        "entity_record_id",
+      )
+        .notNull()
+        .references(
+          () =>
+            entityRecords.id,
+          {
+            onDelete:
+              "restrict",
+          },
+        ),
+
+      /*
+       * Immutable human/business snapshots.
+       *
+       * Entity records may later be renamed or edited.
+       * Historical QR custody must not change.
+       */
+      entityTypeLabelSnapshot:
+        varchar(
+          "entity_type_label_snapshot",
+          {
+            length:
+              220,
+          },
+        ).notNull(),
+
+      entityExternalKeySnapshot:
+        varchar(
+          "entity_external_key_snapshot",
+          {
+            length:
+              255,
+          },
+        ),
+
+      entityLabelSnapshot:
+        varchar(
+          "entity_label_snapshot",
+          {
+            length:
+              500,
+          },
+        ).notNull(),
+
+      /*
+       * Snapshot the originating CSV/XLSX provenance when present:
+       *
+       * importRunId
+       * fileName
+       * fileSha256
+       * rowNumber
+       * uniqueKey
+       */
+      sourceTraceSnapshot:
+        jsonb(
+          "source_trace_snapshot",
+        )
+          .$type<
+            Record<
+              string,
+              unknown
+            >
+          >()
+          .notNull()
+          .default(
+            sql`'{}'::jsonb`,
+          ),
+
+      status: varchar(
+        "status",
+        {
+          length:
+            32,
+        },
+      )
+        .notNull()
+        .default(
+          "active",
+        ),
+
+      boundAt: timestamp(
+        "bound_at",
+        {
+          withTimezone:
+            true,
+          mode:
+            "string",
+        },
+      )
+        .notNull()
+        .defaultNow(),
+
+      endedAt: timestamp(
+        "ended_at",
+        {
+          withTimezone:
+            true,
+          mode:
+            "string",
+        },
+      ),
+
+      createdByUserId:
+        integer(
+          "created_by_user_id",
+        ),
+
+      createdAt: timestamp(
+        "created_at",
+        {
+          withTimezone:
+            true,
+          mode:
+            "string",
+        },
+      )
+        .notNull()
+        .defaultNow(),
+    },
+
+    (table) => [
+      index(
+        "idx_qr_reward_voucher_entity_binding_voucher",
+      ).on(
+        table.voucherId,
+      ),
+
+      index(
+        "idx_qr_reward_voucher_entity_binding_assignment",
+      ).on(
+        table.assignmentId,
+      ),
+
+      index(
+        "idx_qr_reward_voucher_entity_binding_entity",
+      ).on(
+        table.entityRecordId,
+      ),
+
+      /*
+       * HARD INVARIANT:
+       *
+       * One physical QR may have at most ONE current
+       * distribution/custody Entity.
+       */
+      uniqueIndex(
+        "qr_reward_voucher_entity_binding_one_active",
+      )
+        .on(
+          table.voucherId,
+        )
+        .where(
+          sql`${table.status} = 'active'`,
+        ),
+    ],
+  );
+
+
 export const qrRewardClaims = pgTable(
   "qr_reward_claims",
   {

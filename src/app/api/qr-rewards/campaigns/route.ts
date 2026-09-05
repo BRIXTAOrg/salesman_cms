@@ -197,6 +197,15 @@ export const GET =
                       'entityTypeName',
                         et.title,
 
+                      'externalKey',
+                        er.external_key,
+
+                      'sourceTrace',
+                        COALESCE(
+                          er.data -> '__brixta_trace',
+                          '{}'::jsonb
+                        ),
+
                       'label',
                         COALESCE(
                           (
@@ -342,6 +351,18 @@ export const POST =
           ),
         );
 
+      const entitySelectionMode =
+        String(
+          body?.entitySelectionMode ??
+            "explicit",
+        ).trim();
+
+      const requestedEntityTypeId =
+        Number(
+          body?.entityTypeId,
+        );
+
+
       if (!name) {
         return NextResponse.json(
           {
@@ -396,28 +417,122 @@ export const POST =
         Array<{
           id: string;
           entityTypeId: number;
-        }>;
+        }> = [];
+
+      let allEntityTypeId:
+        number | null =
+        null;
 
       try {
-        entities =
-          await validateEntityRecords(
-            db,
-            body?.entityRecordIds,
-          );
+        if (
+          entitySelectionMode ===
+            "all_active_type"
+        ) {
+          if (
+            !Number.isInteger(
+              requestedEntityTypeId,
+            )
+          ) {
+            throw new Error(
+              "Choose a valid Entity Type.",
+            );
+          }
+
+          const sourceResult =
+            await db.execute(sql`
+              SELECT
+                et.id,
+
+                COUNT(
+                  er.id
+                )::integer
+                  AS "recordCount"
+
+              FROM
+                entity_types et
+
+              LEFT JOIN
+                entity_records er
+                  ON er.entity_type_id =
+                    et.id
+
+                  AND er.status =
+                    'active'
+
+              WHERE
+                et.id =
+                  ${requestedEntityTypeId}
+
+                AND et.is_active =
+                  true
+
+              GROUP BY
+                et.id
+
+              LIMIT 1
+            `);
+
+          const source =
+            sourceResult.rows[0] as
+              | {
+                  id:
+                    number;
+
+                  recordCount:
+                    number;
+                }
+              | undefined;
+
+          if (
+            !source ||
+            Number(
+              source.recordCount,
+            ) < 1
+          ) {
+            throw new Error(
+              "This Entity list has no active records.",
+            );
+          }
+
+          if (
+            Number(
+              source.recordCount,
+            ) > 20000
+          ) {
+            throw new Error(
+              "A Campaign may currently consume up to 20,000 Entities from one imported list.",
+            );
+          }
+
+          allEntityTypeId =
+            Number(
+              source.id,
+            );
+        } else {
+          entities =
+            await validateEntityRecords(
+              db,
+              body?.entityRecordIds,
+            );
+        }
       } catch (cause) {
         return NextResponse.json(
           {
-            success: false,
+            success:
+              false,
+
             error:
               cause instanceof Error
                 ? cause.message
                 : "Invalid Entity selection.",
           },
           {
-            status: 400,
+            status:
+              400,
           },
         );
       }
+
 
       const starts =
         new Date();
@@ -467,10 +582,16 @@ export const POST =
           })
           .returning();
 
-      for (
-        const entity of
-        entities
+      if (
+        allEntityTypeId !==
+        null
       ) {
+        /*
+         * One imported CSV/XLSX Entity Type can become the
+         * Campaign's complete eligible Dealer universe.
+         *
+         * Use deterministic UUIDs so retries remain idempotent.
+         */
         await db.execute(sql`
           INSERT INTO
             qr_reward_campaign_entities (
@@ -481,13 +602,38 @@ export const POST =
               created_by_user_id
             )
 
-          VALUES (
-            ${randomUUID()},
-            ${campaignId},
-            ${entity.entityTypeId},
-            ${entity.id}::uuid,
+          SELECT
+            md5(
+              ${campaignId}::text ||
+              ':' ||
+              er.id::text
+            )::uuid,
+
+            ${campaignId}::uuid,
+
+            er.entity_type_id,
+
+            er.id,
+
             ${session.userId}
-          )
+
+          FROM
+            entity_records er
+
+          INNER JOIN
+            entity_types et
+              ON et.id =
+                er.entity_type_id
+
+          WHERE
+            er.entity_type_id =
+              ${allEntityTypeId}
+
+            AND er.status =
+              'active'
+
+            AND et.is_active =
+              true
 
           ON CONFLICT (
             campaign_id,
@@ -495,7 +641,38 @@ export const POST =
           )
           DO NOTHING
         `);
+      } else {
+        for (
+          const entity of
+          entities
+        ) {
+          await db.execute(sql`
+            INSERT INTO
+              qr_reward_campaign_entities (
+                id,
+                campaign_id,
+                entity_type_id,
+                entity_record_id,
+                created_by_user_id
+              )
+
+            VALUES (
+              ${randomUUID()},
+              ${campaignId},
+              ${entity.entityTypeId},
+              ${entity.id}::uuid,
+              ${session.userId}
+            )
+
+            ON CONFLICT (
+              campaign_id,
+              entity_record_id
+            )
+            DO NOTHING
+          `);
+        }
       }
+
 
       return NextResponse.json(
         {

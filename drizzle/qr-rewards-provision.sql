@@ -1618,6 +1618,176 @@ ON qr_reward_rule_evaluations(
 
 --> statement-breakpoint
 
+
+-- ==========================================================
+-- QR REWARDS V6
+--
+-- COMPLETE PHYSICAL TRACEABILITY:
+--
+-- imported Entity
+--   -> Campaign eligibility
+--   -> physical QR custody/binding
+--   -> scan
+--   -> claim snapshot
+--   -> payout
+-- ==========================================================
+
+
+/*
+ * Public claimants must never choose the business Entity
+ * when this attribution mode is used.
+ *
+ * The QR's ACTIVE binding is authoritative.
+ */
+ALTER TABLE
+  qr_reward_batch_assignments
+DROP CONSTRAINT IF EXISTS
+  qr_reward_batch_assignments_attribution_mode_check;
+
+--> statement-breakpoint
+
+ALTER TABLE
+  qr_reward_batch_assignments
+ADD CONSTRAINT
+  qr_reward_batch_assignments_attribution_mode_check
+CHECK (
+  attribution_mode IN (
+    'none',
+    'fixed_entity',
+    'claimant_selects',
+    'voucher_bound_entity'
+  )
+);
+
+--> statement-breakpoint
+
+
+CREATE TABLE IF NOT EXISTS
+  qr_reward_voucher_entity_bindings (
+    id uuid
+      PRIMARY KEY,
+
+    voucher_id uuid
+      NOT NULL
+      REFERENCES
+        qr_reward_vouchers(id)
+      ON DELETE
+        RESTRICT,
+
+    assignment_id uuid
+      NOT NULL
+      REFERENCES
+        qr_reward_batch_assignments(id)
+      ON DELETE
+        RESTRICT,
+
+    entity_type_id integer
+      NOT NULL
+      REFERENCES
+        entity_types(id)
+      ON DELETE
+        RESTRICT,
+
+    entity_record_id uuid
+      NOT NULL
+      REFERENCES
+        entity_records(id)
+      ON DELETE
+        RESTRICT,
+
+    entity_type_label_snapshot
+      varchar(220)
+      NOT NULL,
+
+    entity_external_key_snapshot
+      varchar(255),
+
+    entity_label_snapshot
+      varchar(500)
+      NOT NULL,
+
+    source_trace_snapshot
+      jsonb
+      NOT NULL
+      DEFAULT
+        '{}'::jsonb,
+
+    status
+      varchar(32)
+      NOT NULL
+      DEFAULT
+        'active',
+
+    bound_at
+      timestamptz
+      NOT NULL
+      DEFAULT
+        now(),
+
+    ended_at
+      timestamptz,
+
+    created_by_user_id
+      integer,
+
+    created_at
+      timestamptz
+      NOT NULL
+      DEFAULT
+        now()
+  );
+
+--> statement-breakpoint
+
+
+CREATE INDEX IF NOT EXISTS
+  idx_qr_reward_voucher_entity_binding_voucher
+ON
+  qr_reward_voucher_entity_bindings(
+    voucher_id
+  );
+
+--> statement-breakpoint
+
+
+CREATE INDEX IF NOT EXISTS
+  idx_qr_reward_voucher_entity_binding_assignment
+ON
+  qr_reward_voucher_entity_bindings(
+    assignment_id
+  );
+
+--> statement-breakpoint
+
+
+CREATE INDEX IF NOT EXISTS
+  idx_qr_reward_voucher_entity_binding_entity
+ON
+  qr_reward_voucher_entity_bindings(
+    entity_record_id
+  );
+
+--> statement-breakpoint
+
+
+/*
+ * A QR can move Dealer A -> Dealer B,
+ * but both can never be ACTIVE simultaneously.
+ */
+CREATE UNIQUE INDEX IF NOT EXISTS
+  qr_reward_voucher_entity_binding_one_active
+ON
+  qr_reward_voucher_entity_bindings(
+    voucher_id
+  )
+WHERE
+  status =
+    'active';
+
+--> statement-breakpoint
+
+
+
 INSERT INTO qr_rewards_meta(
   key,
   value,
@@ -1625,7 +1795,7 @@ INSERT INTO qr_rewards_meta(
 )
 VALUES (
   'schema_version',
-  '5',
+  '6',
   now()
 )
 ON CONFLICT (key)

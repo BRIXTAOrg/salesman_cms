@@ -28,6 +28,7 @@ import {
   qrRewardBatches,
   qrRewardCampaigns,
   qrRewardVouchers,
+  qrRewardVoucherEntityBindings,
   qrRewardRulebooks,
 } from "../../../../../drizzle/qrRewardsSchema";
 
@@ -46,6 +47,13 @@ type PrintableVoucher = {
    * Physical/mobile-camera representation.
    */
   publicUrl: string;
+
+  entityTypeId?: number;
+  entityTypeName?: string;
+  entityRecordId?: string;
+  entityExternalKey?: string | null;
+  entityLabel?: string;
+  sourceTrace?: Record<string, unknown>;
 };
 
 
@@ -77,6 +85,26 @@ function createBatchCode() {
       .toString("hex")
       .toUpperCase(),
   ].join("-");
+}
+
+
+function traceRecord(
+  value: unknown,
+): Record<string, unknown> {
+  return (
+    value &&
+    typeof value ===
+      "object" &&
+    !Array.isArray(
+      value,
+    )
+  )
+    ? value as
+        Record<
+          string,
+          unknown
+        >
+    : {};
 }
 
 
@@ -112,6 +140,12 @@ async function campaignEntities(
 
         et.title
           AS "entityTypeName",
+
+        er.external_key
+          AS "externalKey",
+
+        er.data -> '__brixta_trace'
+          AS "sourceTrace",
 
         COALESCE(
           (
@@ -180,6 +214,8 @@ async function campaignEntities(
     id: string;
     entityTypeId: number;
     entityTypeName: string;
+    externalKey: string | null;
+    sourceTrace: unknown;
     label: string;
   }>;
 }
@@ -569,6 +605,7 @@ export const POST =
           "none",
           "fixed_entity",
           "claimant_selects",
+          "voucher_bound_entity",
         ].includes(
           attributionMode,
         )
@@ -577,14 +614,153 @@ export const POST =
           "none";
       }
 
-      let fixedEntity:
-        | {
-            id: string;
-            entityTypeId: number;
-            entityTypeName: string;
-            label: string;
+      /*
+       * Individual physical QR -> Entity custody plan.
+       *
+       * Example:
+       *   Dealer A: 250
+       *   Dealer B: 300
+       *   Dealer C: 450
+       *
+       * Serial ranges are deterministic in this exact order.
+       */
+      const voucherEntityPlan:
+        Array<
+          (typeof eligible)[number]
+        > = [];
+
+      if (
+        attributionMode ===
+          "voucher_bound_entity"
+      ) {
+        const rawAllocations =
+          Array.isArray(
+            body?.entityAllocations,
+          )
+            ? body.entityAllocations
+            : [];
+
+        const seen =
+          new Set<string>();
+
+        let allocated =
+          0;
+
+        for (
+          const raw of
+          rawAllocations
+        ) {
+          const id =
+            String(
+              raw?.entityRecordId ??
+                "",
+            ).trim();
+
+          const units =
+            Math.round(
+              Number(
+                raw?.quantity,
+              ),
+            );
+
+          if (
+            !id ||
+            !Number.isInteger(
+              units,
+            ) ||
+            units <=
+              0 ||
+            seen.has(
+              id,
+            )
+          ) {
+            return NextResponse.json(
+              {
+                success:
+                  false,
+
+                error:
+                  "Every QR Entity allocation needs one unique eligible Entity and a positive quantity.",
+              },
+              {
+                status:
+                  400,
+              },
+            );
           }
+
+          const entity =
+            eligible.find(
+              (
+                candidate,
+              ) =>
+                candidate.id ===
+                id,
+            );
+
+          if (
+            !entity
+          ) {
+            return NextResponse.json(
+              {
+                success:
+                  false,
+
+                error:
+                  `Entity ${id} is not eligible for this Campaign.`,
+              },
+              {
+                status:
+                  400,
+              },
+            );
+          }
+
+          seen.add(
+            id,
+          );
+
+          allocated +=
+            units;
+
+          for (
+            let index = 0;
+            index < units;
+            index += 1
+          ) {
+            voucherEntityPlan.push(
+              entity,
+            );
+          }
+        }
+
+        if (
+          allocated !==
+            quantity ||
+          voucherEntityPlan.length !==
+            quantity
+        ) {
+          return NextResponse.json(
+            {
+              success:
+                false,
+
+              error:
+                `Entity allocations must total exactly ${quantity.toLocaleString("en-IN")} QRs. Current total: ${allocated.toLocaleString("en-IN")}.`,
+            },
+            {
+              status:
+                400,
+            },
+          );
+        }
+      }
+
+
+      let fixedEntity:
+        (typeof eligible)[number]
         | undefined;
+
 
       if (
         attributionMode ===
@@ -748,6 +924,12 @@ attributionMode,
           typeof qrRewardVouchers.$inferInsert
         > = [];
 
+
+      const bindingRows:
+        Array<
+          typeof qrRewardVoucherEntityBindings.$inferInsert
+        > = [];
+
       for (
         let index = 0;
         index < quantity;
@@ -764,6 +946,17 @@ attributionMode,
 
         const payload =
           `BRX:Q:1:${secret}`;
+
+        const boundEntity =
+          attributionMode ===
+            "voucher_bound_entity"
+            ? voucherEntityPlan[
+                index
+              ]
+            : attributionMode ===
+                "fixed_entity"
+              ? fixedEntity
+              : undefined;
 
         dbRows.push({
           id:
@@ -786,6 +979,46 @@ attributionMode,
             campaign.expiresAt,
         });
 
+        if (
+          boundEntity
+        ) {
+          bindingRows.push({
+            id:
+              randomUUID(),
+
+            voucherId,
+
+            assignmentId,
+
+            entityTypeId:
+              boundEntity.entityTypeId,
+
+            entityRecordId:
+              boundEntity.id,
+
+            entityTypeLabelSnapshot:
+              boundEntity.entityTypeName,
+
+            entityExternalKeySnapshot:
+              boundEntity.externalKey ??
+              null,
+
+            entityLabelSnapshot:
+              boundEntity.label,
+
+            sourceTraceSnapshot:
+              traceRecord(
+                boundEntity.sourceTrace,
+              ),
+
+            status:
+              "active",
+
+            createdByUserId:
+              session.userId,
+          });
+        }
+
         printable.push({
           voucherId,
 
@@ -800,6 +1033,35 @@ attributionMode,
             )}/${encodeURIComponent(
               secret,
             )}`,
+
+
+          entityTypeId:
+            boundEntity
+              ?.entityTypeId,
+
+          entityTypeName:
+            boundEntity
+              ?.entityTypeName,
+
+          entityRecordId:
+            boundEntity
+              ?.id,
+
+          entityExternalKey:
+            boundEntity
+              ?.externalKey ??
+            null,
+
+          entityLabel:
+            boundEntity
+              ?.label,
+
+          sourceTrace:
+            boundEntity
+              ? traceRecord(
+                  boundEntity.sourceTrace,
+                )
+              : {},
 
 });
       }
@@ -821,6 +1083,32 @@ attributionMode,
             ),
           );
       }
+
+      /*
+       * Vouchers must exist before their custody bindings due to FK.
+       */
+      for (
+        let offset = 0;
+        offset <
+          bindingRows.length;
+        offset += 500
+      ) {
+        if (
+          bindingRows.length
+        ) {
+          await db
+            .insert(
+              qrRewardVoucherEntityBindings,
+            )
+            .values(
+              bindingRows.slice(
+                offset,
+                offset + 500,
+              ),
+            );
+        }
+      }
+
 
       return NextResponse.json(
         {
