@@ -44,6 +44,7 @@ type CampaignRecord = {
   startsAt: string;
   expiresAt: string;
   status: string;
+  batchCount: number;
 
   eligibleEntities:
     EligibleEntity[];
@@ -386,22 +387,51 @@ export function QrBatchBuilder() {
         return;
       }
 
+      /* BRIXTA_AUTO_ENTITY_ALLOCATION_V8 */
+      if (
+        eligible.length !==
+          1
+      ) {
+        setAttributionMode(
+          "none",
+        );
+
+        setEntityAllocations(
+          {},
+        );
+
+        setFixedEntityRecordId(
+          "",
+        );
+
+        return;
+      }
+
       setAttributionMode(
         "voucher_bound_entity",
       );
 
-      setEntityAllocations(
-        {},
+      setFixedEntityRecordId(
+        eligible[0].id,
       );
 
-      setFixedEntityRecordId(
-        eligible[0]?.id ??
-          "",
-      );
+      setEntityAllocations({
+        [eligible[0].id]:
+          Math.max(
+            1,
+            Math.round(
+              Number(
+                quantity,
+              ) ||
+              0,
+            ),
+          ),
+      });
     },
     [
       selectedCampaignId,
       selectedCampaign,
+      quantity,
     ],
   );
 
@@ -566,6 +596,34 @@ export function QrBatchBuilder() {
       setError(
         "Select an active Campaign before creating a QR batch.",
       );
+      return;
+    }
+
+    if (
+      selectedCampaign
+        ?.eligibleEntities
+        ?.length !==
+        1
+    ) {
+      setError(
+        "This Campaign must belong to exactly one Entity before QR generation.",
+      );
+
+      return;
+    }
+
+    if (
+      Number(
+        selectedCampaign
+          ?.batchCount ??
+        0,
+      ) >
+      0
+    ) {
+      setError(
+        "This Campaign already has its physical QR Batch.",
+      );
+
       return;
     }
 
@@ -1169,7 +1227,7 @@ export function QrBatchBuilder() {
 
           <Field
             label="Entity attribution"
-            hint="For traceability, bind each physical QR to its Dealer / Entity before distribution. The claimant never chooses it."
+            hint="Inherited automatically from the Campaign. The claimant never chooses the Entity."
           >
             <div className="grid gap-2">
               <select

@@ -31,7 +31,7 @@ export const GET =
           {
             success: false,
             error:
-              "QR Rewards V4 is not provisioned.",
+              "QR Rewards schema is not provisioned or is out of date.",
           },
           {
             status: 503,

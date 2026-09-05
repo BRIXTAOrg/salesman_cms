@@ -83,6 +83,9 @@ export const POST =
         );
       }
 
+      /*
+       * TRACEABLE_REASSIGNMENT_V8
+       */
       await db.execute(sql`
         SELECT
           pg_advisory_xact_lock(
@@ -93,30 +96,138 @@ export const POST =
           )
       `);
 
-      const campaignResult =
+      const batchResult =
         await db.execute(sql`
           SELECT
             id,
-            name,
 
-            reward_amount_minor
-              AS "rewardAmountMinor",
-
-            currency,
-
-            starts_at
-              AS "startsAt",
-
-            expires_at
-              AS "expiresAt",
+            batch_code
+              AS "batchCode",
 
             status
 
           FROM
-            qr_reward_campaigns
+            qr_reward_batches
 
           WHERE
             id =
+              ${batchId}::uuid
+
+          LIMIT 1
+        `);
+
+      const batch =
+        batchResult.rows[0] as
+          | {
+              id: string;
+              batchCode: string;
+              status: string;
+            }
+          | undefined;
+
+      if (!batch) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Batch not found.",
+          },
+          {
+            status: 404,
+          },
+        );
+      }
+
+      if (
+        batch.status ===
+          "revoked"
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "A revoked Batch cannot be reassigned.",
+          },
+          {
+            status: 409,
+          },
+        );
+      }
+
+      const activeResult =
+        await db.execute(sql`
+          SELECT
+            campaign_id
+              AS "campaignId"
+
+          FROM
+            qr_reward_batch_assignments
+
+          WHERE
+            batch_id =
+              ${batchId}::uuid
+
+            AND
+            status =
+              'active'
+
+          LIMIT 1
+        `);
+
+      const activeCampaignId =
+        String(
+          (
+            activeResult.rows[0] as
+              | {
+                  campaignId?:
+                    unknown;
+                }
+              | undefined
+          )
+            ?.campaignId ??
+            "",
+        );
+
+      if (
+        activeCampaignId ===
+          campaignId
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "This Batch is already assigned to that Campaign.",
+          },
+          {
+            status: 409,
+          },
+        );
+      }
+
+      const campaignResult =
+        await db.execute(sql`
+          SELECT
+            c.id,
+            c.name,
+
+            c.reward_amount_minor
+              AS "rewardAmountMinor",
+
+            c.currency,
+
+            c.starts_at
+              AS "startsAt",
+
+            c.expires_at
+              AS "expiresAt",
+
+            c.status
+
+          FROM
+            qr_reward_campaigns c
+
+          WHERE
+            c.id =
               ${campaignId}::uuid
 
           LIMIT 1
@@ -175,95 +286,25 @@ export const POST =
         );
       }
 
-      /*
-       * QR_REWARD_REASSIGN_RULEBOOK_SNAPSHOT_V1
-       *
-       * Claimed QRs remain dead.
-       * Reusable unclaimed QRs receive the exact policy snapshot
-       * of the NEW active Campaign assignment.
-       */
-      const policyResult =
-        await db.execute(sql`
-          SELECT
-            c.scheme_id
-              AS "schemeId",
-
-            rb.id
-              AS "rulebookId",
-
-            rb.version
-              AS "rulebookVersion",
-
-            rb.rules_hash
-              AS "rulesHash"
-
-          FROM
-            qr_reward_campaigns c
-
-          INNER JOIN
-            qr_reward_rulebooks rb
-              ON rb.id =
-                c.current_rulebook_id
-
-              AND rb.scheme_id =
-                c.scheme_id
-
-          WHERE
-            c.id =
-              ${campaignId}::uuid
-
-            AND rb.status =
-              'published'
-
-          LIMIT 1
-        `);
-
-      const policy =
-        policyResult.rows[0] as
-          | {
-              schemeId:
-                string;
-
-              rulebookId:
-                string;
-
-              rulebookVersion:
-                number;
-
-              rulesHash:
-                string;
-            }
-          | undefined;
-
-      if (
-        !policy
-      ) {
-        return NextResponse.json(
-          {
-            success:
-              false,
-
-            error:
-              "Target Campaign does not have a published Rulebook.",
-          },
-          {
-            status:
-              409,
-          },
-        );
-      }
-
-
-      const entitiesResult =
+      const entityResult =
         await db.execute(sql`
           SELECT
             er.id,
 
-            et.id
+            er.entity_type_id
               AS "entityTypeId",
 
             et.title
               AS "entityTypeName",
+
+            er.external_key
+              AS "externalKey",
+
+            COALESCE(
+              er.data -> '__brixta_trace',
+              '{}'::jsonb
+            )
+              AS "sourceTrace",
 
             COALESCE(
               (
@@ -300,7 +341,8 @@ export const POST =
               er.external_key,
 
               er.id::text
-            ) AS label
+            )
+              AS label
 
           FROM
             qr_reward_campaign_entities ce
@@ -318,97 +360,140 @@ export const POST =
           WHERE
             ce.campaign_id =
               ${campaignId}::uuid
+
+            AND
+            er.status =
+              'active'
+
+            AND
+            et.is_active =
+              true
         `);
 
-      const eligible =
-        entitiesResult.rows as Array<{
+      if (
+        entityResult
+          .rows.length !==
+        1
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+
+            error:
+              "Target Campaign must belong to exactly one active Entity.",
+          },
+          {
+            status: 409,
+          },
+        );
+      }
+
+      const entity =
+        entityResult.rows[0] as {
           id: string;
           entityTypeId: number;
           entityTypeName: string;
+          externalKey: string | null;
+          sourceTrace: unknown;
           label: string;
-        }>;
+        };
 
-      const attributionMode =
-        String(
-          body?.attributionMode ??
-            (
-              eligible.length
-                ? "claimant_selects"
-                : "none"
-            ),
-        );
+      const conflictResult =
+        await db.execute(sql`
+          SELECT
+            batch_id
+              AS "batchId"
+
+          FROM
+            qr_reward_batch_assignments
+
+          WHERE
+            campaign_id =
+              ${campaignId}::uuid
+
+            AND
+            batch_id <>
+              ${batchId}::uuid
+
+          LIMIT 1
+        `);
 
       if (
-        ![
-          "none",
-          "fixed_entity",
-          "claimant_selects",
-        ].includes(
-          attributionMode,
-        )
+        conflictResult
+          .rows.length >
+        0
       ) {
         return NextResponse.json(
           {
             success: false,
+
             error:
-              "Invalid attribution mode.",
+              "Target Campaign already belongs to another physical QR Batch.",
           },
           {
-            status: 400,
+            status: 409,
           },
         );
       }
 
-      let fixedEntity:
-        | typeof eligible[number]
-        | undefined;
+      const policyResult =
+        await db.execute(sql`
+          SELECT
+            c.scheme_id
+              AS "schemeId",
 
-      if (
-        attributionMode ===
-          "fixed_entity"
-      ) {
-        const entityRecordId =
-          String(
-            body?.entityRecordId ??
-              "",
-          );
+            rb.id
+              AS "rulebookId",
 
-        fixedEntity =
-          eligible.find(
-            (item) =>
-              String(
-                item.id,
-              ) ===
-              entityRecordId,
-          );
+            rb.version
+              AS "rulebookVersion",
 
-        if (!fixedEntity) {
-          return NextResponse.json(
-            {
-              success: false,
-              error:
-                "Fixed Entity must belong to the target Campaign.",
-            },
-            {
-              status: 400,
-            },
-          );
-        }
-      }
+            rb.rules_hash
+              AS "rulesHash"
 
-      if (
-        attributionMode ===
-          "claimant_selects" &&
-        eligible.length === 0
-      ) {
+          FROM
+            qr_reward_campaigns c
+
+          INNER JOIN
+            qr_reward_rulebooks rb
+              ON rb.id =
+                c.current_rulebook_id
+
+              AND
+              rb.scheme_id =
+                c.scheme_id
+
+          WHERE
+            c.id =
+              ${campaignId}::uuid
+
+            AND
+            rb.status =
+              'published'
+
+          LIMIT 1
+        `);
+
+      const policy =
+        policyResult.rows[0] as
+          | {
+              schemeId: string;
+              rulebookId: string;
+              rulebookVersion: number;
+              rulesHash: string;
+            }
+          | undefined;
+
+      if (!policy) {
         return NextResponse.json(
           {
             success: false,
+
             error:
-              "Target Campaign has no selectable Entities.",
+              "Target Campaign does not have a published Rulebook.",
           },
           {
-            status: 400,
+            status: 409,
           },
         );
       }
@@ -440,13 +525,14 @@ export const POST =
       const reusableCount =
         Number(
           (
-            reusableResult
-              .rows[0] as
+            reusableResult.rows[0] as
               | {
-                  count?: unknown;
+                  count?:
+                    unknown;
                 }
               | undefined
-          )?.count ??
+          )
+            ?.count ??
             0,
         );
 
@@ -457,8 +543,9 @@ export const POST =
         return NextResponse.json(
           {
             success: false,
+
             error:
-              "This batch has no reusable QR codes.",
+              "This Batch has no reusable QR codes.",
           },
           {
             status: 409,
@@ -466,6 +553,9 @@ export const POST =
         );
       }
 
+      /*
+       * End old Campaign assignment.
+       */
       await db.execute(sql`
         UPDATE
           qr_reward_batch_assignments
@@ -484,6 +574,49 @@ export const POST =
           AND
           status =
             'active'
+      `);
+
+      /*
+       * End old Entity custody ONLY for reusable QRs.
+       * Claimed QR lineage is never changed.
+       */
+      await db.execute(sql`
+        UPDATE
+          qr_reward_voucher_entity_bindings
+
+        SET
+          status =
+            'ended',
+
+          ended_at =
+            now()
+
+        WHERE
+          status =
+            'active'
+
+          AND
+          voucher_id IN (
+            SELECT
+              v.id
+
+            FROM
+              qr_reward_vouchers v
+
+            WHERE
+              v.batch_id =
+                ${batchId}::uuid
+
+              AND
+              v.claimed_at
+                IS NULL
+
+              AND
+              v.status IN (
+                'available',
+                'expired'
+              )
+          )
       `);
 
       const assignmentId =
@@ -517,7 +650,7 @@ export const POST =
           )
 
         VALUES (
-          ${assignmentId},
+          ${assignmentId}::uuid,
           ${batchId}::uuid,
           ${campaignId}::uuid,
 
@@ -528,25 +661,15 @@ export const POST =
           )},
           ${policy.rulesHash},
 
-          ${attributionMode},
+          'voucher_bound_entity',
 
-          ${
-            fixedEntity
-              ?.entityTypeId ??
-            null
-          },
+          ${Number(
+            entity.entityTypeId,
+          )},
 
-          ${
-            fixedEntity
-              ?.id ??
-            null
-          }::uuid,
+          ${entity.id}::uuid,
 
-          ${
-            fixedEntity
-              ?.label ??
-            null
-          },
+          ${entity.label},
 
           ${Number(
             campaign.rewardAmountMinor,
@@ -562,6 +685,84 @@ export const POST =
 
           ${session.userId}
         )
+      `);
+
+      /*
+       * Append new custody rows.
+       */
+      await db.execute(sql`
+        INSERT INTO
+          qr_reward_voucher_entity_bindings (
+            id,
+            voucher_id,
+            assignment_id,
+
+            entity_type_id,
+            entity_record_id,
+
+            entity_type_label_snapshot,
+            entity_external_key_snapshot,
+            entity_label_snapshot,
+            source_trace_snapshot,
+
+            status,
+            bound_at,
+            created_by_user_id,
+            created_at
+          )
+
+        SELECT
+          md5(
+            v.id::text ||
+            ':' ||
+            ${assignmentId}
+          )::uuid,
+
+          v.id,
+
+          ${assignmentId}::uuid,
+
+          ${Number(
+            entity.entityTypeId,
+          )},
+
+          ${entity.id}::uuid,
+
+          ${entity.entityTypeName},
+
+          ${entity.externalKey},
+
+          ${entity.label},
+
+          ${JSON.stringify(
+            entity.sourceTrace ??
+              {},
+          )}::jsonb,
+
+          'active',
+
+          now(),
+
+          ${session.userId},
+
+          now()
+
+        FROM
+          qr_reward_vouchers v
+
+        WHERE
+          v.batch_id =
+            ${batchId}::uuid
+
+          AND
+          v.claimed_at
+            IS NULL
+
+          AND
+          v.status IN (
+            'available',
+            'expired'
+          )
       `);
 
       await db.execute(sql`
@@ -590,8 +791,61 @@ export const POST =
           )
       `);
 
+      await db.execute(sql`
+        INSERT INTO
+          qr_reward_batch_audit_events (
+            id,
+            batch_id,
+            batch_code_snapshot,
+            event_type,
+            actor_user_id,
+            details,
+            created_at
+          )
+
+        VALUES (
+          ${randomUUID()}::uuid,
+
+          ${batchId}::uuid,
+
+          ${batch.batchCode},
+
+          'reassigned',
+
+          ${session.userId},
+
+          jsonb_build_object(
+            'fromCampaignId',
+              ${activeCampaignId || null},
+
+            'toCampaignId',
+              ${campaignId},
+
+            'toCampaignName',
+              ${campaign.name},
+
+            'entityTypeId',
+              ${Number(
+                entity.entityTypeId,
+              )},
+
+            'entityRecordId',
+              ${entity.id},
+
+            'entityLabel',
+              ${entity.label},
+
+            'reusableQrCount',
+              ${reusableCount}
+          ),
+
+          now()
+        )
+      `);
+
       return NextResponse.json({
-        success: true,
+        success:
+          true,
 
         assignment: {
           id:
@@ -604,11 +858,22 @@ export const POST =
           campaignName:
             campaign.name,
 
-          attributionMode,
+          attributionMode:
+            "voucher_bound_entity",
 
-          entity:
-            fixedEntity ??
-            null,
+          entity: {
+            id:
+              entity.id,
+
+            entityTypeId:
+              entity.entityTypeId,
+
+            entityTypeName:
+              entity.entityTypeName,
+
+            label:
+              entity.label,
+          },
 
           reusableQrCount:
             reusableCount,

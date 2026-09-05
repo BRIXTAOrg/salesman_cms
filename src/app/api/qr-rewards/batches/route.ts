@@ -237,7 +237,7 @@ export const GET =
           {
             success: false,
             error:
-              "QR Rewards V4 is not provisioned.",
+              "QR Rewards schema is not provisioned or is out of date.",
           },
           {
             status: 503,
@@ -590,227 +590,92 @@ export const POST =
           campaignId,
         );
 
-      let attributionMode =
-        String(
-          body?.attributionMode ??
-            (
-              eligible.length
-                ? "claimant_selects"
-                : "none"
-            ),
-        );
-
-      if (
-        ![
-          "none",
-          "fixed_entity",
-          "claimant_selects",
-          "voucher_bound_entity",
-        ].includes(
-          attributionMode,
-        )
-      ) {
-        attributionMode =
-          "none";
-      }
-
       /*
-       * Individual physical QR -> Entity custody plan.
-       *
-       * Example:
-       *   Dealer A: 250
-       *   Dealer B: 300
-       *   Dealer C: 450
-       *
-       * Serial ranges are deterministic in this exact order.
+       * BRIXTA_CAMPAIGN_ENTITY_INHERITANCE_V8
        */
-      const voucherEntityPlan:
-        Array<
-          (typeof eligible)[number]
-        > = [];
-
       if (
-        attributionMode ===
-          "voucher_bound_entity"
-      ) {
-        const rawAllocations =
-          Array.isArray(
-            body?.entityAllocations,
-          )
-            ? body.entityAllocations
-            : [];
-
-        const seen =
-          new Set<string>();
-
-        let allocated =
-          0;
-
-        for (
-          const raw of
-          rawAllocations
-        ) {
-          const id =
-            String(
-              raw?.entityRecordId ??
-                "",
-            ).trim();
-
-          const units =
-            Math.round(
-              Number(
-                raw?.quantity,
-              ),
-            );
-
-          if (
-            !id ||
-            !Number.isInteger(
-              units,
-            ) ||
-            units <=
-              0 ||
-            seen.has(
-              id,
-            )
-          ) {
-            return NextResponse.json(
-              {
-                success:
-                  false,
-
-                error:
-                  "Every QR Entity allocation needs one unique eligible Entity and a positive quantity.",
-              },
-              {
-                status:
-                  400,
-              },
-            );
-          }
-
-          const entity =
-            eligible.find(
-              (
-                candidate,
-              ) =>
-                candidate.id ===
-                id,
-            );
-
-          if (
-            !entity
-          ) {
-            return NextResponse.json(
-              {
-                success:
-                  false,
-
-                error:
-                  `Entity ${id} is not eligible for this Campaign.`,
-              },
-              {
-                status:
-                  400,
-              },
-            );
-          }
-
-          seen.add(
-            id,
-          );
-
-          allocated +=
-            units;
-
-          for (
-            let index = 0;
-            index < units;
-            index += 1
-          ) {
-            voucherEntityPlan.push(
-              entity,
-            );
-          }
-        }
-
-        if (
-          allocated !==
-            quantity ||
-          voucherEntityPlan.length !==
-            quantity
-        ) {
-          return NextResponse.json(
-            {
-              success:
-                false,
-
-              error:
-                `Entity allocations must total exactly ${quantity.toLocaleString("en-IN")} QRs. Current total: ${allocated.toLocaleString("en-IN")}.`,
-            },
-            {
-              status:
-                400,
-            },
-          );
-        }
-      }
-
-
-      let fixedEntity:
-        (typeof eligible)[number]
-        | undefined;
-
-
-      if (
-        attributionMode ===
-          "fixed_entity"
-      ) {
-        const entityRecordId =
-          String(
-            body?.entityRecordId ??
-              "",
-          );
-
-        fixedEntity =
-          eligible.find(
-            (entity) =>
-              String(
-                entity.id,
-              ) ===
-              entityRecordId,
-          );
-
-        if (!fixedEntity) {
-          return NextResponse.json(
-            {
-              success: false,
-              error:
-                "Fixed Entity must be one of the Campaign's eligible Entities.",
-            },
-            {
-              status: 400,
-            },
-          );
-        }
-      }
-
-      if (
-        attributionMode ===
-          "claimant_selects" &&
-        eligible.length === 0
+        eligible.length !==
+          1
       ) {
         return NextResponse.json(
           {
-            success: false,
+            success:
+              false,
+
             error:
-              "This Campaign has no eligible Entities for claimant selection.",
+              eligible.length ===
+                0
+                ? "This Campaign has no Entity. Bind exactly one Entity before minting QRs."
+                : "This legacy Campaign has multiple Entities. Normalize it before minting QRs.",
           },
           {
-            status: 400,
+            status:
+              409,
           },
         );
       }
+
+      const existingBatchResult =
+        await db.execute(sql`
+          SELECT
+            batch_id
+              AS "batchId"
+
+          FROM
+            qr_reward_batch_assignments
+
+          WHERE
+            campaign_id =
+              ${campaignId}::uuid
+
+          LIMIT 1
+        `);
+
+      if (
+        existingBatchResult
+          .rows.length >
+        0
+      ) {
+        return NextResponse.json(
+          {
+            success:
+              false,
+
+            error:
+              "This Campaign already has its QR Batch. One Campaign can have only one physical Batch.",
+          },
+          {
+            status:
+              409,
+          },
+        );
+      }
+
+      const campaignEntity =
+        eligible[0];
+
+      /*
+       * Browser cannot override Entity ownership.
+       */
+      const attributionMode =
+        "voucher_bound_entity";
+
+      const fixedEntity =
+        campaignEntity;
+
+      const voucherEntityPlan:
+        Array<
+          (typeof eligible)[number]
+        > =
+        Array.from(
+          {
+            length:
+              quantity,
+          },
+          () =>
+            campaignEntity,
+        );
+
 
       const batchId =
         randomUUID();

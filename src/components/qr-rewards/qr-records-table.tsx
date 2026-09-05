@@ -7,9 +7,12 @@ import {
 } from "react";
 
 import {
+  Ban,
+  CalendarClock,
   Loader2,
   RefreshCw,
   Repeat2,
+  Trash2,
 } from "lucide-react";
 
 
@@ -70,6 +73,9 @@ type Batch = {
   availableCount: number;
   claimedCount: number;
   expiredCount: number;
+  revokedCount: number;
+
+  status: string;
 
   expiresAt:
     | string
@@ -87,6 +93,43 @@ type Draft = {
 
   entityRecordId: string;
 };
+
+
+function toDateTimeLocal(
+  value:
+    string | null,
+) {
+  if (!value) {
+    return "";
+  }
+
+  const date =
+    new Date(
+      value,
+    );
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return "";
+  }
+
+  const shifted =
+    new Date(
+      date.getTime() -
+      date.getTimezoneOffset() *
+        60_000,
+    );
+
+  return shifted
+    .toISOString()
+    .slice(
+      0,
+      16,
+    );
+}
 
 
 export function QrRecordsTable({
@@ -120,6 +163,18 @@ export function QrRecordsTable({
         Draft
       >
     >({});
+
+  const [
+    expiryDrafts,
+    setExpiryDrafts,
+  ] =
+    useState<
+      Record<
+        string,
+        string
+      >
+    >({});
+
 
   const [
     loading,
@@ -423,6 +478,289 @@ export function QrRecordsTable({
   }
 
 
+  async function updateExpiry(
+    batch: Batch,
+  ) {
+    const local =
+      expiryDrafts[
+        batch.id
+      ] ??
+      toDateTimeLocal(
+        batch.expiresAt,
+      );
+
+    if (!local) {
+      return;
+    }
+
+    const parsed =
+      new Date(
+        local,
+      );
+
+    if (
+      Number.isNaN(
+        parsed.getTime(),
+      )
+    ) {
+      setError(
+        "Choose a valid expiry date and time.",
+      );
+      return;
+    }
+
+    setBusy(
+      `${batch.id}:expiry`,
+    );
+
+    setError(
+      "",
+    );
+
+    try {
+      const response =
+        await fetch(
+          `/api/qr-rewards/batches/${encodeURIComponent(
+            batch.id,
+          )}`,
+          {
+            method:
+              "PATCH",
+
+            headers: {
+              "content-type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                expiresAt:
+                  parsed
+                    .toISOString(),
+              }),
+          },
+        );
+
+      const body =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          body?.error ||
+            "Expiry update failed.",
+        );
+      }
+
+      setExpiryDrafts(
+        (
+          current,
+        ) => {
+          const next = {
+            ...current,
+          };
+
+          delete next[
+            batch.id
+          ];
+
+          return next;
+        },
+      );
+
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Expiry update failed.",
+      );
+    } finally {
+      setBusy(
+        "",
+      );
+    }
+  }
+
+
+  async function revokeBatch(
+    batch: Batch,
+  ) {
+    const confirmed =
+      window.confirm(
+        [
+          `Revoke ${batch.batchCode}?`,
+          "",
+          "All remaining unclaimed QR codes will immediately stop working.",
+          "",
+          `${Number(
+            batch.claimedCount ??
+              0,
+          ).toLocaleString(
+            "en-IN",
+          )} already-claimed QRs remain immutable.`,
+          "",
+          "Dealer / Entity traceability history will be PRESERVED.",
+        ].join(
+          "\n",
+        ),
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setBusy(
+      `${batch.id}:revoke`,
+    );
+
+    setError(
+      "",
+    );
+
+    try {
+      const response =
+        await fetch(
+          `/api/qr-rewards/batches/${encodeURIComponent(
+            batch.id,
+          )}`,
+          {
+            method:
+              "POST",
+
+            headers: {
+              "content-type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                action:
+                  "revoke",
+              }),
+          },
+        );
+
+      const body =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          body?.error ||
+            "Batch revocation failed.",
+        );
+      }
+
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Batch revocation failed.",
+      );
+    } finally {
+      setBusy(
+        "",
+      );
+    }
+  }
+
+
+  async function deleteBatch(
+    batch: Batch,
+  ) {
+    if (
+      Number(
+        batch.claimedCount ??
+          0,
+      ) >
+      0
+    ) {
+      setError(
+        "This Batch has claimed QRs and cannot be hard-deleted. Revoke the remaining QR inventory instead.",
+      );
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        [
+          `PERMANENTLY DELETE ${batch.batchCode}?`,
+          "",
+          "This is intended only for unused/test batches.",
+          "",
+          "Voucher records, QR Entity bindings and assignment history for this live Batch will be removed.",
+          "",
+          "A V7 deletion audit tombstone will remain.",
+          "",
+          "Any physical QR labels already printed from this Batch will become invalid.",
+        ].join(
+          "\n",
+        ),
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const second =
+      window.prompt(
+        `Type the Batch code exactly to confirm:\n\n${batch.batchCode}`,
+      );
+
+    if (
+      second !==
+      batch.batchCode
+    ) {
+      return;
+    }
+
+    setBusy(
+      `${batch.id}:delete`,
+    );
+
+    setError(
+      "",
+    );
+
+    try {
+      const response =
+        await fetch(
+          `/api/qr-rewards/batches/${encodeURIComponent(
+            batch.id,
+          )}?confirm=${encodeURIComponent(
+            batch.batchCode,
+          )}`,
+          {
+            method:
+              "DELETE",
+          },
+        );
+
+      const body =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          body?.error ||
+            "Batch deletion failed.",
+        );
+      }
+
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Batch deletion failed.",
+      );
+    } finally {
+      setBusy(
+        "",
+      );
+    }
+  }
+
+
   if (
     loading
   ) {
@@ -470,7 +808,7 @@ export function QrRecordsTable({
 
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1450px] text-sm">
+        <table className="w-full min-w-[1750px] text-sm">
           <thead className="border-b bg-muted/30 text-left text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3">
@@ -499,6 +837,10 @@ export function QrRecordsTable({
 
               <th className="px-4 py-3">
                 Claimed
+              </th>
+
+              <th className="px-4 py-3">
+                Expiry / lifecycle
               </th>
 
               <th className="px-4 py-3">
@@ -595,6 +937,132 @@ export function QrRecordsTable({
                       {
                         batch.claimedCount
                       }
+                    </td>
+
+                    <td className="px-4 py-4">
+                      <div className="grid min-w-[310px] gap-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="datetime-local"
+                            value={
+                              expiryDrafts[
+                                batch.id
+                              ] ??
+                              toDateTimeLocal(
+                                batch.expiresAt,
+                              )
+                            }
+                            disabled={
+                              batch.status ===
+                                "revoked"
+                            }
+                            onChange={
+                              (
+                                event,
+                              ) =>
+                                setExpiryDrafts(
+                                  (
+                                    current,
+                                  ) => ({
+                                    ...current,
+
+                                    [batch.id]:
+                                      event
+                                        .target
+                                        .value,
+                                  }),
+                                )
+                            }
+                            className="h-9 min-w-0 flex-1 rounded-lg border bg-background px-2 text-xs disabled:opacity-50"
+                          />
+
+                          <button
+                            type="button"
+                            title="Save expiry"
+                            disabled={
+                              batch.status ===
+                                "revoked" ||
+                              busy !==
+                                ""
+                            }
+                            onClick={
+                              () =>
+                                void updateExpiry(
+                                  batch,
+                                )
+                            }
+                            className="flex h-9 items-center gap-1 rounded-lg border px-2 text-xs font-medium disabled:opacity-50"
+                          >
+                            <CalendarClock className="h-4 w-4" />
+                            Save
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={
+                              batch.status ===
+                                "revoked" ||
+                              busy !==
+                                ""
+                            }
+                            onClick={
+                              () =>
+                                void revokeBatch(
+                                  batch,
+                                )
+                            }
+                            className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border px-2 text-xs font-medium disabled:opacity-50"
+                          >
+                            <Ban className="h-4 w-4" />
+                            {
+                              batch.status ===
+                                "revoked"
+                                ? "Revoked"
+                                : "Revoke"
+                            }
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={
+                              Number(
+                                batch.claimedCount ??
+                                  0,
+                              ) >
+                                0 ||
+                              busy !==
+                                ""
+                            }
+                            title={
+                              Number(
+                                batch.claimedCount ??
+                                  0,
+                              ) >
+                              0
+                                ? "Claimed Batches cannot be hard-deleted."
+                                : "Hard delete unused/test Batch"
+                            }
+                            onClick={
+                              () =>
+                                void deleteBatch(
+                                  batch,
+                                )
+                            }
+                            className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border px-2 text-xs font-medium disabled:opacity-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </button>
+                        </div>
+
+                        <div className="text-[10px] text-muted-foreground">
+                          Status: {
+                            batch.status
+                          }
+                        </div>
+                      </div>
                     </td>
 
                     <td className="px-4 py-4">

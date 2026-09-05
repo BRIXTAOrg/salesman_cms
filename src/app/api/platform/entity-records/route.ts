@@ -1,72 +1,273 @@
-import { NextRequest, NextResponse } from "next/server";
-import { desc, eq } from "drizzle-orm";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
-import { hasPermission, withTenantDb } from "@/lib/auth";
-import { ensureTenantPlatformVNext } from "@/lib/platform-vnext-db";
-import { entityRecords } from "../../../../../drizzle/platformVNextSchema";
+import {
+  and,
+  desc,
+  eq,
+  sql,
+} from "drizzle-orm";
 
-export const GET = withTenantDb(async (request, db) => {
-  await ensureTenantPlatformVNext(db);
+import {
+  hasPermission,
+  withTenantDb,
+} from "@/lib/auth";
 
-  const entityTypeId = Number(request.nextUrl.searchParams.get("entityTypeId"));
-  const limit = Math.min(
-    Math.max(Number(request.nextUrl.searchParams.get("limit") ?? 50), 1),
-    100,
+import {
+  ensureTenantPlatformVNext,
+} from "@/lib/platform-vnext-db";
+
+import {
+  entityRecords,
+} from "../../../../../drizzle/platformVNextSchema";
+
+
+export const GET =
+  withTenantDb(
+    async (
+      request,
+      db,
+    ) => {
+      await ensureTenantPlatformVNext(
+        db,
+      );
+
+      const entityTypeId =
+        Number(
+          request.nextUrl
+            .searchParams
+            .get(
+              "entityTypeId",
+            ),
+        );
+
+      const limit =
+        Math.min(
+          Math.max(
+            Number(
+              request.nextUrl
+                .searchParams
+                .get(
+                  "limit",
+                ) ??
+                50,
+            ),
+            1,
+          ),
+          100,
+        );
+
+      const q =
+        String(
+          request.nextUrl
+            .searchParams
+            .get(
+              "q",
+            ) ??
+            "",
+        )
+          .trim()
+          .slice(
+            0,
+            160,
+          );
+
+      if (
+        !Number.isInteger(
+          entityTypeId,
+        )
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "entityTypeId is required.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      const pattern =
+        `%${q}%`;
+
+      const condition =
+        q
+          ? and(
+              eq(
+                entityRecords.entityTypeId,
+                entityTypeId,
+              ),
+
+              eq(
+                entityRecords.status,
+                "active",
+              ),
+
+              sql`(
+                COALESCE(
+                  ${entityRecords.externalKey},
+                  ''
+                ) ILIKE ${pattern}
+
+                OR
+
+                COALESCE(
+                  ${entityRecords.data}::text,
+                  ''
+                ) ILIKE ${pattern}
+              )`,
+            )
+          : and(
+              eq(
+                entityRecords.entityTypeId,
+                entityTypeId,
+              ),
+
+              eq(
+                entityRecords.status,
+                "active",
+              ),
+            );
+
+      const rows =
+        await db
+          .select()
+          .from(
+            entityRecords,
+          )
+          .where(
+            condition,
+          )
+          .orderBy(
+            desc(
+              entityRecords.updatedAt,
+            ),
+          )
+          .limit(
+            limit,
+          );
+
+      return NextResponse.json({
+        success: true,
+        records: rows,
+      });
+    },
   );
 
-  if (!Number.isInteger(entityTypeId)) {
-    return NextResponse.json(
-      { success: false, error: "entityTypeId is required." },
-      { status: 400 },
-    );
-  }
 
-  const rows = await db
-    .select()
-    .from(entityRecords)
-    .where(eq(entityRecords.entityTypeId, entityTypeId))
-    .orderBy(desc(entityRecords.updatedAt))
-    .limit(limit);
+export const POST =
+  withTenantDb(
+    async (
+      request: NextRequest,
+      db,
+      session,
+    ) => {
+      if (
+        !hasPermission(
+          session.permissions,
+          [
+            "WRITE",
+            "ALL_ACCESS",
+          ],
+        )
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Permission denied.",
+          },
+          {
+            status: 403,
+          },
+        );
+      }
 
-  return NextResponse.json({ success: true, records: rows });
-});
+      await ensureTenantPlatformVNext(
+        db,
+      );
 
-export const POST = withTenantDb(async (request: NextRequest, db, session) => {
-  if (!hasPermission(session.permissions, ["WRITE", "ALL_ACCESS"])) {
-    return NextResponse.json(
-      { success: false, error: "Permission denied." },
-      { status: 403 },
-    );
-  }
+      const body =
+        await request
+          .json()
+          .catch(
+            () => null,
+          );
 
-  await ensureTenantPlatformVNext(db);
-  const body = await request.json().catch(() => null);
-  const entityTypeId = Number(body?.entityTypeId);
+      const entityTypeId =
+        Number(
+          body?.entityTypeId,
+        );
 
-  if (!Number.isInteger(entityTypeId)) {
-    return NextResponse.json(
-      { success: false, error: "entityTypeId is required." },
-      { status: 400 },
-    );
-  }
+      if (
+        !Number.isInteger(
+          entityTypeId,
+        )
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "entityTypeId is required.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
 
-  const [created] = await db
-    .insert(entityRecords)
-    .values({
-      entityTypeId,
-      externalKey: body?.externalKey ? String(body.externalKey) : null,
-      status: body?.status ? String(body.status) : "active",
-      data:
-        body?.data && typeof body.data === "object" && !Array.isArray(body.data)
-          ? body.data
-          : {},
-      createdByUserId: session.userId,
-      updatedByUserId: session.userId,
-    })
-    .returning();
+      const [created] =
+        await db
+          .insert(
+            entityRecords,
+          )
+          .values({
+            entityTypeId,
 
-  return NextResponse.json(
-    { success: true, record: created },
-    { status: 201 },
+            externalKey:
+              body?.externalKey
+                ? String(
+                    body.externalKey,
+                  )
+                : null,
+
+            status:
+              body?.status
+                ? String(
+                    body.status,
+                  )
+                : "active",
+
+            data:
+              body?.data &&
+              typeof body.data ===
+                "object" &&
+              !Array.isArray(
+                body.data,
+              )
+                ? body.data
+                : {},
+
+            createdByUserId:
+              session.userId,
+
+            updatedByUserId:
+              session.userId,
+          })
+          .returning();
+
+      return NextResponse.json(
+        {
+          success: true,
+          record: created,
+        },
+        {
+          status: 201,
+        },
+      );
+    },
   );
-});

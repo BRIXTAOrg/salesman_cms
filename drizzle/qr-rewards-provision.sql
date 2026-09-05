@@ -1788,6 +1788,203 @@ WHERE
 
 
 
+
+-- ==========================================================
+-- QR REWARDS V7
+--
+-- BATCH LIFECYCLE TRACEABILITY
+--
+-- expiry_changed
+-- revoked
+-- hard_deleted
+--
+-- Audit rows deliberately survive a hard Batch delete.
+-- ==========================================================
+
+
+CREATE TABLE IF NOT EXISTS
+  qr_reward_batch_audit_events (
+    id uuid
+      PRIMARY KEY,
+
+    /*
+     * NO FK intentionally.
+     *
+     * Audit tombstone survives hard deletion of an
+     * unclaimed test/unused Batch.
+     */
+    batch_id uuid
+      NOT NULL,
+
+    batch_code_snapshot
+      varchar(80)
+      NOT NULL,
+
+    event_type
+      varchar(64)
+      NOT NULL,
+
+    actor_user_id
+      integer,
+
+    details
+      jsonb
+      NOT NULL
+      DEFAULT
+        '{}'::jsonb,
+
+    created_at
+      timestamptz
+      NOT NULL
+      DEFAULT
+        now()
+  );
+
+--> statement-breakpoint
+
+
+CREATE INDEX IF NOT EXISTS
+  idx_qr_reward_batch_audit_batch
+ON
+  qr_reward_batch_audit_events(
+    batch_id
+  );
+
+--> statement-breakpoint
+
+
+CREATE INDEX IF NOT EXISTS
+  idx_qr_reward_batch_audit_time
+ON
+  qr_reward_batch_audit_events(
+    created_at
+  );
+
+--> statement-breakpoint
+
+
+
+
+-- ==============================================================
+-- QR REWARDS V8
+-- SINGLE ENTITY / SINGLE PHYSICAL BATCH
+--
+-- Existing legacy rows are preserved.
+-- Future conflicting writes are blocked.
+-- ==============================================================
+
+CREATE OR REPLACE FUNCTION
+  qr_reward_guard_campaign_single_entity()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  PERFORM
+    pg_advisory_xact_lock(
+      hashtextextended(
+        'brixta:qr-campaign-entity:' ||
+        NEW.campaign_id::text,
+        0
+      )
+    );
+
+  IF EXISTS (
+    SELECT
+      1
+
+    FROM
+      qr_reward_campaign_entities ce
+
+    WHERE
+      ce.campaign_id =
+        NEW.campaign_id
+
+      AND
+      ce.id <>
+        NEW.id
+  ) THEN
+    RAISE EXCEPTION
+      'A QR Reward Campaign may belong to exactly one Entity.';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+DROP TRIGGER IF EXISTS
+  qr_reward_campaign_single_entity_guard
+ON
+  qr_reward_campaign_entities;
+
+
+CREATE TRIGGER
+  qr_reward_campaign_single_entity_guard
+BEFORE INSERT OR UPDATE OF
+  campaign_id
+ON
+  qr_reward_campaign_entities
+FOR EACH ROW
+EXECUTE FUNCTION
+  qr_reward_guard_campaign_single_entity();
+
+
+CREATE OR REPLACE FUNCTION
+  qr_reward_guard_campaign_single_batch()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  PERFORM
+    pg_advisory_xact_lock(
+      hashtextextended(
+        'brixta:qr-campaign-batch:' ||
+        NEW.campaign_id::text,
+        0
+      )
+    );
+
+  IF EXISTS (
+    SELECT
+      1
+
+    FROM
+      qr_reward_batch_assignments a
+
+    WHERE
+      a.campaign_id =
+        NEW.campaign_id
+
+      AND
+      a.batch_id <>
+        NEW.batch_id
+  ) THEN
+    RAISE EXCEPTION
+      'A QR Reward Campaign may belong to only one physical Batch.';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+DROP TRIGGER IF EXISTS
+  qr_reward_campaign_single_batch_guard
+ON
+  qr_reward_batch_assignments;
+
+
+CREATE TRIGGER
+  qr_reward_campaign_single_batch_guard
+BEFORE INSERT OR UPDATE OF
+  campaign_id,
+  batch_id
+ON
+  qr_reward_batch_assignments
+FOR EACH ROW
+EXECUTE FUNCTION
+  qr_reward_guard_campaign_single_batch();
+
 INSERT INTO qr_rewards_meta(
   key,
   value,
@@ -1795,7 +1992,7 @@ INSERT INTO qr_rewards_meta(
 )
 VALUES (
   'schema_version',
-  '6',
+  '8',
   now()
 )
 ON CONFLICT (key)

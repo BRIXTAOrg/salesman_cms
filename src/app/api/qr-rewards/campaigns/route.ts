@@ -135,7 +135,7 @@ export const GET =
           {
             success: false,
             error:
-              "QR Rewards V4 is not provisioned.",
+              "QR Rewards schema is not provisioned or is out of date.",
           },
           {
             status: 503,
@@ -298,17 +298,13 @@ export const POST =
       if (
         !hasPermission(
           session.permissions,
-          [
-            "WRITE",
-            "ALL_ACCESS",
-          ],
+          ["WRITE", "ALL_ACCESS"],
         )
       ) {
         return NextResponse.json(
           {
             success: false,
-            error:
-              "Permission denied.",
+            error: "Permission denied.",
           },
           {
             status: 403,
@@ -319,9 +315,7 @@ export const POST =
       const body =
         await request
           .json()
-          .catch(
-            () => null,
-          );
+          .catch(() => null);
 
       const name =
         String(
@@ -351,17 +345,11 @@ export const POST =
           ),
         );
 
-      const entitySelectionMode =
+      const entityRecordId =
         String(
-          body?.entitySelectionMode ??
-            "explicit",
+          body?.entityRecordId ??
+            "",
         ).trim();
-
-      const requestedEntityTypeId =
-        Number(
-          body?.entityTypeId,
-        );
-
 
       if (!name) {
         return NextResponse.json(
@@ -413,108 +401,44 @@ export const POST =
         );
       }
 
-      let entities:
-        Array<{
-          id: string;
-          entityTypeId: number;
-        }> = [];
+      if (!entityRecordId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Every Campaign must belong to exactly one Entity.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
 
-      let allEntityTypeId:
-        number | null =
-        null;
+      let entity: {
+        id: string;
+        entityTypeId: number;
+      };
 
       try {
+        const validated =
+          await validateEntityRecords(
+            db,
+            [
+              entityRecordId,
+            ],
+          );
+
         if (
-          entitySelectionMode ===
-            "all_active_type"
+          validated.length !==
+          1
         ) {
-          if (
-            !Number.isInteger(
-              requestedEntityTypeId,
-            )
-          ) {
-            throw new Error(
-              "Choose a valid Entity Type.",
-            );
-          }
-
-          const sourceResult =
-            await db.execute(sql`
-              SELECT
-                et.id,
-
-                COUNT(
-                  er.id
-                )::integer
-                  AS "recordCount"
-
-              FROM
-                entity_types et
-
-              LEFT JOIN
-                entity_records er
-                  ON er.entity_type_id =
-                    et.id
-
-                  AND er.status =
-                    'active'
-
-              WHERE
-                et.id =
-                  ${requestedEntityTypeId}
-
-                AND et.is_active =
-                  true
-
-              GROUP BY
-                et.id
-
-              LIMIT 1
-            `);
-
-          const source =
-            sourceResult.rows[0] as
-              | {
-                  id:
-                    number;
-
-                  recordCount:
-                    number;
-                }
-              | undefined;
-
-          if (
-            !source ||
-            Number(
-              source.recordCount,
-            ) < 1
-          ) {
-            throw new Error(
-              "This Entity list has no active records.",
-            );
-          }
-
-          if (
-            Number(
-              source.recordCount,
-            ) > 20000
-          ) {
-            throw new Error(
-              "A Campaign may currently consume up to 20,000 Entities from one imported list.",
-            );
-          }
-
-          allEntityTypeId =
-            Number(
-              source.id,
-            );
-        } else {
-          entities =
-            await validateEntityRecords(
-              db,
-              body?.entityRecordIds,
-            );
+          throw new Error(
+            "Campaign must resolve to exactly one active Entity.",
+          );
         }
+
+        entity =
+          validated[0];
       } catch (cause) {
         return NextResponse.json(
           {
@@ -524,7 +448,7 @@ export const POST =
             error:
               cause instanceof Error
                 ? cause.message
-                : "Invalid Entity selection.",
+                : "Invalid Campaign Entity.",
           },
           {
             status:
@@ -532,7 +456,6 @@ export const POST =
           },
         );
       }
-
 
       const starts =
         new Date();
@@ -582,97 +505,32 @@ export const POST =
           })
           .returning();
 
-      if (
-        allEntityTypeId !==
-        null
-      ) {
-        /*
-         * One imported CSV/XLSX Entity Type can become the
-         * Campaign's complete eligible Dealer universe.
-         *
-         * Use deterministic UUIDs so retries remain idempotent.
-         */
-        await db.execute(sql`
-          INSERT INTO
-            qr_reward_campaign_entities (
-              id,
-              campaign_id,
-              entity_type_id,
-              entity_record_id,
-              created_by_user_id
-            )
-
-          SELECT
-            md5(
-              ${campaignId}::text ||
-              ':' ||
-              er.id::text
-            )::uuid,
-
-            ${campaignId}::uuid,
-
-            er.entity_type_id,
-
-            er.id,
-
-            ${session.userId}
-
-          FROM
-            entity_records er
-
-          INNER JOIN
-            entity_types et
-              ON et.id =
-                er.entity_type_id
-
-          WHERE
-            er.entity_type_id =
-              ${allEntityTypeId}
-
-            AND er.status =
-              'active'
-
-            AND et.is_active =
-              true
-
-          ON CONFLICT (
+      /*
+       * BRIXTA_CAMPAIGN_SINGLE_ENTITY_V1
+       *
+       * Never hardcode Dealer.
+       *
+       * Entity may be Dealer, Distributor,
+       * Retailer, Warehouse, Project, etc.
+       */
+      await db.execute(sql`
+        INSERT INTO
+          qr_reward_campaign_entities (
+            id,
             campaign_id,
-            entity_record_id
+            entity_type_id,
+            entity_record_id,
+            created_by_user_id
           )
-          DO NOTHING
-        `);
-      } else {
-        for (
-          const entity of
-          entities
-        ) {
-          await db.execute(sql`
-            INSERT INTO
-              qr_reward_campaign_entities (
-                id,
-                campaign_id,
-                entity_type_id,
-                entity_record_id,
-                created_by_user_id
-              )
 
-            VALUES (
-              ${randomUUID()},
-              ${campaignId},
-              ${entity.entityTypeId},
-              ${entity.id}::uuid,
-              ${session.userId}
-            )
-
-            ON CONFLICT (
-              campaign_id,
-              entity_record_id
-            )
-            DO NOTHING
-          `);
-        }
-      }
-
+        VALUES (
+          ${randomUUID()}::uuid,
+          ${campaignId}::uuid,
+          ${entity.entityTypeId},
+          ${entity.id}::uuid,
+          ${session.userId}
+        )
+      `);
 
       return NextResponse.json(
         {
@@ -683,5 +541,236 @@ export const POST =
           status: 201,
         },
       );
+    },
+  );
+
+
+/*
+ * Legacy normalizer.
+ *
+ * Safe only before this Campaign has ever touched a QR Batch.
+ */
+export const PATCH =
+  withTenantDb(
+    async (
+      request: NextRequest,
+      db,
+      session,
+    ) => {
+      if (
+        !hasPermission(
+          session.permissions,
+          [
+            "WRITE",
+            "UPDATE",
+            "ALL_ACCESS",
+          ],
+        )
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Permission denied.",
+          },
+          {
+            status: 403,
+          },
+        );
+      }
+
+      const body =
+        await request
+          .json()
+          .catch(() => null);
+
+      const campaignId =
+        String(
+          body?.campaignId ??
+            "",
+        ).trim();
+
+      const entityRecordId =
+        String(
+          body?.entityRecordId ??
+            "",
+        ).trim();
+
+      if (
+        !campaignId ||
+        !entityRecordId
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "campaignId and entityRecordId are required.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      const campaignResult =
+        await db.execute(sql`
+          SELECT
+            c.id,
+            c.name,
+
+            (
+              SELECT
+                COUNT(*)::integer
+
+              FROM
+                qr_reward_batch_assignments a
+
+              WHERE
+                a.campaign_id =
+                  c.id
+            )
+              AS "batchCount"
+
+          FROM
+            qr_reward_campaigns c
+
+          WHERE
+            c.id =
+              ${campaignId}::uuid
+
+          LIMIT 1
+        `);
+
+      const campaign =
+        campaignResult
+          .rows[0] as
+          | {
+              id: string;
+              name: string;
+              batchCount: number;
+            }
+          | undefined;
+
+      if (!campaign) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Campaign not found.",
+          },
+          {
+            status: 404,
+          },
+        );
+      }
+
+      if (
+        Number(
+          campaign.batchCount ??
+            0,
+        ) >
+        0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+
+            error:
+              "This Campaign already has QR Batch history. Its Entity lineage is immutable.",
+          },
+          {
+            status: 409,
+          },
+        );
+      }
+
+      let entity: {
+        id: string;
+        entityTypeId: number;
+      };
+
+      try {
+        const validated =
+          await validateEntityRecords(
+            db,
+            [
+              entityRecordId,
+            ],
+          );
+
+        if (
+          validated.length !==
+          1
+        ) {
+          throw new Error(
+            "Campaign must resolve to exactly one active Entity.",
+          );
+        }
+
+        entity =
+          validated[0];
+      } catch (cause) {
+        return NextResponse.json(
+          {
+            success:
+              false,
+
+            error:
+              cause instanceof Error
+                ? cause.message
+                : "Invalid Campaign Entity.",
+          },
+          {
+            status:
+              400,
+          },
+        );
+      }
+
+      /*
+       * Safe because no Batch history exists.
+       */
+      await db.execute(sql`
+        DELETE FROM
+          qr_reward_campaign_entities
+
+        WHERE
+          campaign_id =
+            ${campaignId}::uuid
+      `);
+
+      await db.execute(sql`
+        INSERT INTO
+          qr_reward_campaign_entities (
+            id,
+            campaign_id,
+            entity_type_id,
+            entity_record_id,
+            created_by_user_id
+          )
+
+        VALUES (
+          ${randomUUID()}::uuid,
+          ${campaignId}::uuid,
+          ${entity.entityTypeId},
+          ${entity.id}::uuid,
+          ${session.userId}
+        )
+      `);
+
+      return NextResponse.json({
+        success:
+          true,
+
+        campaignId,
+
+        entity: {
+          entityTypeId:
+            entity.entityTypeId,
+
+          entityRecordId:
+            entity.id,
+        },
+      });
     },
   );

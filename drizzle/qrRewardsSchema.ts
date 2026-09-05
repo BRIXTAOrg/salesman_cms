@@ -1181,6 +1181,97 @@ export const qrRewardVoucherEntityBindings =
   );
 
 
+
+/*
+ * QR REWARDS V7 — BATCH LIFECYCLE AUDIT
+ *
+ * IMPORTANT:
+ *
+ * batchId intentionally has NO foreign key.
+ *
+ * A zero-claim test/unused Batch may be hard-deleted,
+ * while this tombstone remains permanently queryable.
+ */
+export const qrRewardBatchAuditEvents =
+  pgTable(
+    "qr_reward_batch_audit_events",
+    {
+      id: uuid(
+        "id",
+      ).primaryKey(),
+
+      batchId: uuid(
+        "batch_id",
+      ).notNull(),
+
+      batchCodeSnapshot:
+        varchar(
+          "batch_code_snapshot",
+          {
+            length:
+              80,
+          },
+        ).notNull(),
+
+      eventType:
+        varchar(
+          "event_type",
+          {
+            length:
+              64,
+          },
+        ).notNull(),
+
+      actorUserId:
+        integer(
+          "actor_user_id",
+        ),
+
+      details:
+        jsonb(
+          "details",
+        )
+          .$type<
+            Record<
+              string,
+              unknown
+            >
+          >()
+          .notNull()
+          .default(
+            sql`'{}'::jsonb`,
+          ),
+
+      createdAt:
+        timestamp(
+          "created_at",
+          {
+            withTimezone:
+              true,
+            mode:
+              "string",
+          },
+        )
+          .notNull()
+          .defaultNow(),
+    },
+
+    (table) => [
+      index(
+        "idx_qr_reward_batch_audit_batch",
+      ).on(
+        table.batchId,
+      ),
+
+      index(
+        "idx_qr_reward_batch_audit_time",
+      ).on(
+        table.createdAt,
+      ),
+    ],
+  );
+
+
 export const qrRewardClaims = pgTable(
   "qr_reward_claims",
   {

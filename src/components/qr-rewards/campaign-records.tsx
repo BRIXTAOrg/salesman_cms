@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 import {
   FormEvent,
   useCallback,
@@ -15,22 +13,15 @@ type EntityType = {
   id: number;
   key: string;
   title: string;
-
-  searchableFields?:
-    string[];
-
+  searchableFields?: string[];
   isActive: boolean;
 };
 
 
 type EntityRecord = {
   id: string;
-
   entityTypeId: number;
-
-  externalKey?:
-    string | null;
-
+  externalKey?: string | null;
   status: string;
 
   data:
@@ -43,29 +34,20 @@ type EntityRecord = {
 
 type EligibleEntity = {
   id: string;
-
   entityTypeId: number;
-
   entityTypeName: string;
-
+  externalKey?: string | null;
   label: string;
 };
 
 
 type Campaign = {
   id: string;
-
   name: string;
-
-  description?:
-    string | null;
-
+  description?: string | null;
   rewardAmountMinor: number;
-
   expiresAt: string;
-
   status: string;
-
   batchCount: number;
 
   eligibleEntities:
@@ -97,9 +79,10 @@ function money(
 
 
 function recordLabel(
-  record: EntityRecord,
-  type:
-    EntityType | undefined,
+  record:
+    EntityRecord,
+  type?:
+    EntityType,
 ) {
   for (
     const key of
@@ -126,6 +109,8 @@ function recordLabel(
       "name",
       "title",
       "dealer_name",
+      "distributor_name",
+      "retailer_name",
       "store_name",
       "company_name",
     ]
@@ -185,21 +170,20 @@ export function CampaignRecords() {
     );
 
   const [
-    selectedRecordIds,
-    setSelectedRecordIds,
-  ] =
-    useState<
-      string[]
-    >([]);
-
-  const [
-    useEntireEntityType,
-    setUseEntireEntityType,
+    selectedEntityRecordId,
+    setSelectedEntityRecordId,
   ] =
     useState(
-      false,
+      "",
     );
 
+  const [
+    search,
+    setSearch,
+  ] =
+    useState(
+      "",
+    );
 
   const [
     name,
@@ -242,11 +226,27 @@ export function CampaignRecords() {
     );
 
   const [
+    searching,
+    setSearching,
+  ] =
+    useState(
+      false,
+    );
+
+  const [
     creating,
     setCreating,
   ] =
     useState(
       false,
+    );
+
+  const [
+    bindingCampaignId,
+    setBindingCampaignId,
+  ] =
+    useState(
+      "",
     );
 
   const [
@@ -271,8 +271,8 @@ export function CampaignRecords() {
 
         try {
           const [
-            campaignsResponse,
-            entityTypesResponse,
+            campaignResponse,
+            entityResponse,
           ] =
             await Promise.all([
               fetch(
@@ -293,44 +293,41 @@ export function CampaignRecords() {
             ]);
 
           const [
-            campaignsBody,
-            entityTypesBody,
+            campaignBody,
+            entityBody,
           ] =
             await Promise.all([
-              campaignsResponse
-                .json(),
-
-              entityTypesResponse
-                .json(),
+              campaignResponse.json(),
+              entityResponse.json(),
             ]);
 
           if (
-            !campaignsResponse.ok
+            !campaignResponse.ok
           ) {
             throw new Error(
-              campaignsBody?.error ||
+              campaignBody?.error ||
                 "Could not load Campaigns.",
             );
           }
 
           if (
-            !entityTypesResponse.ok
+            !entityResponse.ok
           ) {
             throw new Error(
-              entityTypesBody?.error ||
-                "Could not load Entities.",
+              entityBody?.error ||
+                "Could not load Entity Types.",
             );
           }
 
           setCampaigns(
-            campaignsBody
+            campaignBody
               .campaigns ??
               [],
           );
 
           const types =
             (
-              entityTypesBody
+              entityBody
                 .entityTypes ??
               []
             ).filter(
@@ -385,65 +382,134 @@ export function CampaignRecords() {
   );
 
 
+  /*
+   * Server-side Entity search.
+   */
   useEffect(
     () => {
       if (
         !selectedTypeId
       ) {
-        setRecords([]);
+        setRecords(
+          [],
+        );
+
+        setSelectedEntityRecordId(
+          "",
+        );
+
         return;
       }
 
       let active =
         true;
 
-      async function loadRecords() {
-        const response =
-          await fetch(
-            `/api/platform/entity-records?entityTypeId=${encodeURIComponent(
-              selectedTypeId,
-            )}&limit=100`,
-            {
-              cache:
-                "no-store",
-            },
-          );
+      const timer =
+        window.setTimeout(
+          async () => {
+            setSearching(
+              true,
+            );
 
-        const body =
-          await response.json();
+            try {
+              const response =
+                await fetch(
+                  `/api/platform/entity-records?entityTypeId=${encodeURIComponent(
+                    selectedTypeId,
+                  )}&limit=100&q=${encodeURIComponent(
+                    search,
+                  )}`,
+                  {
+                    cache:
+                      "no-store",
+                  },
+                );
 
-        if (!active) {
-          return;
-        }
+              const body =
+                await response.json();
 
-        if (
-          response.ok
-        ) {
-          setRecords(
-            (
-              body.records ??
-              []
-            ).filter(
-              (
-                item:
-                  EntityRecord,
-              ) =>
-                item.status ===
-                "active",
-            ),
-          );
-        }
-      }
+              if (!active) {
+                return;
+              }
 
-      void loadRecords();
+              if (
+                !response.ok
+              ) {
+                throw new Error(
+                  body?.error ||
+                    "Could not search Entities.",
+                );
+              }
+
+              const rows =
+                (
+                  body.records ??
+                  []
+                ).filter(
+                  (
+                    item:
+                      EntityRecord,
+                  ) =>
+                    item.status ===
+                      "active",
+                );
+
+              setRecords(
+                rows,
+              );
+
+              setSelectedEntityRecordId(
+                (
+                  current,
+                ) =>
+                  rows.some(
+                    (
+                      row:
+                        EntityRecord,
+                    ) =>
+                      row.id ===
+                      current,
+                  )
+                    ? current
+                    : rows[0]
+                        ?.id ??
+                      "",
+              );
+            } catch (cause) {
+              if (
+                active
+              ) {
+                setError(
+                  cause instanceof Error
+                    ? cause.message
+                    : "Entity search failed.",
+                );
+              }
+            } finally {
+              if (
+                active
+              ) {
+                setSearching(
+                  false,
+                );
+              }
+            }
+          },
+          250,
+        );
 
       return () => {
         active =
           false;
+
+        window.clearTimeout(
+          timer,
+        );
       };
     },
     [
       selectedTypeId,
+      search,
     ],
   );
 
@@ -473,6 +539,16 @@ export function CampaignRecords() {
   ) {
     event.preventDefault();
 
+    if (
+      !selectedEntityRecordId
+    ) {
+      setError(
+        "Choose exactly one Entity for this Campaign.",
+      );
+
+      return;
+    }
+
     setCreating(
       true,
     );
@@ -497,7 +573,6 @@ export function CampaignRecords() {
             body:
               JSON.stringify({
                 name,
-
                 description,
 
                 rewardAmountMinor:
@@ -508,22 +583,8 @@ export function CampaignRecords() {
 
                 validityDays,
 
-                entitySelectionMode:
-                  useEntireEntityType
-                    ? "all_active_type"
-                    : "explicit",
-
-                entityTypeId:
-                  selectedTypeId
-                    ? Number(
-                        selectedTypeId,
-                      )
-                    : null,
-
-                entityRecordIds:
-                  useEntireEntityType
-                    ? []
-                    : selectedRecordIds,
+                entityRecordId:
+                  selectedEntityRecordId,
               }),
           },
         );
@@ -540,12 +601,21 @@ export function CampaignRecords() {
         );
       }
 
-      setName("");
-      setDescription("");
-      setReward(100);
-      setValidityDays(30);
-      setSelectedRecordIds([]);
-      setUseEntireEntityType(false);
+      setName(
+        "",
+      );
+
+      setDescription(
+        "",
+      );
+
+      setReward(
+        100,
+      );
+
+      setValidityDays(
+        30,
+      );
 
       await load();
     } catch (cause) {
@@ -562,28 +632,111 @@ export function CampaignRecords() {
   }
 
 
-  function toggleRecord(
-    id: string,
+  async function normalizeCampaign(
+    campaign:
+      Campaign,
   ) {
-    setSelectedRecordIds(
-      (
-        current,
-      ) =>
-        current.includes(
-          id,
-        )
-          ? current.filter(
-              (
-                value,
-              ) =>
-                value !==
-                id,
-            )
-          : [
-              ...current,
-              id,
-            ],
+    if (
+      !selectedEntityRecordId ||
+      Number(
+        campaign.batchCount ??
+          0,
+      ) >
+        0
+    ) {
+      return;
+    }
+
+    const selected =
+      records.find(
+        (
+          record,
+        ) =>
+          record.id ===
+          selectedEntityRecordId,
+      );
+
+    const label =
+      selected
+        ? recordLabel(
+            selected,
+            selectedType,
+          )
+        : selectedEntityRecordId;
+
+    if (
+      !window.confirm(
+        [
+          `Campaign: ${campaign.name}`,
+          "",
+          `Entity Type: ${selectedType?.title ?? "Entity"}`,
+          `Entity: ${label}`,
+          "",
+          "This Campaign will belong to this ONE Entity.",
+        ].join(
+          "\n",
+        ),
+      )
+    ) {
+      return;
+    }
+
+    setBindingCampaignId(
+      campaign.id,
     );
+
+    setError(
+      "",
+    );
+
+    try {
+      const response =
+        await fetch(
+          "/api/qr-rewards/campaigns",
+          {
+            method:
+              "PATCH",
+
+            headers: {
+              "content-type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                campaignId:
+                  campaign.id,
+
+                entityRecordId:
+                  selectedEntityRecordId,
+              }),
+          },
+        );
+
+      const body =
+        await response.json();
+
+      if (
+        !response.ok
+      ) {
+        throw new Error(
+          body?.error ||
+            "Could not normalize Campaign Entity.",
+        );
+      }
+
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not normalize Campaign Entity.",
+      );
+    } finally {
+      setBindingCampaignId(
+        "",
+      );
+    }
   }
 
 
@@ -596,7 +749,7 @@ export function CampaignRecords() {
           </h2>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Build a reward programme and directly attach reusable BRIXTA Entity records.
+            One Entity can own many Campaigns. Every Campaign belongs to exactly one Entity.
           </p>
         </div>
 
@@ -622,12 +775,10 @@ export function CampaignRecords() {
                     event,
                   ) =>
                     setName(
-                      event
-                        .target
-                        .value,
+                      event.target.value,
                     )
                 }
-                placeholder="Mason Rewards September"
+                placeholder="September Mason Reward"
                 className="h-10 rounded-xl border bg-background px-3 text-sm"
               />
             </label>
@@ -655,9 +806,7 @@ export function CampaignRecords() {
                     ) =>
                       setReward(
                         Number(
-                          event
-                            .target
-                            .value,
+                          event.target.value,
                         ),
                       )
                   }
@@ -676,9 +825,7 @@ export function CampaignRecords() {
                 event,
               ) =>
                 setDescription(
-                  event
-                    .target
-                    .value,
+                  event.target.value,
                 )
             }
             placeholder="Campaign description"
@@ -705,9 +852,7 @@ export function CampaignRecords() {
                   ) =>
                     setValidityDays(
                       Number(
-                        event
-                          .target
-                          .value,
+                        event.target.value,
                       ),
                     )
                 }
@@ -724,18 +869,18 @@ export function CampaignRecords() {
           <section className="rounded-xl border bg-muted/10">
             <div className="border-b p-4">
               <div className="font-medium">
-                Eligible business Entities
+                Campaign Entity
               </div>
 
-              <p className="mt-1 text-xs text-muted-foreground">
-                These are the same reusable Entities uploaded elsewhere in BRIXTA.
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Generic BRIXTA Entity: Dealer, Distributor, Retailer, Warehouse, Project, or another imported Entity Type.
               </p>
             </div>
 
-            <div className="grid gap-4 p-4">
+            <div className="grid gap-4 p-4 md:grid-cols-2">
               <label className="grid gap-2">
                 <span className="text-sm font-medium">
-                  Entity type
+                  Entity Type
                 </span>
 
                 <select
@@ -747,24 +892,22 @@ export function CampaignRecords() {
                       event,
                     ) => {
                       setSelectedTypeId(
-                        event
-                          .target
-                          .value,
+                        event.target.value,
                       );
 
-                      setSelectedRecordIds(
-                        [],
+                      setSelectedEntityRecordId(
+                        "",
                       );
 
-                      setUseEntireEntityType(
-                        false,
+                      setSearch(
+                        "",
                       );
                     }
                   }
                   className="h-10 rounded-xl border bg-background px-3 text-sm"
                 >
                   <option value="">
-                    No Entity attribution
+                    Choose Entity Type
                   </option>
 
                   {entityTypes.map(
@@ -788,138 +931,106 @@ export function CampaignRecords() {
                 </select>
               </label>
 
-              {selectedTypeId && (
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-background p-4">
-                  <input
-                    type="checkbox"
-                    checked={
-                      useEntireEntityType
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">
+                  Search Entity
+                </span>
+
+                <input
+                  value={
+                    search
+                  }
+                  onChange={
+                    (
+                      event,
+                    ) =>
+                      setSearch(
+                        event.target.value,
+                      )
+                  }
+                  placeholder="Name / code / imported value"
+                  className="h-10 rounded-xl border bg-background px-3 text-sm"
+                />
+              </label>
+
+              <label className="grid gap-2 md:col-span-2">
+                <span className="text-sm font-medium">
+                  Exact Entity
+                </span>
+
+                <select
+                  required
+                  disabled={
+                    searching
+                  }
+                  value={
+                    selectedEntityRecordId
+                  }
+                  onChange={
+                    (
+                      event,
+                    ) =>
+                      setSelectedEntityRecordId(
+                        event.target.value,
+                      )
+                  }
+                  className="h-11 rounded-xl border bg-background px-3 text-sm disabled:opacity-60"
+                >
+                  <option value="">
+                    {
+                      searching
+                        ? "Searching..."
+                        : "Choose exactly one Entity"
                     }
-                    onChange={
-                      (event) => {
-                        setUseEntireEntityType(
-                          event.target.checked,
-                        );
+                  </option>
 
-                        if (
-                          event.target.checked
-                        ) {
-                          setSelectedRecordIds(
-                            [],
-                          );
+                  {records.map(
+                    (
+                      record,
+                    ) => (
+                      <option
+                        key={
+                          record.id
                         }
-                      }
-                    }
-                    className="mt-1"
-                  />
-
-                  <span>
-                    <span className="block text-sm font-medium">
-                      Use the entire imported Entity list
-                    </span>
-
-                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                      Every active row in this Entity Type becomes eligible for this Campaign.
-                      Use this for complete Dealer CSV/XLSX lists.
-                    </span>
-                  </span>
-                </label>
-              )}
-
-              {selectedTypeId && !useEntireEntityType && (
-                <div className="grid gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">
-                      Eligible {
-                        selectedType
-                          ?.title ??
-                        "Entities"
-                      }
-                    </span>
-
-                    {!!records.length && (
-                      <button
-                        type="button"
-                        onClick={
-                          () =>
-                            setSelectedRecordIds(
-                              records.map(
-                                (
-                                  record,
-                                ) =>
-                                  record.id,
-                              ),
-                            )
+                        value={
+                          record.id
                         }
-                        className="text-xs underline"
                       >
-                        Select all
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="max-h-64 overflow-auto rounded-xl border bg-background">
-                    {!records.length ? (
-                      <div className="p-4 text-sm text-muted-foreground">
-                        No active Entity records found for this type.
-                      </div>
-                    ) : (
-                      <div className="divide-y">
-                        {records.map(
-                          (
+                        {
+                          recordLabel(
                             record,
-                          ) => (
-                            <label
-                              key={
-                                record.id
-                              }
-                              className="flex cursor-pointer items-center gap-3 px-4 py-3"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={
-                                  selectedRecordIds.includes(
-                                    record.id,
-                                  )
-                                }
-                                onChange={
-                                  () =>
-                                    toggleRecord(
-                                      record.id,
-                                    )
-                                }
-                              />
+                            selectedType,
+                          )
+                        }
 
-                              <span className="text-sm">
-                                {recordLabel(
-                                  record,
-                                  selectedType,
-                                )}
-                              </span>
-                            </label>
-                          ),
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                        {
+                          record.externalKey
+                            ? ` · ${record.externalKey}`
+                            : ""
+                        }
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
             </div>
           </section>
 
 
           {error && (
-            <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
               {error}
             </div>
           )}
 
+
           <button
             type="submit"
             disabled={
-              creating
+              creating ||
+              !selectedEntityRecordId
             }
-            className="h-10 rounded-xl bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-50"
+            className="h-11 rounded-xl bg-foreground px-5 text-sm font-semibold text-background disabled:opacity-50"
           >
             {
               creating
@@ -931,162 +1042,164 @@ export function CampaignRecords() {
       </section>
 
 
-      <section>
-        <div className="mb-3">
+      <section className="rounded-2xl border bg-card">
+        <div className="border-b p-5">
           <h2 className="font-semibold">
-            Existing Campaigns
+            Campaigns
           </h2>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Open a Campaign for its live QR, Entity and claim analytics.
+            The Campaign Entity automatically becomes the Entity of every QR in its Batch.
           </p>
         </div>
 
         {loading ? (
-          <div className="rounded-2xl border bg-card p-8 text-sm text-muted-foreground">
+          <div className="p-6 text-sm text-muted-foreground">
             Loading Campaigns...
           </div>
-        ) : !campaigns.length ? (
-          <div className="rounded-2xl border bg-card p-8 text-sm text-muted-foreground">
-            No Campaigns yet.
-          </div>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border bg-card">
-            <table className="w-full min-w-[900px] text-sm">
-              <thead className="border-b bg-muted/30 text-left text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3">
-                    Campaign
-                  </th>
+          <div className="divide-y">
+            {campaigns.map(
+              (
+                campaign,
+              ) => {
+                const entityCount =
+                  campaign
+                    .eligibleEntities
+                    ?.length ??
+                  0;
 
-                  <th className="px-4 py-3">
-                    Entities
-                  </th>
+                const entity =
+                  entityCount ===
+                  1
+                    ? campaign
+                        .eligibleEntities[0]
+                    : null;
 
-                  <th className="px-4 py-3">
-                    Reward
-                  </th>
+                const hasBatchHistory =
+                  Number(
+                    campaign.batchCount ??
+                      0,
+                  ) >
+                  0;
 
-                  <th className="px-4 py-3">
-                    Batches
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Expiry
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Status
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Dashboard
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y">
-                {campaigns.map(
-                  (
-                    campaign,
-                  ) => {
-                    const typeNames = [
-                      ...new Set(
-                        (
-                          campaign
-                            .eligibleEntities ??
-                          []
-                        ).map(
-                          (
-                            entity,
-                          ) =>
-                            entity
-                              .entityTypeName,
-                        ),
-                      ),
-                    ];
-
-                    return (
-                      <tr
-                        key={
-                          campaign.id
-                        }
-                      >
-                        <td className="px-4 py-4">
-                          <div className="font-medium">
-                            {
-                              campaign.name
-                            }
-                          </div>
-
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            {
-                              campaign.description ||
-                              "—"
-                            }
-                          </div>
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <div className="font-medium">
-                            {
-                              campaign
-                                .eligibleEntities
-                                ?.length ??
-                              0
-                            }
-                          </div>
-
-                          <div className="text-xs text-muted-foreground">
-                            {
-                              typeNames.join(
-                                ", ",
-                              ) ||
-                              "No attribution"
-                            }
-                          </div>
-                        </td>
-
-                        <td className="px-4 py-4 font-medium">
-                          {money(
-                            campaign.rewardAmountMinor,
-                          )}
-                        </td>
-
-                        <td className="px-4 py-4">
+                return (
+                  <div
+                    key={
+                      campaign.id
+                    }
+                    className="grid gap-4 p-5 lg:grid-cols-[1fr_auto]"
+                  >
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="font-semibold">
                           {
-                            campaign.batchCount
+                            campaign.name
                           }
-                        </td>
+                        </div>
 
-                        <td className="px-4 py-4">
-                          {new Date(
-                            campaign.expiresAt,
-                          ).toLocaleDateString(
-                            "en-IN",
-                          )}
-                        </td>
-
-                        <td className="px-4 py-4">
+                        <span className="rounded-full border px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
                           {
                             campaign.status
                           }
-                        </td>
+                        </span>
+                      </div>
 
-                        <td className="px-4 py-4">
-                          <Link
-                            href={`/dashboard/qr-rewards/campaigns/${campaign.id}`}
-                            className="inline-flex h-8 items-center rounded-lg border px-3 text-xs font-medium hover:bg-muted"
-                          >
-                            Open
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  },
-                )}
-              </tbody>
-            </table>
+                      <div className="mt-2 text-sm text-muted-foreground">
+                        {
+                          money(
+                            campaign.rewardAmountMinor,
+                          )
+                        }
+                        {" · expires "}
+                        {
+                          new Date(
+                            campaign.expiresAt,
+                          ).toLocaleString(
+                            "en-IN",
+                          )
+                        }
+                      </div>
+
+                      <div className="mt-3 rounded-xl border bg-muted/10 p-3">
+                        {entity ? (
+                          <>
+                            <div className="text-xs uppercase text-muted-foreground">
+                              {
+                                entity.entityTypeName
+                              }
+                            </div>
+
+                            <div className="mt-1 text-sm font-semibold">
+                              {
+                                entity.label
+                              }
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-sm font-medium text-destructive">
+                              {
+                                entityCount ===
+                                0
+                                  ? "No Entity assigned"
+                                  : `Legacy Campaign has ${entityCount} Entities`
+                              }
+                            </div>
+
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {
+                                hasBatchHistory
+                                  ? "Existing QR history is preserved and cannot be rewritten."
+                                  : "Choose one Entity above, then normalize this Campaign."
+                              }
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {
+                          Number(
+                            campaign.batchCount ??
+                              0,
+                          )
+                        } batch history
+                      </span>
+
+                      {!hasBatchHistory && (
+                        <button
+                          type="button"
+                          disabled={
+                            !selectedEntityRecordId ||
+                            bindingCampaignId ===
+                              campaign.id
+                          }
+                          onClick={
+                            () =>
+                              void normalizeCampaign(
+                                campaign,
+                              )
+                          }
+                          className="h-9 rounded-lg border px-3 text-xs font-medium disabled:opacity-50"
+                        >
+                          {
+                            bindingCampaignId ===
+                              campaign.id
+                              ? "Saving..."
+                              : entity
+                                ? "Replace Entity"
+                                : "Normalize Entity"
+                          }
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              },
+            )}
           </div>
         )}
       </section>
