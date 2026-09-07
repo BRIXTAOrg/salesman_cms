@@ -3,6 +3,7 @@
 // BRIXTA_FAST_FLUTTER_ONLY
 // One preview only: the local Flutter/Stac renderer on :5050.
 
+import { Smartphone } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -12,7 +13,6 @@ import {
 } from "react";
 
 import type { ResponsibilityKernel } from "@/lib/responsibility-kernel-types";
-import { SoftPreviewOverlay } from "./soft-preview-overlay";
 
 type Props = {
   kernel: ResponsibilityKernel;
@@ -201,13 +201,32 @@ export function FlutterLivePreview(props: Props) {
   if (!document) return null;
 
   return (
-    <SoftPreviewOverlay
-      title="Flutter device preview"
-      subtitle="Live employee-app runtime render. Open it only when you need it."
-      badge="Flutter"
-    >
-      <div className="brixta-flutter-preview-stage">
-        <div className="brixta-flutter-device-frame">
+    <div className="mt-4 overflow-hidden rounded-xl border bg-background">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-3 sm:px-4">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Smartphone className="h-4 w-4" />
+            Flutter device preview
+          </div>
+
+          <div className="mt-0.5 text-[11px] text-muted-foreground">
+            Local Flutter/Stac employee-app preview.
+          </div>
+        </div>
+
+        <span className="rounded-full border px-2 py-1 text-[10px] text-muted-foreground">
+          {ready ? "LIVE" : "CONNECTING"}
+        </span>
+      </div>
+
+      <div className="bg-muted/20 p-3">
+        <div
+          className="mx-auto max-w-full overflow-hidden rounded-[clamp(18px,3vw,32px)] border-[clamp(3px,0.5vw,6px)] border-foreground/90 bg-background"
+          style={{
+            width: "min(390px, 100%, calc(72svh * 13 / 24))",
+            aspectRatio: "13 / 24",
+          }}
+        >
           <iframe
             ref={iframeRef}
             title="BRIXTA Flutter preview"
@@ -221,6 +240,6 @@ export function FlutterLivePreview(props: Props) {
           />
         </div>
       </div>
-    </SoftPreviewOverlay>
+    </div>
   );
 }

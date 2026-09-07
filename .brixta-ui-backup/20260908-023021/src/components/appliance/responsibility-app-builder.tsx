@@ -131,7 +131,6 @@ import {
   reorderVisualRoots,
 } from "./responsibility-visual-builder";
 import { FlutterLivePreview } from "./flutter-live-preview";
-import { SoftPreviewOverlay } from "./soft-preview-overlay";
 import { cx } from "./client";
 import {
   Field,
@@ -6951,13 +6950,16 @@ export default function ResponsibilityAppBuilder({
           </Panel>
 
           <div className="min-w-0">
-            <SoftPreviewOverlay
-              title="Employee phone"
-              subtitle="Visual employee-app canvas. Open it only when you want to inspect or reorder it."
-              badge={<>{layout.length + visualBlocks.length} blocks</>}
-            >
-              <div className="brixta-employee-phone-overlay-content">
-{visualBlocks.length > 0 ? (
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <div className="font-semibold">Employee phone</div>
+                <div className="text-xs text-muted-foreground">
+                  Drag, reorder and click anything.
+                </div>
+              </div>
+              <Pill>{layout.length + visualBlocks.length} blocks</Pill>
+            </div>
+            {visualBlocks.length > 0 ? (
               <VisualPhoneCanvas
                 kernel={kernel}
                 selectedId={selection.kind === "ui" ? selection.id : undefined}
@@ -6975,8 +6977,6 @@ export default function ResponsibilityAppBuilder({
                 onSelect={setSelection}
               />
             )}
-              </div>
-            </SoftPreviewOverlay>
 
             {visualBlocks.length > 0 && (
               <FlutterLivePreview
