@@ -201,8 +201,7 @@ export function FlutterLivePreview(props: Props) {
   if (!document) return null;
 
   return (
-    <div className="brixta-live-preview-dock">
-      <SoftPreviewOverlay
+    <SoftPreviewOverlay
       title="App UI · Live"
       subtitle="Live Flutter employee app. This is the real preview."
       badge="LIVE"
@@ -222,7 +221,6 @@ export function FlutterLivePreview(props: Props) {
           />
         </div>
       </div>
-      </SoftPreviewOverlay>
-    </div>
+    </SoftPreviewOverlay>
   );
 }

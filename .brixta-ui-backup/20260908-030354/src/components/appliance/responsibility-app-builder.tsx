@@ -67,7 +67,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 import type { Department, Employee, Role } from "@/lib/appliance-types";
 import type { PlatformDataSource } from "@/lib/platform-vnext-types";
@@ -5849,71 +5849,6 @@ export default function ResponsibilityAppBuilder({
   const [play, setPlay] = useState(false);
   const [showStarters, setShowStarters] = useState(false);
 
-  // BRIXTA_AUTO_FUNCTIONAL_V4
-  //
-  // App UI is functional by default.
-  // There is no separate "static app" mode anymore.
-  const automaticFunctionalitySignature =
-    useMemo(
-      () =>
-        [
-          responsibilityId,
-          ...kernel.possibilities
-            .filter(
-              (item) =>
-                item.type === "capture" ||
-                item.type === "action",
-            )
-            .map((item) =>
-              item.type === "capture"
-                ? `capture:${item.capture.id}`
-                : `action:${item.action.id}`,
-            )
-            .sort(),
-        ].join("|"),
-      [
-        responsibilityId,
-        kernel.possibilities,
-      ],
-    );
-
-  const lastAutomaticFunctionalitySignature =
-    useRef<string | null>(null);
-
-  useEffect(() => {
-    if (
-      lastAutomaticFunctionalitySignature.current ===
-      automaticFunctionalitySignature
-    ) {
-      return;
-    }
-
-    lastAutomaticFunctionalitySignature.current =
-      automaticFunctionalitySignature;
-
-    const wired =
-      wireVisualFunctionality(kernel);
-
-    const before =
-      JSON.stringify(
-        kernel.metadata.ui?.uiDocument ?? null,
-      );
-
-    const after =
-      JSON.stringify(
-        wired.metadata.ui?.uiDocument ?? null,
-      );
-
-    if (before !== after) {
-      onChange(wired);
-    }
-  }, [
-    automaticFunctionalitySignature,
-    kernel,
-    onChange,
-  ]);
-
-
   /*
    * Generate-with-AI belongs to the APP BUILDER only.
    *
@@ -6905,7 +6840,7 @@ export default function ResponsibilityAppBuilder({
         </Panel>
 
         <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(240px,0.72fr)_minmax(0,1.15fr)_minmax(260px,0.9fr)]">
-          <Panel className="brixta-builder-library min-w-0">
+          <Panel className="min-w-0 2xl:max-h-[calc(100vh-190px)] 2xl:overflow-y-auto">
             <div className="sticky top-0 z-10 -mx-1 bg-background px-1 pb-3">
               <div className="font-semibold">What do you want?</div>
               <div className="mt-1 text-xs text-muted-foreground">
@@ -6943,25 +6878,7 @@ export default function ResponsibilityAppBuilder({
               )}
             </div>
             <div className="space-y-5">
-              <details className="brixta-functional-drawer">
-                <summary>
-                  <div className="brixta-functional-summary-main">
-                    <span className="text-xs font-semibold">
-                      Functionality
-                    </span>
-
-                    <span className="brixta-functional-auto-badge">
-                      Automatic
-                    </span>
-                  </div>
-
-                  <span className="text-[10px] text-muted-foreground">
-                    Inputs + actions
-                  </span>
-                </summary>
-
-                <div className="brixta-functional-drawer-body">
-                  <VisualFunctionalPlacementSection
+              <VisualFunctionalPlacementSection
                 kernel={kernel}
                 query={query}
                 onPlaceCapture={(captureId) => {
@@ -7004,32 +6921,15 @@ export default function ResponsibilityAppBuilder({
                   );
                 }}
               />
-                </div>
-              </details>
 
               <VisualPaletteSection query={query} onAdd={addVisual} />
 
               {grouped.map((section) => (
-                <details
-                  key={section.group}
-                  className="brixta-discovery-group"
-                  open={
-                    query.trim()
-                      ? true
-                      : section.group === "Recommended"
-                        ? true
-                        : undefined
-                  }
-                >
-                  <summary>
-                    <span>{section.group}</span>
-
-                    <span className="brixta-palette-count">
-                      {section.items.length}
-                    </span>
-                  </summary>
-
-                  <div className="brixta-discovery-grid">
+                <div key={section.group}>
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {section.group}
+                  </div>
+                  <div className="space-y-2">
                     {section.items.map((item) => (
                       <DiscoveryCard
                         key={item.id}
@@ -7038,7 +6938,7 @@ export default function ResponsibilityAppBuilder({
                       />
                     ))}
                   </div>
-                </details>
+                </div>
               ))}
               {results.length === 0 && (
                 <div className="rounded-xl border border-dashed p-5 text-center text-xs text-muted-foreground">
@@ -7115,7 +7015,7 @@ export default function ResponsibilityAppBuilder({
             </Panel>
           </div>
 
-          <Panel className="brixta-builder-inspector min-w-0">
+          <Panel className="min-w-0 2xl:max-h-[calc(100vh-190px)] 2xl:overflow-y-auto">
             {selectedVisualBlock ? (
               <VisualBlockInspector
                 kernel={kernel}

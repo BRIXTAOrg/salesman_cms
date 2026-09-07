@@ -1557,14 +1557,15 @@ export function VisualPaletteSection({
   query: string;
   onAdd: (type: ResponsibilityUiBlockType) => void;
 }) {
-  const matches =
-    RESPONSIBILITY_UI_BLOCK_REGISTRY.filter(
-      (definition) =>
-        paletteMatches(
-          definition,
-          query,
-        ),
-    );
+  const matches = RESPONSIBILITY_UI_BLOCK_REGISTRY.filter(
+    (definition) =>
+      definition.type !==
+        "interaction.capture" &&
+      paletteMatches(
+        definition,
+        query,
+      ),
+  );
 
   if (matches.length === 0) {
     return null;
@@ -1576,69 +1577,42 @@ export function VisualPaletteSection({
     "Navigation",
     "Display",
     "Interaction",
+    "Feedback",
     "Overlay",
     "Media",
-    "Feedback",
     "Animation",
     "Spacing",
     "Advanced",
   ] as const;
 
-  const searching =
-    query.trim().length > 0;
-
   return (
-    <div className="brixta-visual-palette">
-      <div className="brixta-palette-caption">
-        <span>Visual blocks</span>
-        <span>{matches.length}</span>
-      </div>
+    <div className="space-y-4">
+      {categories.map((category) => {
+        const items = matches.filter((item) => item.category === category);
 
-      <div className="brixta-palette-groups">
-        {categories.map((category) => {
-          const items =
-            matches.filter(
-              (item) =>
-                item.category === category,
-            );
+        if (items.length === 0) {
+          return null;
+        }
 
-          if (items.length === 0) {
-            return null;
-          }
+        return (
+          <div key={category}>
+            <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <Sparkles className="h-3 w-3" />
+              Visual · {category}
+            </div>
 
-          return (
-            <details
-              key={category}
-              className="brixta-palette-group"
-              open={
-                searching
-                  ? true
-                  : undefined
-              }
-            >
-              <summary>
-                <span>{category}</span>
-
-                <span className="brixta-palette-count">
-                  {items.length}
-                </span>
-              </summary>
-
-              <div className="brixta-palette-grid">
-                {items.map((item) => (
-                  <PaletteVisualBlock
-                    key={item.type}
-                    definition={item}
-                    onAdd={() =>
-                      onAdd(item.type)
-                    }
-                  />
-                ))}
-              </div>
-            </details>
-          );
-        })}
-      </div>
+            <div className="space-y-2">
+              {items.map((item) => (
+                <PaletteVisualBlock
+                  key={item.type}
+                  definition={item}
+                  onAdd={() => onAdd(item.type)}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
