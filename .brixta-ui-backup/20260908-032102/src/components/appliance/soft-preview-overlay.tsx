@@ -4,19 +4,11 @@ import { Eye, Maximize2, Smartphone, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-export type SoftPreviewTab = {
-  id: string;
-  label: string;
-  content: ReactNode;
-};
-
 type Props = {
   title: string;
   subtitle: string;
   badge?: ReactNode;
-  children?: ReactNode;
-  tabs?: SoftPreviewTab[];
-  defaultTabId?: string;
+  children: ReactNode;
 };
 
 export function SoftPreviewOverlay({
@@ -24,14 +16,9 @@ export function SoftPreviewOverlay({
   subtitle,
   badge,
   children,
-  tabs,
-  defaultTabId,
 }: Props) {
-  const firstTabId = defaultTabId ?? tabs?.[0]?.id ?? "preview";
   const [mounted, setMounted] = useState(false);
-  const [everOpened, setEverOpened] = useState(false);
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(firstTabId);
 
   useEffect(() => {
     setMounted(true);
@@ -55,19 +42,12 @@ export function SoftPreviewOverlay({
     };
   }, [open]);
 
-  function showPreview() {
-    setEverOpened(true);
-    setOpen(true);
-  }
-
-  const hasTabs = Boolean(tabs && tabs.length > 1);
-
   return (
     <>
       <button
         type="button"
         className="brixta-preview-launcher"
-        onClick={showPreview}
+        onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
       >
@@ -95,27 +75,19 @@ export function SoftPreviewOverlay({
         </span>
       </button>
 
-      {mounted && everOpened
+      {mounted && open
         ? createPortal(
             <div
               className="brixta-preview-overlay"
-              data-open={open ? "true" : "false"}
-              aria-hidden={!open}
               role="presentation"
               onMouseDown={(event) => {
-                if (open && event.target === event.currentTarget) {
-                  setOpen(false);
-                }
+                if (event.target === event.currentTarget) setOpen(false);
               }}
             >
               <section
-                className={
-                  open
-                    ? "brixta-preview-sheet brixta-genie-enter"
-                    : "brixta-preview-sheet"
-                }
+                className="brixta-preview-sheet brixta-genie-enter"
                 role="dialog"
-                aria-modal={open ? "true" : undefined}
+                aria-modal="true"
                 aria-label={title}
               >
                 <header className="brixta-preview-sheet-header">
@@ -140,52 +112,18 @@ export function SoftPreviewOverlay({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    {hasTabs && (
-                      <div
-                        className="brixta-preview-tabs"
-                        role="tablist"
-                        aria-label="App preview mode"
-                      >
-                        {tabs!.map((tab) => (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            role="tab"
-                            aria-selected={activeTab === tab.id}
-                            data-active={activeTab === tab.id ? "true" : "false"}
-                            onClick={() => setActiveTab(tab.id)}
-                          >
-                            {tab.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    <button
-                      type="button"
-                      className="brixta-preview-close"
-                      onClick={() => setOpen(false)}
-                      aria-label={`Close ${title}`}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="brixta-preview-close"
+                    onClick={() => setOpen(false)}
+                    aria-label={`Close ${title}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </header>
 
                 <div className="brixta-preview-sheet-body">
-                  {tabs && tabs.length > 0
-                    ? tabs.map((tab) => (
-                        <div
-                          key={tab.id}
-                          className="brixta-preview-tab-panel"
-                          data-active={activeTab === tab.id ? "true" : "false"}
-                          role="tabpanel"
-                        >
-                          {tab.content}
-                        </div>
-                      ))
-                    : children}
+                  {children}
                 </div>
               </section>
             </div>,

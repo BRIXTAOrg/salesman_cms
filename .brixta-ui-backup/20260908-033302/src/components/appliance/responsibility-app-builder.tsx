@@ -7059,6 +7059,13 @@ export default function ResponsibilityAppBuilder({
                 <details
                   key={section.group}
                   className="brixta-discovery-group"
+                  open={
+                    query.trim()
+                      ? true
+                      : section.group === "Recommended"
+                        ? true
+                        : undefined
+                  }
                 >
                   <summary>
                     <span>{section.group}</span>

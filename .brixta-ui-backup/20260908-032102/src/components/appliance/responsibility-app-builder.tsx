@@ -128,9 +128,9 @@ import {
   wireVisualFunctionality,
   deleteVisualBlock,
   reorderVisualRoots,
-  VisualPhoneCanvas,
 } from "./responsibility-visual-builder";
 import { FlutterLivePreview } from "./flutter-live-preview";
+import { SoftPreviewOverlay } from "./soft-preview-overlay";
 import { cx } from "./client";
 import {
   Field,
@@ -7007,58 +7007,19 @@ export default function ResponsibilityAppBuilder({
                 </div>
               </details>
 
-              {/* BRIXTA_DEMO_QUICK_ADD_V2 */}
-              <div className="brixta-demo-quick-add">
-                <div className="brixta-demo-quick-add-head">
-                  <span>Quick add</span>
-                  <span>Demo fast</span>
-                </div>
-
-                <div className="brixta-demo-quick-add-grid">
-                  <button type="button" onClick={() => addVisual("display.text")}>
-                    Text
-                  </button>
-
-                  <button type="button" onClick={() => addVisual("interaction.capture")}>
-                    Capture
-                  </button>
-
-                  <button type="button" onClick={() => addVisual("interaction.action_button")}>
-                    Button
-                  </button>
-
-                  <button type="button" onClick={() => addVisual("layout.row")}>
-                    Row
-                  </button>
-
-                  <button type="button" onClick={() => addVisual("layout.column")}>
-                    Column
-                  </button>
-
-                  <button type="button" onClick={() => addVisual("display.metric")}>
-                    Metric
-                  </button>
-                </div>
-              </div>
-
-              <details className="brixta-browse-all-blocks">
-                <summary>
-                  <span>Browse all blocks</span>
-                  <span>Advanced</span>
-                </summary>
-
-                <div className="brixta-browse-all-blocks-body">
-                  <VisualPaletteSection
-                    query={query}
-                    onAdd={addVisual}
-                  />
-                </div>
-              </details>
+              <VisualPaletteSection query={query} onAdd={addVisual} />
 
               {grouped.map((section) => (
                 <details
                   key={section.group}
                   className="brixta-discovery-group"
+                  open={
+                    query.trim()
+                      ? true
+                      : section.group === "Recommended"
+                        ? true
+                        : undefined
+                  }
                 >
                   <summary>
                     <span>{section.group}</span>
@@ -7103,24 +7064,7 @@ export default function ResponsibilityAppBuilder({
                     id,
                   })
                 }
-              
-                designContent={
-                  <VisualPhoneCanvas
-                    kernel={kernel}
-                    selectedId={
-                      selection.kind === "ui"
-                        ? selection.id
-                        : undefined
-                    }
-                    onSelect={(id) =>
-                      setSelection({
-                        kind: "ui",
-                        id,
-                      })
-                    }
-                  />
-                }
-/>
+              />
             )}
 
             {visualBlocks.length > 0 && (

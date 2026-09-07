@@ -1,20 +1,18 @@
 "use client";
 
+// BRIXTA_FAST_FLUTTER_ONLY
+// One preview only: the local Flutter/Stac renderer on :5050.
+
 import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 
 import type { ResponsibilityKernel } from "@/lib/responsibility-kernel-types";
-
-import {
-  SoftPreviewOverlay,
-  type SoftPreviewTab,
-} from "./soft-preview-overlay";
+import { SoftPreviewOverlay } from "./soft-preview-overlay";
 
 type Props = {
   kernel: ResponsibilityKernel;
@@ -24,7 +22,6 @@ type Props = {
   onSelectedBlockIdChange?: (id: string) => void;
   isDragging?: boolean;
   draggingBlockId?: string | null;
-  designContent?: ReactNode;
   [key: string]: unknown;
 };
 
@@ -32,7 +29,10 @@ function previewUrl() {
   const configured =
     process.env.NEXT_PUBLIC_BRIXTA_FLUTTER_PREVIEW_URL?.trim();
 
-  const url = new URL(configured || "http://localhost:5050/");
+  const url = new URL(
+    configured || "http://localhost:5050/",
+  );
+
   url.searchParams.set("brixtaPreview", "1");
   return url;
 }
@@ -55,7 +55,6 @@ export function FlutterLivePreview(props: Props) {
     onSelectedBlockIdChange,
     isDragging = false,
     draggingBlockId,
-    designContent,
   } = props;
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -70,7 +69,10 @@ export function FlutterLivePreview(props: Props) {
     for (const item of kernel.possibilities) {
       if (item.type !== "capture") continue;
 
-      const key = item.capture.storeAs?.trim() || item.capture.id;
+      const key =
+        item.capture.storeAs?.trim() ||
+        item.capture.id;
+
       captures[key] = item.capture;
       captures[item.capture.id] = item.capture;
     }
@@ -125,6 +127,7 @@ export function FlutterLivePreview(props: Props) {
 
   const send = useCallback(() => {
     const target = iframeRef.current?.contentWindow;
+
     if (!target || !document) return;
 
     target.postMessage(
@@ -138,7 +141,10 @@ export function FlutterLivePreview(props: Props) {
 
   useEffect(() => {
     function receive(event: MessageEvent) {
-      if (event.origin !== url.origin || typeof event.data !== "string") {
+      if (
+        event.origin !== url.origin ||
+        typeof event.data !== "string"
+      ) {
         return;
       }
 
@@ -189,62 +195,34 @@ export function FlutterLivePreview(props: Props) {
   ]);
 
   useEffect(() => {
-    if (!ready) return;
-
-    const timer = window.setTimeout(send, 100);
-    return () => window.clearTimeout(timer);
+    if (ready) send();
   }, [ready, send]);
 
   if (!document) return null;
 
-  const liveContent = (
-    <div className="brixta-flutter-preview-stage">
-      <div className="brixta-flutter-device-frame">
-        <iframe
-          ref={iframeRef}
-          title="BRIXTA Flutter preview"
-          src={url.toString()}
-          className="h-full w-full border-0"
-          sandbox="allow-scripts allow-same-origin"
-          onLoad={() => {
-            setReady(false);
-            window.setTimeout(send, 120);
-          }}
-        />
-      </div>
-    </div>
-  );
-
-  const tabs: SoftPreviewTab[] = [
-    ...(designContent
-      ? [
-          {
-            id: "design",
-            label: "Design",
-            content: (
-              <div className="brixta-design-preview-stage">
-                {designContent}
-              </div>
-            ),
-          },
-        ]
-      : []),
-    {
-      id: "live",
-      label: "Live",
-      content: liveContent,
-    },
-  ];
-
   return (
     <div className="brixta-live-preview-dock">
       <SoftPreviewOverlay
-        title="App Preview"
-        subtitle="Design and live runtime in one place."
-        badge={ready ? "LIVE" : "CONNECTING"}
-        tabs={tabs}
-        defaultTabId="live"
-      />
+      title="App UI · Live"
+      subtitle="Live Flutter employee app. This is the real preview."
+      badge="LIVE"
+    >
+      <div className="brixta-flutter-preview-stage">
+        <div className="brixta-flutter-device-frame">
+          <iframe
+            ref={iframeRef}
+            title="BRIXTA Flutter preview"
+            src={url.toString()}
+            className="h-full w-full border-0"
+            sandbox="allow-scripts allow-same-origin"
+            onLoad={() => {
+              setReady(false);
+              window.setTimeout(send, 150);
+            }}
+          />
+        </div>
+      </div>
+      </SoftPreviewOverlay>
     </div>
   );
 }

@@ -1584,6 +1584,8 @@ export function VisualPaletteSection({
     "Advanced",
   ] as const;
 
+  const searching =
+    query.trim().length > 0;
 
   return (
     <div className="brixta-visual-palette">
@@ -1608,6 +1610,11 @@ export function VisualPaletteSection({
             <details
               key={category}
               className="brixta-palette-group"
+              open={
+                searching
+                  ? true
+                  : undefined
+              }
             >
               <summary>
                 <span>{category}</span>
