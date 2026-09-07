@@ -176,7 +176,7 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="brixta-site-header sticky top-0 z-30 flex min-h-16 shrink-0 items-center border-b bg-background">
+    <header className="sticky top-0 z-30 flex min-h-16 shrink-0 items-center border-b bg-background">
       <div className="flex w-full items-center gap-3 px-4 lg:px-6">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="h-5" />

@@ -38,7 +38,7 @@ export default function DashboardShell({
         jobRoles={jobRoles}
       />
 
-      <SidebarInset className="brixta-cms-shell min-h-svh w-full min-w-0 max-w-full overflow-x-clip">
+      <SidebarInset className="min-h-svh w-full min-w-0 max-w-full overflow-x-clip bg-muted/15">
         <SiteHeader />
         <main className="flex w-full min-w-0 max-w-full flex-1 flex-col overflow-x-clip">
           {children}

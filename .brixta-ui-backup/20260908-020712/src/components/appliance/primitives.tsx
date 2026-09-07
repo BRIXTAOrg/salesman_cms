@@ -51,7 +51,7 @@ export function Panel({
   return (
     <section
       className={cx(
-        "brixta-panel rounded-[20px] border bg-card p-6",
+        "rounded-lg border border-border bg-card p-6 shadow-none",
         className,
       )}
     >
@@ -70,7 +70,7 @@ export function Stat({
   hint?: string;
 }) {
   return (
-    <div className="brixta-panel rounded-[20px] border bg-card px-6 py-5">
+    <div className="rounded-lg border border-border bg-card px-6 py-5 shadow-none">
       <div className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
         {value}
       </div>
@@ -135,7 +135,7 @@ export function PrimaryButton({
     <button
       {...props}
       className={cx(
-        "brixta-primary-button inline-flex h-10 items-center justify-center gap-2 bg-primary px-4 text-[14px] font-medium text-primary-foreground",
+        "inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-[14px] font-medium text-primary-foreground shadow-none hover:bg-primary/90",
         buttonMotion,
         className,
       )}
@@ -154,7 +154,7 @@ export function SecondaryButton({
     <button
       {...props}
       className={cx(
-        "brixta-secondary-button inline-flex h-10 items-center justify-center gap-2 px-4 text-[14px] font-medium text-foreground",
+        "inline-flex h-10 items-center justify-center gap-2 rounded-md border border-input bg-transparent px-4 text-[14px] font-medium text-foreground shadow-none hover:bg-muted",
         buttonMotion,
         className,
       )}
@@ -189,10 +189,10 @@ export function Field({
 }
 
 export const inputClass =
-  "brixta-input h-10 w-full rounded-md border border-input bg-background px-3 text-[14px] leading-5 text-foreground shadow-none outline-none transition-[border-color,box-shadow,background-color] duration-150 ease-out placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background";
+  "h-10 w-full rounded-md border border-input bg-background px-3 text-[14px] leading-5 text-foreground shadow-none outline-none transition-[border-color,box-shadow,background-color] duration-150 ease-out placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background";
 
 export const textareaClass =
-  "brixta-textarea min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-[14px] leading-6 text-foreground shadow-none outline-none transition-[border-color,box-shadow,background-color] duration-150 ease-out placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background";
+  "min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-[14px] leading-6 text-foreground shadow-none outline-none transition-[border-color,box-shadow,background-color] duration-150 ease-out placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background";
 
 export function Modal({
   open,

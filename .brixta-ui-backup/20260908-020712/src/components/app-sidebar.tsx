@@ -142,20 +142,12 @@ export function AppSidebar(
   }, []);
 
   const groups = useMemo(
-    () =>
-      (manifest?.navigation ?? []).map((group) => ({
-        ...group,
-        items: group.items.filter(
-          (item) =>
-            !item.key.startsWith("responsibility:") &&
-            !item.key.startsWith("archived:"),
-        ),
-      })),
+    () => manifest?.navigation ?? [],
     [manifest],
   );
 
   return (
-    <Sidebar className="brixta-sidebar">
+    <Sidebar>
       <SidebarHeader className="border-b px-3 py-4">
         <Link
           href="/dashboard"

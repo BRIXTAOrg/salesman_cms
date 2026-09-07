@@ -1,0 +1,659 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "leaflet/dist/leaflet.css";
+@import "@xyflow/react/dist/style.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.375rem;
+
+  --background: #f9fafb;
+  --foreground: #111827;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+
+  --secondary: #f3f4f6;
+  --secondary-foreground: #111827;
+  --muted: #f3f4f6;
+  --muted-foreground: #4b5563;
+  --accent: #f3f4f6;
+  --accent-foreground: #111827;
+
+  --destructive: #b91c1c;
+  --border: #e5e7eb;
+  --input: #d1d5db;
+  --ring: #2563eb;
+
+  --chart-1: #2563eb;
+  --chart-2: #0f766e;
+  --chart-3: #7c3aed;
+  --chart-4: #b45309;
+  --chart-5: #be123c;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #111827;
+  --sidebar-primary: #2563eb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f3f4f6;
+  --sidebar-accent-foreground: #111827;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #2563eb;
+
+  --sidebar-sub-item-active-bg: #111827;
+  --sidebar-sub-item-active-foreground: #ffffff;
+}
+
+.dark {
+  --background: #090a0b;
+  --foreground: #f9fafb;
+  --card: #111315;
+  --card-foreground: #f9fafb;
+  --popover: #111315;
+  --popover-foreground: #f9fafb;
+
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+
+  --secondary: #181a1d;
+  --secondary-foreground: #f9fafb;
+  --muted: #181a1d;
+  --muted-foreground: #a1a1aa;
+  --accent: #181a1d;
+  --accent-foreground: #f9fafb;
+
+  --destructive: #dc2626;
+  --border: #27272a;
+  --input: #3f3f46;
+  --ring: #2563eb;
+
+  --chart-1: #60a5fa;
+  --chart-2: #2dd4bf;
+  --chart-3: #a78bfa;
+  --chart-4: #f59e0b;
+  --chart-5: #fb7185;
+
+  --sidebar: #0d0f10;
+  --sidebar-foreground: #f9fafb;
+  --sidebar-primary: #2563eb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #181a1d;
+  --sidebar-accent-foreground: #f9fafb;
+  --sidebar-border: #27272a;
+  --sidebar-ring: #2563eb;
+
+  --sidebar-sub-item-active-bg: #2563eb;
+  --sidebar-sub-item-active-foreground: #ffffff;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    font-family: var(--font-geist-sans), Inter, -apple-system,
+      BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-geist-sans), Inter, -apple-system,
+      BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    letter-spacing: -0.02em;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
+
+.card-premium {
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+@keyframes appliance-modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.appliance-modal-panel {
+  animation: appliance-modal-enter 170ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  transform-origin: top center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appliance-modal-panel {
+    animation: none;
+  }
+}
+
+[data-slot="sidebar-menu-sub-button"][data-active="true"] {
+  background-color: var(--sidebar-sub-item-active-bg) !important;
+  color: var(--sidebar-sub-item-active-foreground) !important;
+  @apply rounded-md;
+}
+
+[role="tab"][data-state="active"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  box-shadow: none !important;
+}
+
+[role="tabpanel"][data-state="active"] {
+  background-color: transparent !important;
+  color: inherit !important;
+  box-shadow: none !important;
+}
+
+#luckysheet-bottom-controll {
+  display: flex !important;
+  align-items: center !important;
+}
+
+#luckysheet-sheets-item {
+  flex: 1 !important;
+  overflow-x: auto !important;
+  white-space: nowrap !important;
+  width: auto !important;
+  max-width: unset !important;
+}
+
+#luckysheet-sheets-item::-webkit-scrollbar {
+  display: none;
+}
+
+#luckysheet-sheets-leftscroll,
+#luckysheet-sheets-rightscroll,
+#luckysheet-bottom-add-sheet {
+  margin-left: auto !important;
+  position: relative !important;
+  right: unset !important;
+  left: unset !important;
+}
+
+#luckysheet-bottom-add-sheet {
+  margin-left: 8px !important;
+}
+
+
+/* BRIXTA_RESPONSIVE_VIEWPORT_V1
+ *
+ * The browser viewport is never a horizontal canvas.
+ *
+ * Individual components may deliberately own local overflow,
+ * but no child is allowed to expand the whole application width.
+ */
+@layer base {
+  html,
+  body {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  html {
+    min-height: 100%;
+  }
+
+  body {
+    min-height: 100svh;
+  }
+
+  main,
+  section,
+  article {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  img,
+  video,
+  canvas,
+  iframe {
+    max-width: 100%;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    max-width: 100%;
+  }
+
+  pre,
+  code {
+    max-width: 100%;
+  }
+
+  pre {
+    overflow-x: auto;
+  }
+}
+
+/*
+ * The sidebar shell is a flex layout.
+ *
+ * min-width:auto on a flex child allows deeply nested builder content
+ * to determine the width of the entire browser. Explicitly kill that.
+ */
+[data-slot="sidebar-wrapper"],
+[data-slot="sidebar-inset"] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+[data-slot="sidebar-wrapper"] {
+  overflow-x: clip;
+}
+
+[data-slot="sidebar-inset"] {
+  overflow-x: clip;
+}
+
+/* BRIXTA_IOS12_UI_START */
+
+:root {
+  --radius: 0.875rem;
+
+  --background: #F2F2F7;
+  --foreground: #1C1C1E;
+  --card: #FFFFFF;
+  --card-foreground: #1C1C1E;
+  --popover: #FFFFFF;
+  --popover-foreground: #1C1C1E;
+
+  --primary: #5477A6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #E9E9EE;
+  --secondary-foreground: #1C1C1E;
+  --muted: #ECECF1;
+  --muted-foreground: #6E6E73;
+  --accent: #E7ECF3;
+  --accent-foreground: #1C1C1E;
+
+  --destructive: #C9343A;
+  --border: #DCDCE2;
+  --input: #D1D1D6;
+  --ring: #5477A6;
+
+  --sidebar: #1C1C1E;
+  --sidebar-foreground: #F5F5F7;
+  --sidebar-primary: #6F8FB8;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #2C2C2E;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #38383A;
+  --sidebar-ring: #7D9CC2;
+  --sidebar-sub-item-active-bg: #2C2C2E;
+  --sidebar-sub-item-active-foreground: #FFFFFF;
+
+  --brixta-shadow-sm:
+    0 1px 2px rgba(28, 28, 30, 0.04),
+    0 5px 16px rgba(28, 28, 30, 0.045);
+
+  --brixta-shadow:
+    0 2px 4px rgba(28, 28, 30, 0.035),
+    0 14px 36px rgba(28, 28, 30, 0.065);
+
+  --brixta-shadow-float:
+    0 8px 18px rgba(28, 28, 30, 0.06),
+    0 24px 48px rgba(28, 28, 30, 0.07);
+}
+
+.dark {
+  --background: #1C1C1E;
+  --foreground: #F5F5F7;
+  --card: #2C2C2E;
+  --card-foreground: #F5F5F7;
+  --popover: #2C2C2E;
+  --popover-foreground: #F5F5F7;
+  --primary: #7D9CC2;
+  --primary-foreground: #FFFFFF;
+  --secondary: #3A3A3C;
+  --secondary-foreground: #F5F5F7;
+  --muted: #3A3A3C;
+  --muted-foreground: #AEAEB2;
+  --accent: #3A3A3C;
+  --accent-foreground: #FFFFFF;
+  --border: #48484A;
+  --input: #545458;
+  --ring: #7D9CC2;
+  --sidebar: #151517;
+  --sidebar-foreground: #F5F5F7;
+  --sidebar-accent: #2C2C2E;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #38383A;
+}
+
+/* Shared CMS shell. Your supplied image is used directly; no CSS blur. */
+.brixta-cms-shell {
+  position: relative;
+  isolation: isolate;
+  background-color: #F2F2F7 !important;
+  background-image:
+    linear-gradient(
+      rgba(242, 242, 247, 0.82),
+      rgba(242, 242, 247, 0.91)
+    ),
+    url("/brand/brixta-soft-field.jpg");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center top;
+  background-attachment: fixed;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.brixta-cms-shell > main {
+  position: relative;
+  z-index: 1;
+}
+
+.brixta-cms-shell :where(
+  section,
+  header,
+  nav,
+  aside,
+  [role="dialog"],
+  [role="tablist"]
+) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Header */
+.brixta-site-header {
+  background: #F2F2F7 !important;
+  border-bottom: 0 !important;
+  min-height: 68px !important;
+}
+
+.brixta-site-header > div {
+  padding-inline: clamp(18px, 2vw, 30px);
+}
+
+.brixta-site-header input {
+  background: #FFFFFF !important;
+}
+
+.brixta-site-header [class*="rounded-md"][class*="border"] {
+  border-color: rgba(60, 60, 67, 0.10) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--brixta-shadow-sm);
+}
+
+/* Sidebar */
+.brixta-sidebar {
+  --sidebar: #1C1C1E;
+  --sidebar-foreground: #F5F5F7;
+  --sidebar-accent: #2C2C2E;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #38383A;
+}
+
+.brixta-sidebar [data-sidebar="sidebar"] {
+  background: #1C1C1E !important;
+  color: #F5F5F7 !important;
+  border-right: 0 !important;
+}
+
+.brixta-sidebar [data-sidebar="header"] {
+  border-bottom-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+.brixta-sidebar [data-sidebar="menu-button"] {
+  min-height: 40px;
+  border-radius: 12px !important;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.brixta-sidebar [data-sidebar="menu-button"]:hover {
+  background: #2C2C2E !important;
+}
+
+.brixta-sidebar [data-sidebar="group-label"] {
+  color: #8E8E93 !important;
+}
+
+/* Solid iOS-style surfaces. No glass. */
+.brixta-panel,
+.card-premium,
+.brixta-responsibility-bar,
+.brixta-studio-tabs,
+.brixta-ai-brief {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(60, 60, 67, 0.075) !important;
+  box-shadow: var(--brixta-shadow-sm) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.brixta-panel,
+.brixta-responsibility-bar,
+.brixta-ai-brief {
+  border-radius: 20px !important;
+}
+
+.brixta-studio-tabs {
+  border-radius: 18px !important;
+}
+
+.brixta-studio-tab {
+  min-height: 42px;
+  border-radius: 13px;
+  color: #6E6E73;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.brixta-studio-tab:hover {
+  background: #F2F2F7;
+  color: #1C1C1E;
+}
+
+.brixta-studio-tab[data-active="true"] {
+  background: #E8EEF5;
+  color: #355A84;
+  font-weight: 600;
+}
+
+.brixta-responsibility-bar {
+  padding: 18px !important;
+}
+
+.brixta-role-targets {
+  border-top: 1px solid rgba(60, 60, 67, 0.08);
+  padding-top: 12px;
+}
+
+.brixta-role-targets > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.brixta-role-targets > summary::-webkit-details-marker {
+  display: none;
+}
+
+.brixta-role-targets[open] .brixta-role-chevron {
+  transform: rotate(180deg);
+}
+
+.brixta-role-chevron {
+  transition: transform 160ms ease;
+}
+
+/* Buttons */
+.brixta-primary-button,
+.brixta-secondary-button {
+  border-radius: 12px !important;
+  min-height: 40px;
+  font-weight: 600;
+  box-shadow: none !important;
+}
+
+.brixta-primary-button {
+  background: #5477A6 !important;
+}
+
+.brixta-primary-button:hover {
+  background: #486A98 !important;
+}
+
+.brixta-secondary-button {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(60, 60, 67, 0.10) !important;
+  box-shadow: var(--brixta-shadow-sm) !important;
+}
+
+.brixta-secondary-button:hover {
+  background: #F7F7FA !important;
+}
+
+/* Fields */
+.brixta-input,
+.brixta-textarea {
+  border-radius: 12px !important;
+  border: 1px solid rgba(60, 60, 67, 0.10) !important;
+  background: #F7F7FA !important;
+  box-shadow: inset 0 1px 0 rgba(28, 28, 30, 0.02) !important;
+}
+
+.brixta-input:focus,
+.brixta-textarea:focus {
+  border-color: rgba(84, 119, 166, 0.65) !important;
+  box-shadow: 0 0 0 3px rgba(84, 119, 166, 0.12) !important;
+}
+
+/* Compact AI builder */
+.brixta-ai-brief {
+  margin-bottom: 16px !important;
+}
+
+.brixta-ai-brief > div:first-child {
+  padding: 16px 18px !important;
+  gap: 12px !important;
+}
+
+.brixta-ai-brief > div:last-child {
+  padding: 18px !important;
+}
+
+.brixta-ai-brief h2 {
+  font-size: 1.05rem !important;
+  line-height: 1.35 !important;
+}
+
+.brixta-ai-brief textarea {
+  min-height: 118px !important;
+}
+
+body {
+  background: #F2F2F7 !important;
+  color: #1C1C1E;
+  font-family:
+    var(--font-geist-sans),
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "SF Pro Display",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.025em;
+}
+
+::selection {
+  background: rgba(84, 119, 166, 0.20);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brixta-studio-tab,
+  .brixta-primary-button,
+  .brixta-secondary-button,
+  .brixta-role-chevron {
+    transition: none !important;
+  }
+}
+
+/* BRIXTA_IOS12_UI_END */

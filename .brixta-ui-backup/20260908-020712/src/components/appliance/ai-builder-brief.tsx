@@ -149,7 +149,7 @@ export function AiBuilderBrief({
       : LOGIC_MODES;
 
   return (
-    <section className="brixta-ai-brief mb-6 rounded-lg border border-border bg-card shadow-none">
+    <section className="mb-6 rounded-lg border border-border bg-card shadow-none">
       {/* ================================================================
           HEADER
           Uses the SAME hierarchy/colors as the rest of the CMS.
