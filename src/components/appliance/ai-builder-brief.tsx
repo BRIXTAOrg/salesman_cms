@@ -1,8 +1,7 @@
 "use client";
 
 import {
-  FileText,
-  GitBranch,
+  ChevronRight,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -14,6 +13,7 @@ import type {
 import {
   textareaClass,
 } from "./primitives";
+
 
 type Props = {
   kind:
@@ -42,6 +42,7 @@ type Props = {
     string[];
 };
 
+
 const APP_MODES: Array<{
   id: BuilderAiMode;
   label: string;
@@ -51,19 +52,19 @@ const APP_MODES: Array<{
     id: "create",
     label: "Create",
     description:
-      "Build the complete experience.",
+      "Build a complete app from this brief.",
   },
   {
     id: "modify",
     label: "Modify",
     description:
-      "Change only what I ask.",
+      "Change only what you ask for.",
   },
   {
     id: "restyle",
     label: "Restyle",
     description:
-      "Change look, preserve behaviour.",
+      "Change the look while preserving behaviour.",
   },
   {
     id: "logic",
@@ -73,6 +74,7 @@ const APP_MODES: Array<{
   },
 ];
 
+
 const LOGIC_MODES: Array<{
   id: BuilderAiMode;
   label: string;
@@ -80,17 +82,18 @@ const LOGIC_MODES: Array<{
 }> = [
   {
     id: "logic",
-    label: "Generate Logic",
+    label: "Generate",
     description:
-      "Build WHEN → IF → THEN.",
+      "Build WHEN → IF → THEN behaviour.",
   },
   {
     id: "modify",
-    label: "Modify Logic",
+    label: "Modify",
     description:
-      "Change only requested behaviour.",
+      "Change only the requested logic.",
   },
 ];
+
 
 const STYLES = [
   "Editorial",
@@ -103,6 +106,7 @@ const STYLES = [
   "Dense Operations",
 ];
 
+
 const TYPOGRAPHY = [
   "Editorial serif headings",
   "Modern sans",
@@ -111,6 +115,7 @@ const TYPOGRAPHY = [
   "Technical",
   "Classic serif",
 ];
+
 
 function appendIntent(
   current: string,
@@ -134,6 +139,7 @@ function appendIntent(
     : intent;
 }
 
+
 export function AiBuilderBrief({
   kind,
   value,
@@ -143,280 +149,450 @@ export function AiBuilderBrief({
   inventory = [],
   contextItems = [],
 }: Props) {
+
   const modes =
     kind === "app"
       ? APP_MODES
       : LOGIC_MODES;
 
-  return (
-    <section className="brixta-ai-brief mb-6 rounded-lg border border-border bg-card shadow-none">
-      {/* ================================================================
-          HEADER
-          Uses the SAME hierarchy/colors as the rest of the CMS.
-          ================================================================ */}
-      <div className="flex flex-col gap-4 border-b border-border px-6 py-5 md:flex-row md:items-start md:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.02em] text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-primary" />
 
-            {/* BRIXTA_TALK_WITH_AI_BRIEF_V1 */}
-            {kind === "logic"
-              ? "Talk with AI"
-              : "Generate with AI"}
+  const activeMode =
+    modes.find(
+      (item) =>
+        item.id === mode,
+    ) ?? modes[0];
+
+
+  return (
+    <section className="brixta-ai-compact">
+
+      {/* =====================================================
+          HEADER
+          ===================================================== */}
+
+      <div className="brixta-ai-compact-header">
+
+        <div className="flex min-w-0 items-center gap-2">
+
+          <span className="brixta-ai-icon">
+
+            <Sparkles className="h-4 w-4" />
+
+          </span>
+
+
+          <div className="min-w-0">
+
+            <div className="text-[11px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">
+
+              {kind === "app"
+                ? "Generate with AI"
+                : "Talk with AI"}
+
+            </div>
+
+
+            <h2 className="mt-1 text-lg font-semibold tracking-[-0.025em] text-foreground">
+
+              {kind === "app"
+                ? "Describe the app exactly the way you want it."
+                : "Tell AI exactly what should change."}
+
+            </h2>
+
           </div>
 
-          <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-foreground">
-            {kind === "app"
-              ? "Describe the app exactly the way you want it."
-              : "Tell AI exactly what should change."}
-          </h2>
-
-          <p className="mt-2 max-w-3xl text-[14px] leading-6 text-muted-foreground">
-            {kind === "app"
-              ? "Describe the look, interaction, data and behaviour together. BRIXTA uses the systems already configured for this company."
-              : "Describe the new rule in normal language. BRIXTA includes the current logic automatically, so AI can modify the existing behaviour instead of rebuilding it."}
-          </p>
         </div>
 
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 py-1.5 text-[12px] font-medium text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Existing roles preserved
-          </span>
 
-          <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 py-1.5 text-[12px] font-medium text-muted-foreground">
-            Registered blocks only
-          </span>
+        <div className="brixta-ai-trust">
+
+          <ShieldCheck className="h-3.5 w-3.5" />
+
+          Uses existing company data
+
         </div>
+
       </div>
 
-      <div className="space-y-6 p-6">
-        {/* ================================================================
-            MODE
-            Same button geometry as the CMS.
-            ================================================================ */}
-        <div>
-          <div className="mb-2 text-[12px] font-medium uppercase tracking-[0.02em] text-foreground">
-            What do you want AI to do?
-          </div>
 
-          <div className="flex flex-wrap gap-2">
-            {modes.map(
-              (item) => {
-                const active =
-                  item.id === mode;
 
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() =>
-                      onModeChange(
-                        item.id,
-                      )
-                    }
-                    className={[
-                      "min-w-[145px] rounded-md border px-3 py-2.5 text-left shadow-none",
-                      "transition-[background-color,color,border-color] duration-150",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                      active
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-input bg-background text-foreground hover:bg-muted",
-                    ].join(" ")}
-                  >
-                    <span className="block text-[13px] font-medium">
-                      {item.label}
-                    </span>
+      {/* =====================================================
+          MODE — SEGMENTED, NOT FOUR CARDS
+          ===================================================== */}
 
-                    <span
-                      className={[
-                        "mt-0.5 block text-[11px]",
-                        active
-                          ? "text-primary-foreground/75"
-                          : "text-muted-foreground",
-                      ].join(" ")}
-                    >
-                      {item.description}
-                    </span>
-                  </button>
-                );
-              },
-            )}
-          </div>
+      <div className="brixta-ai-body">
+
+        <div className="brixta-ai-mode-tabs">
+
+          {modes.map(
+            (item) => {
+
+              const active =
+                item.id === mode;
+
+              return (
+                <button
+                  key={item.id}
+
+                  type="button"
+
+                  data-active={
+                    active
+                      ? "true"
+                      : "false"
+                  }
+
+                  onClick={() =>
+                    onModeChange(
+                      item.id,
+                    )
+                  }
+                >
+
+                  {item.label}
+
+                </button>
+              );
+
+            },
+          )}
+
         </div>
 
-        {/* ================================================================
-            USER BRIEF
-            Uses the repo's EXISTING textarea primitive.
-            ================================================================ */}
-        <div>
-          <div className="mb-2 text-[12px] font-medium uppercase tracking-[0.02em] text-foreground">
-            Your brief
-          </div>
 
-          <textarea
-            value={value}
-            onChange={(event) =>
-              onChange(
-                event.target.value,
-              )
-            }
-            maxLength={6000}
-            rows={7}
-            placeholder={
-              kind === "app"
-                ? "Example: Build a Daily Visit app. Keep it cream and editorial. Let the salesman choose a dealer from our existing Dealer data, take a proof photo, capture GPS/time automatically and submit. Make dealer selection a fullscreen searchable picker. Animate into VISIT RECORDED after success."
-                : "Example: Allow salesmen to create unlimited leads, but do not let the same salesman submit the same Dealer twice on the same day. Use Asia/Kolkata. Preserve everything else."
-            }
-            className={textareaClass}
-          />
+        <div className="brixta-ai-mode-hint">
 
-          <div className="mt-2 flex items-center justify-between gap-3 text-[12px] text-muted-foreground">
+          {activeMode?.description}
+
+        </div>
+
+
+
+        {/* =====================================================
+            THE BRIEF IS THE HERO
+            ===================================================== */}
+
+        <div className="brixta-ai-brief-field">
+
+          <div className="brixta-ai-field-head">
+
             <span>
-              This requirement is included in the existing BRIXTA AI context.
+              Your brief
             </span>
 
             <span>
               {value.length.toLocaleString()}
               /6,000
             </span>
+
           </div>
+
+
+          <textarea
+            value={value}
+
+            onChange={(event) =>
+              onChange(
+                event.target.value,
+              )
+            }
+
+            maxLength={6000}
+
+            rows={6}
+
+            placeholder={
+              kind === "app"
+
+                ? "Tell BRIXTA what the employee should do. Example: Build a Dealer Visit app. Let the salesman choose a dealer, capture GPS and a proof photo, enter order quantity and follow-up date, then complete the visit."
+
+                : "Describe the behaviour in normal language. Example: Require manager approval when order quantity is above 500 bags. Preserve everything else."
+            }
+
+            className={`${textareaClass} brixta-ai-textarea`}
+          />
+
         </div>
 
-        {/* ================================================================
-            STYLE CONTROLS
-            Neutral CMS surfaces. No custom purple/navy design language.
-            ================================================================ */}
+
+
+        {/* =====================================================
+            SHRINKING STACKS
+            ===================================================== */}
+
         {kind === "app" && (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border border-border bg-background p-4">
-              <div className="text-[12px] font-medium uppercase tracking-[0.02em] text-foreground">
-                Style direction
+
+          <>
+            <details className="brixta-ai-stack">
+
+              <summary>
+
+                <div>
+
+                  <span className="brixta-ai-stack-title">
+                    Style
+                  </span>
+
+                  <span className="brixta-ai-stack-preview">
+                    Minimal · Executive · Editorial
+                  </span>
+
+                </div>
+
+
+                <ChevronRight className="brixta-ai-stack-chevron h-4 w-4" />
+
+              </summary>
+
+
+              <div className="brixta-ai-stack-body">
+
+                <div className="brixta-ai-chip-grid">
+
+                  {STYLES.map(
+                    (style) => (
+
+                      <button
+                        key={style}
+
+                        type="button"
+
+                        onClick={() =>
+                          onChange(
+                            appendIntent(
+                              value,
+                              `Look: ${style}.`,
+                            ),
+                          )
+                        }
+                      >
+
+                        {style}
+
+                      </button>
+
+                    ),
+                  )}
+
+                </div>
+
               </div>
 
-              <p className="mt-1 text-[12px] text-muted-foreground">
-                Add a visual direction to your brief.
-              </p>
+            </details>
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                {STYLES.map(
-                  (style) => (
-                    <button
-                      key={style}
-                      type="button"
-                      onClick={() =>
-                        onChange(
-                          appendIntent(
-                            value,
-                            `Look: ${style}.`,
-                          ),
-                        )
-                      }
-                      className="rounded-md border border-input bg-background px-2.5 py-1.5 text-[12px] font-medium text-foreground shadow-none transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    >
-                      {style}
-                    </button>
-                  ),
-                )}
+
+
+            <details className="brixta-ai-stack">
+
+              <summary>
+
+                <div>
+
+                  <span className="brixta-ai-stack-title">
+                    Typography
+                  </span>
+
+                  <span className="brixta-ai-stack-preview">
+                    Modern sans
+                  </span>
+
+                </div>
+
+
+                <ChevronRight className="brixta-ai-stack-chevron h-4 w-4" />
+
+              </summary>
+
+
+              <div className="brixta-ai-stack-body">
+
+                <div className="brixta-ai-chip-grid">
+
+                  {TYPOGRAPHY.map(
+                    (style) => (
+
+                      <button
+                        key={style}
+
+                        type="button"
+
+                        onClick={() =>
+                          onChange(
+                            appendIntent(
+                              value,
+                              `Typography: ${style}.`,
+                            ),
+                          )
+                        }
+                      >
+
+                        {style}
+
+                      </button>
+
+                    ),
+                  )}
+
+                </div>
+
               </div>
-            </div>
 
-            <div className="rounded-lg border border-border bg-background p-4">
-              <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.02em] text-foreground">
-                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+            </details>
+          </>
 
-                Typography direction
-              </div>
-
-              <p className="mt-1 text-[12px] text-muted-foreground">
-                Tell AI how the generated app should feel typographically.
-              </p>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                {TYPOGRAPHY.map(
-                  (style) => (
-                    <button
-                      key={style}
-                      type="button"
-                      onClick={() =>
-                        onChange(
-                          appendIntent(
-                            value,
-                            `Typography: ${style}.`,
-                          ),
-                        )
-                      }
-                      className="rounded-md border border-input bg-background px-2.5 py-1.5 text-[12px] font-medium text-foreground shadow-none transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    >
-                      {style}
-                    </button>
-                  ),
-                )}
-              </div>
-            </div>
-          </div>
         )}
 
-        {/* ================================================================
-            CONTEXT / REGISTRY INFORMATION
-            Compact supporting information instead of giant dashboard cards.
-            ================================================================ */}
-        <div className="grid gap-4 border-t border-border pt-5 xl:grid-cols-2">
-          <div>
-            <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.02em] text-foreground">
-              <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
-              Context AI receives
+
+
+        <details className="brixta-ai-stack">
+
+          <summary>
+
+            <div>
+
+              <span className="brixta-ai-stack-title">
+                AI Context
+              </span>
+
+              <span className="brixta-ai-stack-preview">
+                {contextItems.length}
+                {" "}
+                source
+                {contextItems.length === 1
+                  ? ""
+                  : "s"}
+              </span>
+
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              {contextItems.map(
-                (item) => (
-                  <span
-                    key={item}
-                    className="rounded-md border border-border bg-muted px-2 py-1 text-[12px] text-muted-foreground"
-                  >
-                    {item}
-                  </span>
-                ),
-              )}
-            </div>
+
+            <ChevronRight className="brixta-ai-stack-chevron h-4 w-4" />
+
+          </summary>
+
+
+          <div className="brixta-ai-stack-body">
+
+            {contextItems.length > 0 ? (
+
+              <div className="brixta-ai-chip-grid">
+
+                {contextItems.map(
+                  (item) => (
+
+                    <span
+                      key={item}
+                      className="brixta-ai-context-chip"
+                    >
+
+                      {item}
+
+                    </span>
+
+                  ),
+                )}
+
+              </div>
+
+            ) : (
+
+              <div className="text-xs text-muted-foreground">
+
+                No additional context sources.
+
+              </div>
+
+            )}
+
           </div>
 
-          <div>
-            <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.02em] text-foreground">
-              {kind === "logic" && (
-                <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
-              )}
+        </details>
 
-              Existing building blocks
+
+
+        <details className="brixta-ai-stack">
+
+          <summary>
+
+            <div>
+
+              <span className="brixta-ai-stack-title">
+                Available building blocks
+              </span>
+
+              <span className="brixta-ai-stack-preview">
+                {inventory.length}
+                {" "}
+                group
+                {inventory.length === 1
+                  ? ""
+                  : "s"}
+              </span>
+
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              {inventory.map(
-                (item) => (
-                  <span
-                    key={item}
-                    className="rounded-md border border-border bg-muted px-2 py-1 text-[12px] text-muted-foreground"
-                  >
-                    {item}
-                  </span>
-                ),
-              )}
-            </div>
+
+            <ChevronRight className="brixta-ai-stack-chevron h-4 w-4" />
+
+          </summary>
+
+
+          <div className="brixta-ai-stack-body">
+
+            {inventory.length > 0 ? (
+
+              <div className="brixta-ai-chip-grid">
+
+                {inventory.map(
+                  (item) => (
+
+                    <span
+                      key={item}
+                      className="brixta-ai-context-chip"
+                    >
+
+                      {item}
+
+                    </span>
+
+                  ),
+                )}
+
+              </div>
+
+            ) : (
+
+              <div className="text-xs text-muted-foreground">
+
+                No registered building-block groups.
+
+              </div>
+
+            )}
+
           </div>
-        </div>
 
-        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-3 text-[12px] leading-5 text-muted-foreground">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+        </details>
+
+
+
+        {/* =====================================================
+            TINY TRUST FOOTER
+            ===================================================== */}
+
+        <div className="brixta-ai-footer">
+
+          <ShieldCheck className="h-3.5 w-3.5" />
 
           <span>
-            BRIXTA reuses existing Roles, Employees, Responsibility assignments,
-            Data Sources, captures, actions, outputs and stable IDs. This panel
-            changes the AI authoring experience; it does not replace those
-            systems.
+            Existing Roles, Employees, Data Sources and stable IDs are preserved.
           </span>
+
         </div>
+
       </div>
+
     </section>
   );
 }
