@@ -13,6 +13,22 @@ import {
   encrypt,
 } from "@/lib/auth";
 import {
+  rememberCompanyLink,
+} from "@/lib/company-links";
+import {
+  clearAccountFailures,
+  clientAddress,
+  loginRules,
+  recordFailure,
+  throttleWait,
+  tooManyAttemptsMessage,
+} from "@/lib/login-throttle";
+import {
+  burnPasswordCheck,
+  hashPassword,
+  verifyStoredPassword,
+} from "@/lib/password";
+import {
   db,
   withTenantSchema,
 } from "@/lib/drizzle";
@@ -39,6 +55,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // BRIXTA_LOGIN_HARDENING_V1
+    const throttle = loginRules({
+      scope: "cms-login",
+      address: clientAddress(request),
+      account: `${companyCode}:${email}`,
+    });
+    const wait = throttleWait(throttle);
+
+    if (wait > 0) {
+      return NextResponse.json(
+        { error: tooManyAttemptsMessage(wait) },
+        { status: 429, headers: { "retry-after": String(wait) } },
+      );
+    }
+
     // Tenant resolution is the only deliberately public-schema query.
     const [org] = await db
       .select({
@@ -50,8 +81,10 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (!org) {
+      await burnPasswordCheck(password);
+      recordFailure(throttle);
       return NextResponse.json(
-        { error: "Invalid company code" },
+        { error: "Invalid company code, email or password" },
         { status: 401 },
       );
     }
@@ -74,12 +107,30 @@ export async function POST(request: NextRequest) {
           .where(eq(users.dashboardLoginId, email))
           .limit(1);
 
-        if (!user) {
+        // Password first: account state is only revealed to someone who
+        // already knows the password.
+        const check = await verifyStoredPassword(
+          user?.dashboardHashedPassword,
+          password,
+        );
+
+        if (!user || !check.ok) {
           return {
             ok: false as const,
             status: 401,
-            error: "Invalid email or password",
+            error: "Invalid company code, email or password",
+            countsAsFailure: true,
           };
+        }
+
+        if (check.needsUpgrade) {
+          // Legacy plaintext password matched: store it hashed from now on.
+          await tx
+            .update(users)
+            .set({
+              dashboardHashedPassword: await hashPassword(password),
+            })
+            .where(eq(users.id, user.id));
         }
 
         if (!user.isDashboardUser) {
@@ -96,18 +147,6 @@ export async function POST(request: NextRequest) {
             ok: false as const,
             status: 403,
             error: "This dashboard account is not active",
-          };
-        }
-
-        // Transitional compatibility: existing dashboard credentials are
-        // still stored in the current dashboardHashedPassword column format.
-        // Password-hash migration should be performed separately so existing
-        // tenants are not locked out by this platform/UI refactor.
-        if (user.dashboardHashedPassword !== password) {
-          return {
-            ok: false as const,
-            status: 401,
-            error: "Invalid email or password",
           };
         }
 
@@ -163,11 +202,16 @@ export async function POST(request: NextRequest) {
     );
 
     if (!result.ok) {
+      if ("countsAsFailure" in result && result.countsAsFailure) {
+        recordFailure(throttle);
+      }
       return NextResponse.json(
         { error: result.error },
         { status: result.status },
       );
     }
+
+    clearAccountFailures(throttle);
 
     const token = await encrypt({
       userId: result.user.id,
@@ -188,6 +232,12 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });
+
+    await rememberCompanyLink(
+      result.user.email,
+      org.schemaName,
+      result.user.id,
+    );
 
     return NextResponse.json(
       {

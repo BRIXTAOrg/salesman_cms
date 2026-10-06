@@ -5,8 +5,11 @@ import { withTenantDb, hasPermission } from '@/lib/auth';
 import { users, roles as rolesTable, userRoles } from '../../../../../../../drizzle/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { z } from 'zod';
-import bcrypt from 'bcryptjs';
-import { generateRandomPassword } from '@/app/api/dashboardPagesAPI/users-and-team/users/helpers';
+import {
+  generatePassword,
+  hashPassword,
+  withoutSecrets,
+} from '@/lib/password';
 
 const updateUserSchema = z.object({
   username: z.string().min(1).optional(),
@@ -20,6 +23,7 @@ const updateUserSchema = z.object({
   isDashboardUser: z.boolean().optional(),
   isSalesAppUser: z.boolean().optional(),
   clearDevice: z.boolean().optional(),
+  resetDashboardPassword: z.boolean().optional(),
 }).strict();
 
 type RouteContext = { params: Promise<{ userId: string }> };
@@ -46,7 +50,7 @@ export const PUT = withTenantDb<RouteContext>(async (request, db, session, conte
 
     const {
       orgRole, jobRole, area, zone, phoneNumber, clearDevice,
-      isDashboardUser, isSalesAppUser,
+      isDashboardUser, isSalesAppUser, resetDashboardPassword,
       ...standardData
     } = parsedBody.data;
 
@@ -80,39 +84,47 @@ export const PUT = withTenantDb<RouteContext>(async (request, db, session, conte
 
     const generatedCreds: any = {};
 
-    // --- LOGIC A: Dashboard User Upgrade ---
+    // --- LOGIC A: Dashboard access ---
+    // BRIXTA_PASSWORD_SECURITY_V1: passwords are random, stored as hashes and
+    // shown exactly once. A stored password is never sent back to the CMS.
     if (isDashboardUser === true && !targetUser.dashboardHashedPassword) {
-      const emailToUse = standardData.email || targetUser.email || "";
-      const emailLocalPart = emailToUse.split('@')[0];
-      let dashPassword = "";
+      const dashPassword = generatePassword();
 
-      if (emailLocalPart.includes('.')) {
-        dashPassword = emailLocalPart.split('.')[0] + '@123';
-      } else {
-        dashPassword = emailLocalPart.substring(0, 6) + '@123';
-      }
-
-      // NOTE: dashboardHashedPassword is plaintext here despite the
-      // column name -- matches app/api/auth/login/route.ts's comparison
-      // (`user.dashboardHashedPassword !== password`), which is also
-      // plaintext. Pre-existing pattern, left as-is (see the same note
-      // in users/route.ts's POST handler).
       drizzleUpdateData.isDashboardUser = true;
       drizzleUpdateData.dashboardLoginId = standardData.email || targetUser.email;
-      drizzleUpdateData.dashboardHashedPassword = dashPassword;
+      drizzleUpdateData.dashboardHashedPassword = await hashPassword(dashPassword);
       generatedCreds.dashboardEmail = drizzleUpdateData.dashboardLoginId;
       generatedCreds.dashboardPassword = dashPassword;
     } else if (isDashboardUser === true && targetUser.dashboardHashedPassword) {
-      // Re-enabling someone who already has dashboard credentials (was
-      // toggled off before, or upgraded twice). Don't regenerate --
-      // that would silently invalidate a password they may still have
-      // saved. Just flip the flag back on and hand back the existing
-      // login so the CMS can show/copy it again.
+      // Re-enabling someone who already has a login: their existing
+      // password keeps working. Use resetDashboardPassword for a new one.
       drizzleUpdateData.isDashboardUser = true;
       generatedCreds.dashboardEmail = targetUser.dashboardLoginId ?? targetUser.email;
-      generatedCreds.dashboardPassword = targetUser.dashboardHashedPassword;
+      generatedCreds.passwordUnchanged = true;
     } else if (isDashboardUser !== undefined) {
       drizzleUpdateData.isDashboardUser = isDashboardUser;
+    }
+
+    if (resetDashboardPassword === true) {
+      if (!targetUser.isDashboardUser && isDashboardUser !== true) {
+        return NextResponse.json(
+          { error: 'Turn on dashboard access before resetting the password.' },
+          { status: 400 },
+        );
+      }
+
+      const dashPassword = generatePassword();
+      const loginId =
+        drizzleUpdateData.dashboardLoginId ??
+        targetUser.dashboardLoginId ??
+        standardData.email ??
+        targetUser.email;
+
+      drizzleUpdateData.dashboardLoginId = loginId;
+      drizzleUpdateData.dashboardHashedPassword = await hashPassword(dashPassword);
+      generatedCreds.dashboardEmail = loginId;
+      generatedCreds.dashboardPassword = dashPassword;
+      delete generatedCreds.passwordUnchanged;
     }
 
     // --- LOGIC B: Sales App Upgrade ---
@@ -124,13 +136,10 @@ export const PUT = withTenantDb<RouteContext>(async (request, db, session, conte
         const existingSalesman = await db.select({ id: users.id }).from(users).where(eq(users.salesmanLoginId, newSalesmanId)).limit(1);
         if (!existingSalesman[0]) isUnique = true;
       }
-      const newSalesmanPassword = generateRandomPassword();
+      const newSalesmanPassword = generatePassword();
 
-      // Hash it here, matching the backend's bcrypt.compare against
-      // salesAppPasswordHash -- same fix as users/route.ts's POST
-      // handler. Previously this saved the plaintext password straight
-      // into salesAppPassword.
-      const newSalesmanPasswordHash = await bcrypt.hash(newSalesmanPassword, 12);
+      // Stored only as a hash, matching the backend's bcrypt check.
+      const newSalesmanPasswordHash = await hashPassword(newSalesmanPassword);
 
       drizzleUpdateData.isSalesAppUser = true;
       drizzleUpdateData.salesmanLoginId = newSalesmanId;
@@ -165,9 +174,9 @@ export const PUT = withTenantDb<RouteContext>(async (request, db, session, conte
     const updated = await db.update(users).set(drizzleUpdateData).where(eq(users.id, targetUserLocalId)).returning();
     const updatedUser = updated[0];
 
-    return NextResponse.json({ 
-      message: 'User updated successfully', 
-      user: updatedUser,
+    return NextResponse.json({
+      message: 'User updated successfully',
+      user: withoutSecrets(updatedUser),
       credentials: generatedCreds
     });
 

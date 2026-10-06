@@ -4,7 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { withTenantDb, hasPermission } from "@/lib/auth";
 import { users, roles as rolesTable, userRoles } from "../../../../../../drizzle/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
-import bcrypt from "bcryptjs";
+import {
+    generatePassword,
+    hashPassword,
+    withoutSecrets,
+} from "@/lib/password";
 
 // =================
 // POST ROUTE 
@@ -60,49 +64,29 @@ export const POST = withTenantDb(async (request, db, session) => {
         };
 
         const credentials: any = {};
-        const emailLocalPart = email.split('@')[0];
-        
-        // Reusable logic for "firstname@123"
-        let defaultGeneratedPassword = "";
-        if (emailLocalPart.includes('.')) {
-            defaultGeneratedPassword = emailLocalPart.split('.')[0] + '@123';
-        } else {
-            defaultGeneratedPassword = emailLocalPart.substring(0, 6) + '@123';
-        }
 
-        // Credential Generation Logic
+        // BRIXTA_PASSWORD_SECURITY_V1: a random first password (shown once in
+        // the CMS), stored only as a hash. The old "firstname@123" pattern
+        // was guessable by anyone who knew a colleague's email.
+        const firstPassword = generatePassword();
+        const firstPasswordHash = await hashPassword(firstPassword);
+
         if (newUserData.isDashboardUser) {
-            // NOTE: dashboardHashedPassword is plaintext here despite the
-            // column name -- matches app/api/auth/login/route.ts's
-            // comparison (`user.dashboardHashedPassword !== password`),
-            // which is also plaintext. This is a pre-existing pattern on
-            // the dashboard-login side, left as-is here since fixing it
-            // requires changing both sides together, not just this route.
             newUserData.dashboardLoginId = email;
-            newUserData.dashboardHashedPassword = defaultGeneratedPassword;
+            newUserData.dashboardHashedPassword = firstPasswordHash;
             credentials.dashboardEmail = email;
-            credentials.dashboardPassword = defaultGeneratedPassword;
+            credentials.dashboardPassword = firstPassword;
         }
 
         if (newUserData.isSalesAppUser) {
-            // ID becomes the phone number, password uses the identical dashboard logic
+            // ID becomes the phone number; same first password as the dashboard.
             const salesmanId = phoneNumber;
-            const salesPassword = defaultGeneratedPassword;
-
-            // Actually hash it here, matching the backend's bcrypt.compare
-            // against salesAppPasswordHash in salesapp_backend/src/auth/login.ts.
-            // Previously this saved the plaintext password into
-            // salesAppPassword -- that field still exists as a legacy
-            // fallback the backend auto-migrates on first login, but
-            // there's no reason to rely on that path for brand-new users
-            // when we can just hash it correctly up front.
-            const salesPasswordHash = await bcrypt.hash(salesPassword, 12);
 
             newUserData.salesmanLoginId = salesmanId;
-            newUserData.salesAppPasswordHash = salesPasswordHash;
+            newUserData.salesAppPasswordHash = firstPasswordHash;
             newUserData.salesAppPassword = null;
             credentials.salesmanId = salesmanId;
-            credentials.salesmanPassword = salesPassword;
+            credentials.salesmanPassword = firstPassword;
         }
 
         // A. Insert User
@@ -133,7 +117,7 @@ export const POST = withTenantDb(async (request, db, session) => {
         // 4. Return Data (No email sending)
         return NextResponse.json({
             message: 'User created successfully',
-            user: createdUser,
+            user: withoutSecrets(createdUser),
             credentials
         }, { status: 201 });
 

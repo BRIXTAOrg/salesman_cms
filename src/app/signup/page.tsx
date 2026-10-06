@@ -57,6 +57,11 @@ export default function SignupPage() {
             return;
         }
 
+        if (adminPassword.length < 8) {
+            setError('Password must be at least 8 characters.');
+            return;
+        }
+
         if (!schemaName) {
             setError('Company code could not be generated. Please set one manually.');
             return;
@@ -271,9 +276,9 @@ export default function SignupPage() {
                                 type="password"
                                 value={adminPassword}
                                 onChange={(e) => setAdminPassword(e.target.value)}
-                                placeholder="••••••••"
+                                placeholder="At least 8 characters"
                                 required
-                                minLength={6}
+                                minLength={8}
                                 disabled={loading}
                                 className="h-11"
                             />
@@ -288,7 +293,7 @@ export default function SignupPage() {
                                 onChange={(e) => setAdminPasswordConfirm(e.target.value)}
                                 placeholder="••••••••"
                                 required
-                                minLength={6}
+                                minLength={8}
                                 disabled={loading}
                                 className="h-11"
                             />

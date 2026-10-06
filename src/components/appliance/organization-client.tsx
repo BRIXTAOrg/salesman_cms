@@ -21,6 +21,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { useCompanySwitch } from "@/components/company-switch-dialog";
 import type {
   Employee,
 } from "@/lib/appliance-types";
@@ -97,7 +98,7 @@ function CompanyCard({
 }: {
   company: PortfolioCompany;
   switching: number | null;
-  onSwitch: (company: PortfolioCompany) => Promise<void>;
+  onSwitch: (company: PortfolioCompany) => void;
 }) {
   const busy = switching === company.id;
 
@@ -324,8 +325,16 @@ export default function OrganizationClient() {
     useState(true);
   const [portfolioError, setPortfolioError] =
     useState<string | null>(null);
-  const [switching, setSwitching] =
-    useState<number | null>(null);
+  // BRIXTA_COMPANY_SWITCH_PROOF_V1
+  const {
+    switchTo: requestCompanySwitch,
+    switchingId: switching,
+    dialog: passwordDialog,
+  } = useCompanySwitch({
+    // Stay in the panoramic Organization screen after switching.
+    onSwitched: () =>
+      window.location.assign("/dashboard/workforce/organization"),
+  });
 
   const loadCurrentCompany = useCallback(async () => {
     setLoading(true);
@@ -383,53 +392,17 @@ export default function OrganizationClient() {
     void load();
   }, [load]);
 
-  async function switchCompany(
+  function switchCompany(
     company: PortfolioCompany,
   ) {
     if (company.isCurrent) {
       return;
     }
 
-    setSwitching(company.id);
-
-    try {
-      const response = await fetch(
-        "/api/account/switch",
-        {
-          method: "POST",
-          headers: {
-            "content-type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            organizationId: company.id,
-          }),
-        },
-      );
-
-      const body = await response
-        .json()
-        .catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          body.error ??
-            "Unable to switch company.",
-        );
-      }
-
-      // Stay in the panoramic Organization screen after switching.
-      window.location.assign(
-        "/dashboard/workforce/organization",
-      );
-    } catch (error) {
-      window.alert(
-        error instanceof Error
-          ? error.message
-          : "Unable to switch company.",
-      );
-      setSwitching(null);
-    }
+    void requestCompanySwitch({
+      id: company.id,
+      name: company.name,
+    });
   }
 
   const active = employees.filter(
@@ -701,6 +674,8 @@ export default function OrganizationClient() {
           )}
         </div>
       )}
+
+      {passwordDialog}
     </div>
   );
 }

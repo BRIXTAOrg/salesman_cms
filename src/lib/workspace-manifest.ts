@@ -238,6 +238,18 @@ export function buildWorkspaceManifest({
     });
   }
 
+  // ---- Field Work (BRIXTA_FIELD_APP_V1) -----------------------------
+  // Imported lists sent to the field app: progress, assignment, history.
+  if (canManage) {
+    addNav(nav, "Field Work", {
+      key: "field_work",
+      label: "Field work",
+      href: "/dashboard/field",
+      icon: "map-pin",
+      description: "Track, assign and review the lists your field team works on.",
+    });
+  }
+
   // ---- QR Rewards Edition ------------------------------------------
   //
   // This navigation exists only when this deployment identifies itself as

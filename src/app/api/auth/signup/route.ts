@@ -1,10 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  clientAddress,
+  consumeAttempt,
+  tooManyAttemptsMessage,
+} from "@/lib/login-throttle";
+import { passwordProblem } from "@/lib/password";
 import { provisionCompany } from "@/lib/tenant-provisioner";
 
 const SCHEMA_NAME_PATTERN = /^[a-z][a-z0-9_]{0,62}$/;
 
 export async function POST(request: NextRequest) {
+  // BRIXTA_SIGNUP_THROTTLE_V1: every signup creates a whole database
+  // schema, so keep it to a handful per address per hour.
+  const wait = consumeAttempt({
+    key: `cms-signup:ip:${clientAddress(request)}`,
+    limit: 5,
+    windowMs: 60 * 60 * 1000,
+  });
+
+  if (wait > 0) {
+    return NextResponse.json(
+      { error: tooManyAttemptsMessage(wait) },
+      { status: 429, headers: { "retry-after": String(wait) } },
+    );
+  }
+
   const body = await request.json().catch(() => null);
 
   if (!body) {
@@ -55,9 +76,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (String(adminPassword).length < 6) {
+  const weakPassword = passwordProblem(String(adminPassword));
+  if (weakPassword) {
     return NextResponse.json(
-      { error: "Password must be at least 6 characters." },
+      { error: weakPassword },
       { status: 400 },
     );
   }

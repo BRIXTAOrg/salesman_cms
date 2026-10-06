@@ -2,12 +2,11 @@
 
 import {
   Boxes,
-  FileSpreadsheet,
   Loader2,
   Plus,
   RefreshCw,
+  Smartphone,
   Trash2,
-  Upload,
 } from "lucide-react";
 import {
   FormEvent,
@@ -19,6 +18,8 @@ import {
 
 import type { PlatformEntityType } from "@/lib/platform-vnext-types";
 import { apiJson } from "./client";
+import EntityImportWizard from "./entity-import-wizard";
+import FieldAppSettings, { hasFieldAppDraft, isInFieldApp } from "./field-app-settings";
 import {
   EmptyState,
   Field,
@@ -30,38 +31,13 @@ import {
   textareaClass,
 } from "./primitives";
 
-// BRIXTA_ENTITIES_IMPORT_V1
+// BRIXTA_ENTITIES_IMPORT_V2 (import lives in entity-import-wizard.tsx)
 
 type EntityField = {
   key: string;
   label: string;
   dataType: string;
   required?: boolean;
-};
-
-type PreviewColumn = {
-  key: string;
-  label: string;
-  dataType: "text" | "number" | "boolean" | "date";
-  nonEmptyCount: number;
-};
-
-type ImportPreview = {
-  fileName: string;
-  rowCount: number;
-  suggestedTitle: string;
-  suggestedDisplayKey: string;
-  suggestedUniqueKey: string;
-  columns: PreviewColumn[];
-  previewRows: Array<Record<string, unknown>>;
-};
-
-type PreviewResponse = { success: true; preview: ImportPreview };
-
-type ImportResponse = {
-  success: true;
-  imported: { rowCount: number; displayKey: string; uniqueKey: string };
-  entityType: PlatformEntityType;
 };
 
 const FIELD_TYPES = [
@@ -86,43 +62,25 @@ function newField(): EntityField {
   return { key: "", label: "", dataType: "text", required: false };
 }
 
-function displayValue(value: unknown) {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value === "object") {
-    try { return JSON.stringify(value); } catch { return String(value); }
+function lastImport(entity: PlatformEntityType) {
+  const imports = entity.config?.["imports"];
+  if (Array.isArray(imports) && imports.length > 0) {
+    const latest = imports[0] as Record<string, unknown>;
+    const at = new Date(String(latest.at ?? ""));
+    return {
+      when: Number.isNaN(at.getTime())
+        ? null
+        : at.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+      added: Number(latest.created ?? 0),
+    };
   }
-  return String(value);
-}
-
-async function apiForm<T>(form: FormData): Promise<T> {
-  const response = await fetch("/api/platform/data-import", {
-    method: "POST",
-    body: form,
-    cache: "no-store",
-  });
-  const text = await response.text();
-  let body: Record<string, unknown> = {};
-  if (text) {
-    try { body = JSON.parse(text) as Record<string, unknown>; }
-    catch { throw new Error("Server returned invalid JSON."); }
+  // Lists created by the first importer kept only a row count.
+  const legacy = entity.config?.["import"];
+  if (legacy && typeof legacy === "object" && !Array.isArray(legacy)) {
+    const rows = Number((legacy as Record<string, unknown>)["rowCount"]);
+    return Number.isFinite(rows) ? { when: null, added: rows } : null;
   }
-  if (!response.ok) {
-    throw new Error(
-      typeof body.error === "string"
-        ? body.error
-        : `Request failed (${response.status}).`,
-    );
-  }
-  return body as T;
-}
-
-function importedRowCount(entity: PlatformEntityType) {
-  const imported = entity.config?.["import"];
-  if (!imported || typeof imported !== "object" || Array.isArray(imported)) {
-    return null;
-  }
-  const value = Number((imported as Record<string, unknown>)["rowCount"]);
-  return Number.isFinite(value) ? value : null;
+  return null;
 }
 
 export default function EntitiesClient() {
@@ -130,21 +88,13 @@ export default function EntitiesClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [fieldEntity, setFieldEntity] = useState<PlatformEntityType | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [fields, setFields] = useState<EntityField[]>([
     { key: "name", label: "Name", dataType: "text", required: true },
   ]);
-
-  const [file, setFile] = useState<File | null>(null);
-  const [fileInputKey, setFileInputKey] = useState(0);
-  const [previewing, setPreviewing] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [preview, setPreview] = useState<ImportPreview | null>(null);
-  const [importTitle, setImportTitle] = useState("");
-  const [displayKey, setDisplayKey] = useState("");
-  const [uniqueKey, setUniqueKey] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -216,58 +166,6 @@ export default function EntitiesClient() {
     }
   }
 
-  async function previewFile(nextFile: File) {
-    setFile(nextFile);
-    setPreview(null);
-    setMessage(null);
-    setPreviewing(true);
-    try {
-      const form = new FormData();
-      form.append("mode", "preview");
-      form.append("file", nextFile);
-      const body = await apiForm<PreviewResponse>(form);
-      setPreview(body.preview);
-      setImportTitle(body.preview.suggestedTitle);
-      setDisplayKey(body.preview.suggestedDisplayKey);
-      setUniqueKey(body.preview.suggestedUniqueKey);
-    } catch (error) {
-      setFile(null);
-      setMessage(error instanceof Error ? error.message : "Unable to preview file.");
-    } finally {
-      setPreviewing(false);
-    }
-  }
-
-  async function importFile() {
-    if (!file || !preview) return;
-    setImporting(true);
-    setMessage(null);
-    try {
-      const form = new FormData();
-      form.append("mode", "import");
-      form.append("file", file);
-      form.append("title", importTitle);
-      form.append("displayKey", displayKey);
-      form.append("uniqueKey", uniqueKey);
-      const body = await apiForm<ImportResponse>(form);
-      setMessage(
-        `${body.imported.rowCount.toLocaleString()} records imported. `
-          + `Entity "${body.entityType.title}" was created automatically and is ready in Connections.`,
-      );
-      setFile(null);
-      setPreview(null);
-      setImportTitle("");
-      setDisplayKey("");
-      setUniqueKey("");
-      setFileInputKey((value) => value + 1);
-      await load();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Import failed.");
-    } finally {
-      setImporting(false);
-    }
-  }
-
   function updateField(index: number, patch: Partial<EntityField>) {
     setFields((current) =>
       current.map((field, fieldIndex) =>
@@ -286,10 +184,9 @@ export default function EntitiesClient() {
               Entities
             </div>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Entities are reusable business things: Dealers, Products, Sites,
-              Machines, Vehicles and Customers. Create one manually or upload
-              CSV/XLSX and BRIXTA creates the Entity, fields, records and
-              generic Data Source automatically.
+              Entities are reusable business things: Sites, Dealers, Products,
+              Machines and Customers. Import a CSV, Excel or JSON file into a new
+              or existing list, or create one manually below.
             </p>
           </div>
           <SecondaryButton type="button" onClick={() => void load()}>
@@ -301,101 +198,7 @@ export default function EntitiesClient() {
 
       {message && <Panel className="py-3"><div className="text-sm">{message}</div></Panel>}
 
-      <Panel>
-        <div className="flex items-start gap-3">
-          <FileSpreadsheet className="mt-0.5 h-5 w-5 text-primary" />
-          <div>
-            <div className="text-base font-semibold">Import CSV / Excel</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Fast path: upload records and BRIXTA creates the Entity automatically.
-            </div>
-          </div>
-        </div>
-
-        <label className="mt-4 flex cursor-pointer items-center justify-center gap-3 rounded-xl border border-dashed p-6 transition hover:bg-muted/20">
-          <input
-            key={fileInputKey}
-            type="file"
-            className="sr-only"
-            accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            onChange={(event) => {
-              const selected = event.target.files?.[0];
-              if (selected) void previewFile(selected);
-            }}
-          />
-          {previewing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
-          <div>
-            <div className="text-sm font-medium">
-              {file ? file.name : "Choose CSV / Excel file"}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Preview first. Nothing is written until you confirm.
-            </div>
-          </div>
-        </label>
-
-        {preview && (
-          <div className="mt-5 space-y-5">
-            <div className="rounded-xl border bg-muted/[0.08] p-4">
-              <div className="text-lg font-semibold">
-                We found {preview.rowCount.toLocaleString()} records
-              </div>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-3">
-              <Field label="Entity name">
-                <input className={inputClass} value={importTitle} onChange={(e) => setImportTitle(e.target.value)} />
-              </Field>
-              <Field label="Show records using">
-                <select className={inputClass} value={displayKey} onChange={(e) => setDisplayKey(e.target.value)}>
-                  {preview.columns.map((column) => <option key={column.key} value={column.key}>{column.label}</option>)}
-                </select>
-              </Field>
-              <Field label="Unique record identifier">
-                <select className={inputClass} value={uniqueKey} onChange={(e) => setUniqueKey(e.target.value)}>
-                  {preview.columns.map((column) => <option key={column.key} value={column.key}>{column.label}</option>)}
-                </select>
-              </Field>
-            </div>
-
-            <div className="overflow-x-auto rounded-xl border">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-muted/20 text-xs">
-                  <tr>
-                    {preview.columns.map((column) => (
-                      <th key={column.key} className="whitespace-nowrap border-b px-3 py-2 font-medium">
-                        {column.label}<span className="ml-2 font-normal text-muted-foreground">{column.dataType}</span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.previewRows.map((row, index) => (
-                    <tr key={index} className="border-b last:border-0">
-                      {preview.columns.map((column) => (
-                        <td key={column.key} className="max-w-[260px] truncate px-3 py-2">
-                          {displayValue(row[column.key])}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex justify-end">
-              <PrimaryButton
-                type="button"
-                disabled={importing || !importTitle.trim() || !displayKey || !uniqueKey}
-                onClick={() => void importFile()}
-              >
-                {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
-                Create Entity + import {preview.rowCount.toLocaleString()}
-              </PrimaryButton>
-            </div>
-          </div>
-        )}
-      </Panel>
+      <EntityImportWizard entities={items} onImported={load} />
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,.85fr)]">
         <Panel>
@@ -470,14 +273,28 @@ export default function EntitiesClient() {
           ) : (
             <div className="mt-4 space-y-2">
               {items.map((item) => {
-                const rows = importedRowCount(item);
+                const imported = lastImport(item);
                 return (
                   <div key={item.id} className="rounded-lg border p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="font-medium">{item.title}</div>
                       <Pill tone={item.isActive ? "good" : "neutral"}>{item.isActive ? "Ready" : "Disabled"}</Pill>
+                      {isInFieldApp(item) && <Pill tone="info">In field app</Pill>}
+                      {hasFieldAppDraft(item) && <Pill tone="warning">Unpublished changes</Pill>}
+                      <SecondaryButton
+                        type="button"
+                        className="ml-auto h-8 px-3 text-[12px]"
+                        onClick={() => setFieldEntity(item)}
+                      >
+                        <Smartphone className="h-3.5 w-3.5" />
+                        {isInFieldApp(item) ? "Field app settings" : "Send to field app"}
+                      </SecondaryButton>
                       <Pill tone="info">{item.fieldDefinitions.length} fields</Pill>
-                      {rows !== null && <Pill>{rows.toLocaleString()} imported records</Pill>}
+                      {imported && (
+                        <Pill>
+                          Last import{imported.when ? ` ${imported.when}` : ""} · {imported.added.toLocaleString("en-IN")} added
+                        </Pill>
+                      )}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {item.fieldDefinitions.map((field) => <Pill key={field.key}>{field.label}</Pill>)}
@@ -489,6 +306,17 @@ export default function EntitiesClient() {
           )}
         </Panel>
       </div>
+
+      {fieldEntity && (
+        <FieldAppSettings
+          entity={fieldEntity}
+          onClose={() => setFieldEntity(null)}
+          onSaved={async () => {
+            setMessage(`"${fieldEntity.title}" field app settings saved.`);
+            await load();
+          }}
+        />
+      )}
     </div>
   );
 }

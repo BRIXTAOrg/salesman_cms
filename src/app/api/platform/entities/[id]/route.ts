@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { count, eq } from "drizzle-orm";
 
 import { hasPermission, withTenantDb } from "@/lib/auth";
+import { FIELD_APP_KEYS } from "@/lib/field-app-store";
 import { ensureTenantPlatformVNext } from "@/lib/platform-vnext-db";
 import {
   entityRecords,
@@ -47,6 +48,29 @@ export const PATCH = withTenantDb<Context>(
       if (body?.[key] !== undefined) {
         (patch as Record<string, unknown>)[key] = body[key];
       }
+    }
+
+    if (body?.config !== undefined) {
+      // BRIXTA_FIELD_APP_PUBLISH_V1: the field app (published, draft and
+      // versions) is only written by /api/platform/field-apps/:id. Keep the
+      // stored values, whatever an older copy of the config in the browser
+      // says.
+      const [current] = await db
+        .select({ config: entityTypes.config })
+        .from(entityTypes)
+        .where(eq(entityTypes.id, numericId))
+        .limit(1)
+        .for("update");
+      const incoming =
+        body.config && typeof body.config === "object" && !Array.isArray(body.config)
+          ? { ...(body.config as Record<string, unknown>) }
+          : {};
+      const storedConfig = (current?.config ?? {}) as Record<string, unknown>;
+      for (const key of FIELD_APP_KEYS) {
+        if (key in storedConfig) incoming[key] = storedConfig[key];
+        else delete incoming[key];
+      }
+      (patch as Record<string, unknown>).config = incoming;
     }
 
     const [updated] = await db

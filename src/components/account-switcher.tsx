@@ -12,6 +12,8 @@ import {
   Loader2,
 } from "lucide-react";
 
+import { useCompanySwitch } from "@/components/company-switch-dialog";
+
 type Organization = {
   id: number;
   name: string;
@@ -28,8 +30,14 @@ export default function AccountSwitcher() {
     useState<string | null>(null);
   const [open, setOpen] =
     useState(false);
-  const [switching, setSwitching] =
-    useState<number | null>(null);
+  // BRIXTA_COMPANY_SWITCH_PROOF_V1
+  const {
+    switchTo: requestCompanySwitch,
+    switchingId: switching,
+    dialog: passwordDialog,
+  } = useCompanySwitch({
+    onSwitched: (redirect) => window.location.assign(redirect),
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -86,7 +94,7 @@ export default function AccountSwitcher() {
     ) : null;
   }
 
-  async function switchTo(
+  function switchTo(
     organization: Organization,
   ) {
     if (
@@ -97,47 +105,10 @@ export default function AccountSwitcher() {
       return;
     }
 
-    setSwitching(organization.id);
-
-    try {
-      const response = await fetch(
-        "/api/account/switch",
-        {
-          method: "POST",
-          headers: {
-            "content-type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            organizationId:
-              organization.id,
-          }),
-        },
-      );
-
-      const body = await response
-        .json()
-        .catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          body.error ??
-            "Unable to switch company.",
-        );
-      }
-
-      window.location.assign(
-        body.redirect ?? "/dashboard",
-      );
-    } catch (error) {
-      window.alert(
-        error instanceof Error
-          ? error.message
-          : "Unable to switch company.",
-      );
-    } finally {
-      setSwitching(null);
-    }
+    void requestCompanySwitch({
+      id: organization.id,
+      name: organization.name,
+    });
   }
 
   return (
@@ -175,7 +146,7 @@ export default function AccountSwitcher() {
                     !organization.isProvisioned
                   }
                   onClick={() =>
-                    void switchTo(organization)
+                    switchTo(organization)
                   }
                   className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left hover:bg-muted disabled:opacity-50"
                 >
@@ -205,6 +176,8 @@ export default function AccountSwitcher() {
           )}
         </div>
       )}
+
+      {passwordDialog}
     </div>
   );
 }

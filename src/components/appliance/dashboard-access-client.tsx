@@ -10,6 +10,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import {
   Check,
   Copy,
+  KeyRound,
   Loader2,
   RefreshCw,
   ShieldCheck,
@@ -47,6 +48,8 @@ type DashboardUser = {
 type Credentials = {
   dashboardEmail?: string;
   dashboardPassword?: string;
+  passwordUnchanged?: boolean;
+  reason?: "enabled" | "reset";
 };
 
 export default function DashboardAccessClient() {
@@ -118,18 +121,19 @@ export default function DashboardAccessClient() {
         body.credentials?.dashboardEmail &&
         body.credentials?.dashboardPassword
       ) {
-        // Covers both first-time upgrades (freshly generated) and
-        // re-enabling someone who already had a login (existing creds
-        // handed back unchanged) -- either way there's something to
-        // show and copy.
+        // First-time access: a fresh password, shown exactly once.
         setCopied(false);
         setCloseHint(false);
-        setCredentials(body.credentials);
-      } else if (!enabled) {
-        // Turning access off never touches dashboardLoginId /
-        // dashboardHashedPassword on the backend -- only the
-        // isDashboardUser flag flips. Login credentials stay intact so
-        // access can be restored later without regenerating anything.
+        setCredentials({ ...body.credentials, reason: "enabled" });
+      } else if (enabled) {
+        // BRIXTA_PASSWORD_SECURITY_V1: re-enabled with their existing
+        // password. Stored passwords are never shown again.
+        toast.success(
+          `${displayName}'s dashboard access restored. Their existing password still works — use Reset password if they forgot it.`,
+        );
+      } else {
+        // Turning access off only flips isDashboardUser; the login stays
+        // intact so access can be restored later.
         toast.success(`${displayName}'s dashboard access removed.`);
       }
 
@@ -139,6 +143,48 @@ export default function DashboardAccessClient() {
         error instanceof Error
           ? error.message
           : "Unable to change dashboard access.",
+      );
+    } finally {
+      setPendingUserId(null);
+    }
+  }
+
+  async function resetPassword(user: DashboardUser) {
+    const displayName = user.username ?? user.email;
+    if (
+      !window.confirm(
+        `Create a new dashboard password for ${displayName}? Their current password will stop working.`,
+      )
+    ) {
+      return;
+    }
+
+    setPendingUserId(user.id);
+    setMessage(null);
+
+    try {
+      const body = await apiJson<{
+        credentials?: Credentials;
+      }>(
+        `/api/dashboardPagesAPI/users-and-team/users/${user.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            resetDashboardPassword: true,
+          }),
+        },
+      );
+
+      if (body.credentials?.dashboardPassword) {
+        setCopied(false);
+        setCloseHint(false);
+        setCredentials({ ...body.credentials, reason: "reset" });
+      }
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to reset the password.",
       );
     } finally {
       setPendingUserId(null);
@@ -228,6 +274,18 @@ export default function DashboardAccessClient() {
                   void toggleAccess(user, checked)
                 }
               />
+              {user.isDashboardUser && (
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => void resetPassword(user)}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  title="Create a new password"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  Reset password
+                </button>
+              )}
               {isPending && (
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
               )}
@@ -280,7 +338,9 @@ export default function DashboardAccessClient() {
           <div className="space-y-4">
             <div className="flex items-center gap-2 rounded-md border border-emerald-600/20 bg-emerald-600/5 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
               <ShieldCheck className="h-4 w-4 shrink-0" />
-              Dashboard access enabled.
+              {credentials.reason === "reset"
+                ? "New password created. The old one no longer works."
+                : "Dashboard access enabled."}
             </div>
 
             <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">

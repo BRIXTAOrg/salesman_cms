@@ -5,6 +5,7 @@ import path from "node:path";
 import type { PoolClient } from "pg";
 
 import { pool } from "@/lib/drizzle";
+import { hashPassword } from "@/lib/password";
 
 const CORE_SQL = path.join(process.cwd(), "drizzle", "provision-schema.sql");
 const TENANT_PLATFORM_SQL = path.join(
@@ -181,7 +182,8 @@ export async function provisionCompany(input: ProvisionCompanyInput) {
         input.adminEmail.trim(),
         input.adminName.trim(),
         input.adminName.trim(),
-        input.adminPassword,
+        // BRIXTA_PASSWORD_SECURITY_V1: never store the admin password as typed.
+        await hashPassword(input.adminPassword),
       ],
     );
 
