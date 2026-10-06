@@ -3,7 +3,7 @@
 /*
  * BRIXTA_UI_V2 — Responsibilities studio shell.
  *
- * One page title and four plain tabs. Lists (entities) moved to their own
+ * One page title and three plain tabs. Lists (entities) moved to their own
  * page under Field work → Lists, so they are no longer duplicated here.
  */
 
@@ -13,9 +13,8 @@ import Link from "next/link";
 import DataSourcesClient from "./data-sources-client";
 import PixelLogicStudioClient from "./pixel-logic-studio-client";
 import ResponsibilityKernelClient from "./responsibility-kernel-client";
-import ResponsibilityRecordsClient from "./responsibility-records-client";
 
-type TabKey = "builder" | "logic" | "data" | "records";
+type TabKey = "builder" | "logic" | "data";
 
 const tabs: Array<{ key: TabKey; label: string; hint: string }> = [
   {
@@ -32,11 +31,6 @@ const tabs: Array<{ key: TabKey; label: string; hint: string }> = [
     key: "data",
     label: "Data connections",
     hint: "Feed list data into app fields so people pick instead of type.",
-  },
-  {
-    key: "records",
-    label: "Records",
-    hint: "Review and correct the data your team submitted through Responsibilities.",
   },
 ];
 
@@ -103,7 +97,6 @@ export default function ResponsibilityPlatformStudio() {
         {tab === "builder" && <ResponsibilityKernelClient />}
         {tab === "logic" && <PixelLogicStudioClient />}
         {tab === "data" && <DataSourcesClient />}
-        {tab === "records" && <ResponsibilityRecordsClient />}
       </div>
     </div>
   );

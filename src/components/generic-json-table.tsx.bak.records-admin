@@ -12,7 +12,6 @@ import type {
 import {
   Eye,
   ExternalLink,
-  Pencil,
 } from "lucide-react";
 
 import {
@@ -61,14 +60,6 @@ interface GenericJsonTableProps {
   columns?: GenericJsonColumn[];
 
   hiddenKeys?: string[];
-
-  /**
-   * Optional admin action.
-   *
-   * GenericJsonTable remains a generic renderer; callers decide whether
-   * a record is editable and own the persistence semantics.
-   */
-  onEditRow?: (row: GenericJsonRow) => void;
 }
 
 
@@ -355,7 +346,6 @@ export function GenericJsonTable({
   hiddenKeys = [
     "id",
   ],
-  onEditRow,
 }: GenericJsonTableProps) {
   const [
     selected,
@@ -482,37 +472,19 @@ export function GenericJsonTable({
           cell: ({
             row,
           }) => (
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 border-blue-200 px-2 text-blue-600 shadow-sm hover:border-blue-300 hover:bg-blue-50"
-                onClick={() =>
-                  setSelected(
-                    row.original,
-                  )
-                }
-              >
-                <Eye className="mr-1 h-3.5 w-3.5" />
-                View
-              </Button>
-
-              {onEditRow && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-2"
-                  onClick={() =>
-                    onEditRow(
-                      row.original,
-                    )
-                  }
-                >
-                  <Pencil className="mr-1 h-3.5 w-3.5" />
-                  Edit
-                </Button>
-              )}
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 border-blue-200 px-2 text-blue-600 shadow-sm hover:border-blue-300 hover:bg-blue-50"
+              onClick={() =>
+                setSelected(
+                  row.original,
+                )
+              }
+            >
+              <Eye className="mr-1 h-3.5 w-3.5" />
+              View
+            </Button>
           ),
         });
 
@@ -521,7 +493,6 @@ export function GenericJsonTable({
       },
       [
         resolvedColumns,
-        onEditRow,
       ],
     );
 
