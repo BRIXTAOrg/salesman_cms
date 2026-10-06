@@ -48,7 +48,6 @@ const eslintConfig = defineConfig([
    */
   {
     files: [
-      "src/components/appliance/responsibilities-client.tsx",
       "src/components/appliance/responsibility-app-builder.tsx",
     ],
     rules: {

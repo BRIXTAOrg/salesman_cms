@@ -1,43 +1,39 @@
-// BRIXTA_UNIVERSAL_INTEGRATION_V1
+// BRIXTA_UNIVERSAL_INTEGRATION_V2
+import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 
 const cms = process.cwd();
-const flutter = process.env.BRIXTA_FLUTTER_REPO || resolve(cms, "../salesapp");
-const port = process.env.BRIXTA_FLUTTER_PREVIEW_PORT || "5050";
+const previewIndex = resolve(cms, "public/flutter-preview/index.html");
 
-const children = [];
-
-function start(command, args, cwd) {
-  const child = spawn(command, args, {
-    cwd,
-    stdio: "inherit",
-    env: process.env,
-  });
-  children.push(child);
-  child.on("error", (error) => {
-    console.error(`[dev:studio] ${command} failed:`, error.message);
-    shutdown(1);
-  });
-  child.on("exit", (code, signal) => {
-    if (signal) return;
-    if (typeof code === "number" && code !== 0) shutdown(code);
-  });
-  return child;
+if (existsSync(previewIndex)) {
+  console.log("[dev:studio] Flutter preview: /flutter-preview/?brixtaPreview=1");
+  console.log("[dev:studio] Using static Flutter renderer bundled with CMS.");
+} else {
+  console.warn("[dev:studio] Flutter preview bundle is not installed.");
+  console.warn("[dev:studio] Run: npm run preview:install");
 }
 
+const child = spawn("npm", ["run", "dev"], {
+  cwd: cms,
+  stdio: "inherit",
+  env: process.env,
+});
+
 function shutdown(code = 0) {
-  for (const child of children) {
-    if (!child.killed) child.kill("SIGTERM");
-  }
+  if (!child.killed) child.kill("SIGTERM");
   setTimeout(() => process.exit(code), 100);
 }
 
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
-console.log(`[dev:studio] Flutter preview: http://localhost:${port}/?brixtaPreview=1`);
-console.log(`[dev:studio] Flutter repo: ${flutter}`);
+child.on("error", (error) => {
+  console.error("[dev:studio] CMS failed:", error.message);
+  shutdown(1);
+});
 
-start("flutter", ["run", "-d", "web-server", "--web-port", port], flutter);
-start("npm", ["run", "dev"], cms);
+child.on("exit", (code, signal) => {
+  if (signal) return;
+  process.exit(typeof code === "number" ? code : 0);
+});

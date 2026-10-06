@@ -14,7 +14,7 @@ import DataSourcesClient from "./data-sources-client";
 import PixelLogicStudioClient from "./pixel-logic-studio-client";
 import ResponsibilityKernelClient from "./responsibility-kernel-client";
 
-type TabKey = "builder" | "automations" | "data";
+type TabKey = "builder" | "logic" | "data";
 
 const tabs: Array<{ key: TabKey; label: string; hint: string }> = [
   {
@@ -23,9 +23,9 @@ const tabs: Array<{ key: TabKey; label: string; hint: string }> = [
     hint: "Design what your team fills in on the phone, then publish it.",
   },
   {
-    key: "automations",
-    label: "Automations",
-    hint: "When something happens in a responsibility, decide what follows.",
+    key: "logic",
+    label: "Pixel Logic",
+    hint: "Build visual conditions, calculations, state transitions, routing and effects.",
   },
   {
     key: "data",
@@ -95,7 +95,7 @@ export default function ResponsibilityPlatformStudio() {
         className="w-full min-w-0 max-w-full pt-5"
       >
         {tab === "builder" && <ResponsibilityKernelClient />}
-        {tab === "automations" && <PixelLogicStudioClient />}
+        {tab === "logic" && <PixelLogicStudioClient />}
         {tab === "data" && <DataSourcesClient />}
       </div>
     </div>

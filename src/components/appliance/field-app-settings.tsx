@@ -330,8 +330,8 @@ export default function FieldAppSettings({
     <Modal
       open
       wide
-      title={`Field app · ${entity.title}`}
-      description="Changes stay in a draft until you publish. Phones always use the published version."
+      title={`Data input setup · ${entity.title}`}
+      description="Configure the extra information field users must enter for this CRM list. Changes stay in draft until published."
       onClose={onClose}
     >
       {!store && !loadError && (
@@ -346,7 +346,7 @@ export default function FieldAppSettings({
           <div className="grid gap-3 md:grid-cols-2">
             <div className="brixta-soft-card p-4">
               <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                On phones now
+                Live data-input setup
               </div>
               {live ? (
                 <div className="mt-2 space-y-1">
@@ -361,7 +361,7 @@ export default function FieldAppSettings({
                   </div>
                 </div>
               ) : (
-                <div className="mt-2 text-sm text-muted-foreground">Not in the field app yet.</div>
+                <div className="mt-2 text-sm text-muted-foreground">Not enabled for data input yet.</div>
               )}
             </div>
             <div className={cx("brixta-soft-card p-4", draft && "ring-1 ring-amber-500/30")}>
@@ -397,7 +397,7 @@ export default function FieldAppSettings({
           {published !== null && (
             <div className="flex items-center gap-2 rounded-xl bg-emerald-600/10 px-3 py-2 text-sm text-emerald-700">
               <CheckCircle2 className="h-4 w-4" />
-              Version {published} is live. Phones pick it up the next time they refresh.
+              Version {published} is live. Field devices pick it up the next time they refresh.
             </div>
           )}
 
@@ -409,12 +409,12 @@ export default function FieldAppSettings({
               onChange={(event) => setEnabled(event.target.checked)}
             />
             <Smartphone className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium">Show this list in the field app</span>
+            <span className="text-sm font-medium">Enable dedicated data input for this CRM list</span>
           </label>
 
           <div className="space-y-2">
             <span className="block text-[12px] font-medium uppercase tracking-[0.02em] text-foreground">
-              What should the field team do?
+              What should the field team enter?
             </span>
             <div className="grid gap-3 md:grid-cols-2">
               {base && (

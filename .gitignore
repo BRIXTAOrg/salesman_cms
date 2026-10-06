@@ -61,3 +61,12 @@ src/app/api/dashboardPagesAPI/users-and-team/users/*.csv
 !.env.example
 .brixta-backups/
 graphify-out/
+
+# BRIXTA local patch backups
+*.brixta.bak
+*.phase-*.bak
+
+
+# Python generated files
+__pycache__/
+*.pyc

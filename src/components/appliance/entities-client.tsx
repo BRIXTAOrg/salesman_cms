@@ -20,6 +20,8 @@ import type { PlatformEntityType } from "@/lib/platform-vnext-types";
 import { apiJson } from "./client";
 import EntityImportWizard from "./entity-import-wizard";
 import FieldAppSettings, { hasFieldAppDraft, isInFieldApp } from "./field-app-settings";
+import AssignListWork from "./assign-list-work";
+import EntityRecordsBrowser from "./entity-records-browser";
 import {
   EmptyState,
   Field,
@@ -96,6 +98,8 @@ export default function EntitiesClient({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [fieldEntity, setFieldEntity] = useState<PlatformEntityType | null>(null);
+  const [assignEntity, setAssignEntity] = useState<PlatformEntityType | null>(null);
+  const [browseEntity, setBrowseEntity] = useState<PlatformEntityType | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -164,7 +168,7 @@ export default function EntitiesClient({
       setFields([
         { key: "name", label: "Name", dataType: "text", required: true },
       ]);
-      setMessage(`"${title}" was created. Import rows into it or send it to the field app.`);
+      setMessage(`"${title}" was created. Import CRM rows into it or configure its employee input.`);
       await load();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not create the list.");
@@ -219,7 +223,7 @@ export default function EntitiesClient({
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[15px] font-semibold">{item.title}</span>
                     {!item.isActive && <Pill>Disabled</Pill>}
-                    {inApp && <Pill tone="good">In field app</Pill>}
+                    {inApp && <Pill tone="good">Data input live</Pill>}
                     {hasFieldAppDraft(item) && <Pill tone="warning">Unpublished changes</Pill>}
                   </div>
                   <div className="mt-1 text-[13px] text-muted-foreground">
@@ -235,16 +239,30 @@ export default function EntitiesClient({
                     {more > 0 && <Pill>+{more} more</Pill>}
                   </div>
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <SecondaryButton
+                    type="button"
+                    onClick={() => setBrowseEntity(item)}
+                  >
+                    View records
+                  </SecondaryButton>
+
+                  <SecondaryButton
+                    type="button"
+                    onClick={() => setAssignEntity(item)}
+                  >
+                    Assign work
+                  </SecondaryButton>
+
                   {inApp ? (
                     <SecondaryButton type="button" onClick={() => setFieldEntity(item)}>
                       <Smartphone className="h-4 w-4" />
-                      Field app settings
+                      Data input settings
                     </SecondaryButton>
                   ) : (
                     <PrimaryButton type="button" onClick={() => setFieldEntity(item)}>
                       <Smartphone className="h-4 w-4" />
-                      Send to field app
+                      Use for data input
                     </PrimaryButton>
                   )}
                 </div>
@@ -260,8 +278,8 @@ export default function EntitiesClient({
     <div className="min-w-0 space-y-6">
       {standalone ? (
         <PageIntro
-          title="Lists & imports"
-          description="A list is anything your team visits or tracks: sites, dealers, shops. Import a spreadsheet, then send the list to the field app."
+          title="CRM & inputs"
+          description="Your CRM lists live here. Imported Dealers, Sites, Products and other records automatically become searchable data sources for Responsibilities. Separately configure what new information field users must enter."
         />
       ) : (
         <div className="flex items-center gap-2 text-[15px] font-semibold">
@@ -344,9 +362,23 @@ export default function EntitiesClient({
           entity={fieldEntity}
           onClose={() => setFieldEntity(null)}
           onSaved={async () => {
-            setMessage(`"${fieldEntity.title}" field app settings saved.`);
+            setMessage(`"${fieldEntity.title}" data input settings saved.`);
             await load();
           }}
+        />
+      )}
+
+      {assignEntity && (
+        <AssignListWork
+          entity={assignEntity}
+          onClose={() => setAssignEntity(null)}
+        />
+      )}
+
+      {browseEntity && (
+        <EntityRecordsBrowser
+          entity={browseEntity}
+          onClose={() => setBrowseEntity(null)}
         />
       )}
     </div>

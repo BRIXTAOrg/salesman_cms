@@ -70,6 +70,7 @@ type SavedConnection = {
   mode: "single_select";
   previousCapture: {
     kind: KernelCapture["kind"];
+    sourceKey?: string;
     config: Record<string, unknown>;
   };
 };
@@ -539,19 +540,34 @@ export default function DataSourcesClient() {
 
     const previousCapture = {
       kind: possibility.capture.kind,
+      sourceKey: possibility.capture.sourceKey,
       config: clone(possibility.capture.config ?? {}),
     };
 
     possibility.capture = {
       ...possibility.capture,
+
+      // One canonical business-data connection.
+      // Keep compatibility aliases because published Responsibilities may
+      // be consumed by different runtime generations.
       kind: "entity_reference",
+      sourceKey: selectedSource.key,
+
       config: {
         ...(possibility.capture.config ?? {}),
+
         source: selectedSource.key,
+        sourceKey: selectedSource.key,
+        dataSourceKey: selectedSource.key,
+
         searchable: true,
         connectionMode: "single_select",
-        displayField: selectedSource.displayField ?? undefined,
-        valueField: selectedSource.valueField ?? "id",
+
+        displayField:
+          selectedSource.displayField ?? undefined,
+
+        valueField:
+          selectedSource.valueField ?? "id",
       },
     };
 
@@ -602,6 +618,7 @@ export default function DataSourcesClient() {
     possibility.capture = {
       ...possibility.capture,
       kind: connection.previousCapture.kind,
+      sourceKey: connection.previousCapture.sourceKey,
       config: clone(connection.previousCapture.config),
     };
 

@@ -9,6 +9,9 @@ import {
   normalizeResponsibilityExtension,
 } from "@/lib/responsibility-compiler";
 import { sanitizeResponsibilityExtensionKernel } from "@/lib/responsibility-kernel-normalizer";
+import {
+  validateResponsibilityKernel,
+} from "@/lib/responsibility-kernel-validation";
 import { compileKernelToBaseDefinition } from "@/lib/responsibility-kernel-compiler";
 
 import {
@@ -296,12 +299,61 @@ export const POST = withTenantDb<Context>(
           } as typeof compiledBaseDefinition)
         : compiledBaseDefinition;
 
-    const validationIssues = validateResponsibilityDefinition({
-      baseDefinition: publishedBaseDefinition,
-      extension: publishedNormalized,
-      roles: roleRows,
-      dataSources: sourceRows,
-    });
+    /*
+     * BRIXTA PUBLISH PREFLIGHT
+     *
+     * Do not trust the visual editor alone.
+     * The server independently validates the actual compiled Kernel against
+     * the currently-active CRM/Data Sources before a manifest can go live.
+     */
+    const kernelValidationIssues =
+      publishedKernel
+        ? validateResponsibilityKernel(
+            publishedKernel,
+            {
+              dataSourceKeys:
+                sourceRows.map(
+                  (source) =>
+                    source.key,
+                ),
+            },
+          )
+            .filter(
+              (issue) =>
+                issue.severity !==
+                "good",
+            )
+            .map(
+              (issue) => ({
+                code:
+                  issue.code,
+                severity:
+                  issue.severity as
+                    | "error"
+                    | "warning",
+                path:
+                  issue.target ??
+                  "kernel",
+                message:
+                  issue.message,
+              }),
+            )
+        : [];
+
+    const validationIssues = [
+      ...kernelValidationIssues,
+
+      ...validateResponsibilityDefinition({
+        baseDefinition:
+          publishedBaseDefinition,
+        extension:
+          publishedNormalized,
+        roles:
+          roleRows,
+        dataSources:
+          sourceRows,
+      }),
+    ];
 
     if (hasPublishBlockingIssues(validationIssues)) {
       return NextResponse.json(

@@ -3051,6 +3051,282 @@ function SectionTitle({
   );
 }
 
+/*
+ * BRIXTA_EDITABLE_CAPTURE_TYPE_V1
+ *
+ * One visible field keeps the same stable capture ID while the admin changes
+ * its UX/type.
+ *
+ * We do NOT guess that a field is CRM-backed from its label.
+ * CRM/reference behavior exists ONLY when the admin explicitly selects a
+ * reference type/source.
+ */
+function isReferenceCaptureKind(
+  kind: KernelCapture["kind"],
+) {
+  return [
+    "person_reference",
+    "entity_reference",
+    "responsibility_reference",
+  ].includes(
+    kind,
+  );
+}
+
+function captureVisualVariantForKind(
+  kind: KernelCapture["kind"],
+) {
+  if (
+    isReferenceCaptureKind(
+      kind,
+    )
+  ) {
+    return "picker";
+  }
+
+  if (
+    [
+      "photo",
+      "video",
+      "audio",
+      "file",
+      "signature",
+    ].includes(
+      kind,
+    )
+  ) {
+    return "evidence";
+  }
+
+  if (
+    [
+      "gps",
+      "route",
+    ].includes(
+      kind,
+    )
+  ) {
+    return "location";
+  }
+
+  if (
+    [
+      "choice",
+      "checklist",
+    ].includes(
+      kind,
+    )
+  ) {
+    return "choice";
+  }
+
+  return "field";
+}
+
+function configForCaptureType(
+  capture: KernelCapture,
+  nextKind: KernelCapture["kind"],
+  editorType?: string,
+) {
+  const config:
+    Record<string, unknown> = {
+      ...capture.config,
+    };
+
+  /*
+   * A CRM binding is valid only for an actual reference capture.
+   *
+   * Changing:
+   *   CRM Record -> Photo
+   *
+   * must therefore remove the source completely.
+   */
+  if (
+    !isReferenceCaptureKind(
+      nextKind,
+    )
+  ) {
+    delete config.source;
+    delete config.sourceKey;
+    delete config.dataSourceKey;
+    delete config.searchable;
+    delete config.connectionMode;
+    delete config.displayField;
+    delete config.valueField;
+  }
+
+  /*
+   * Native configuration must not survive when a field becomes ordinary
+   * text/choice/reference data.
+   */
+  const deviceKinds =
+    new Set<
+      KernelCapture["kind"]
+    >([
+      "photo",
+      "video",
+      "audio",
+      "file",
+      "signature",
+      "gps",
+      "route",
+      "qr",
+      "barcode",
+      "nfc",
+      "timer",
+    ]);
+
+  if (
+    !deviceKinds.has(
+      nextKind,
+    )
+  ) {
+    delete config.nativeCapability;
+    delete config.permissions;
+    delete config.persistentDisclosure;
+    delete config.foregroundNotificationText;
+    delete config.updateIntervalSeconds;
+    delete config.areaSource;
+    delete config.radiusMeters;
+  }
+
+  if (
+    nextKind ===
+      "choice" ||
+    nextKind ===
+      "checklist"
+  ) {
+    const options =
+      Array.isArray(
+        config.options,
+      )
+        ? config.options
+            .map(String)
+            .map(
+              (
+                option,
+              ) =>
+                option.trim(),
+            )
+            .filter(
+              Boolean,
+            )
+        : [];
+
+    if (
+      options.length <
+      2
+    ) {
+      config.options = [
+        "Option 1",
+        "Option 2",
+      ];
+    }
+
+    if (
+      nextKind ===
+      "checklist"
+    ) {
+      config.presentation =
+        editorType ===
+        "multiple_choice"
+          ? "multi_choice"
+          : "checklist";
+    } else {
+      delete config.presentation;
+    }
+  } else {
+    delete config.options;
+    delete config.presentation;
+  }
+
+  return config;
+}
+
+function syncCaptureVisualMetadata(
+  kernel: ResponsibilityKernel,
+  previousCapture: KernelCapture,
+  nextCapture: KernelCapture,
+) {
+  const document =
+    kernel.metadata.ui
+      ?.uiDocument;
+
+  if (
+    !document
+  ) {
+    return kernel;
+  }
+
+  const keys =
+    new Set(
+      [
+        previousCapture.id,
+        previousCapture.storeAs,
+        nextCapture.id,
+        nextCapture.storeAs,
+      ]
+        .filter(
+          (
+            value,
+          ): value is string =>
+            Boolean(
+              value,
+            ),
+        ),
+    );
+
+  for (
+    const block
+    of document.blocks
+  ) {
+    if (
+      block.type !==
+      "interaction.capture"
+    ) {
+      continue;
+    }
+
+    const binding =
+      block.binding as
+        | {
+            scope?: unknown;
+            key?: unknown;
+          }
+        | undefined;
+
+    if (
+      binding?.scope !==
+        "capture" ||
+      !keys.has(
+        String(
+          binding.key ??
+          "",
+        ),
+      )
+    ) {
+      continue;
+    }
+
+    block.config = {
+      ...block.config,
+
+      label:
+        nextCapture.label,
+
+      captureKind:
+        nextCapture.kind,
+
+      variant:
+        captureVisualVariantForKind(
+          nextCapture.kind,
+        ),
+    };
+  }
+
+  return kernel;
+}
+
 function CaptureInspector({
   kernel,
   possibility,
@@ -3078,10 +3354,40 @@ function CaptureInspector({
     ? capture.config.options.map(String)
     : [];
 
-  function patch(nextCapture: KernelCapture) {
+  const connectedSourceKey =
+    capture.sourceKey ||
+    configString(capture.config, "sourceKey") ||
+    configString(capture.config, "dataSourceKey") ||
+    configString(capture.config, "source");
+
+  const connectedSource =
+    dataSources.find(
+      (source) => source.key === connectedSourceKey,
+    ) ?? null;
+
+  function patch(
+    nextCapture: KernelCapture,
+  ) {
+    const next =
+      updatePossibility(
+        kernel,
+        possibility.id,
+        (item) =>
+          item.type ===
+          "capture"
+            ? {
+                ...item,
+                capture:
+                  nextCapture,
+              }
+            : item,
+      );
+
     onChange(
-      updatePossibility(kernel, possibility.id, (item) =>
-        item.type === "capture" ? { ...item, capture: nextCapture } : item,
+      syncCaptureVisualMetadata(
+        next,
+        capture,
+        nextCapture,
       ),
     );
   }
@@ -3129,10 +3435,94 @@ function CaptureInspector({
             className={inputClass}
             value={capture.label}
             onChange={(event) =>
-              patch({ ...capture, label: event.target.value })
+              patch({
+                ...capture,
+                label:
+                  event.target.value,
+              })
             }
           />
         </Field>
+
+        <Field
+          label="Input type"
+          hint="Change how the employee enters this value. The field keeps the same identity and place on the app."
+        >
+          <select
+            className={inputClass}
+            value={
+              capture.kind ===
+                "checklist" &&
+              configString(
+                capture.config,
+                "presentation",
+              ) ===
+                "multi_choice"
+                ? "multiple_choice"
+                : capture.kind
+            }
+            onChange={(
+              event,
+            ) => {
+              const editorType =
+                event.target.value;
+
+              const nextKind =
+                editorType ===
+                "multiple_choice"
+                  ? "checklist"
+                  : editorType as
+                      KernelCapture["kind"];
+
+              patch({
+                ...capture,
+
+                kind:
+                  nextKind,
+
+                config:
+                  configForCaptureType(
+                    capture,
+                    nextKind,
+                    editorType,
+                  ),
+              });
+            }}
+          >
+            {CAPTURE_CATALOG
+              .filter(
+                (item) =>
+                  item.kind !==
+                  "checklist",
+              )
+              .map(
+                (item) => (
+                  <option
+                    key={
+                      item.kind
+                    }
+                    value={
+                      item.kind
+                    }
+                  >
+                    {item.kind ===
+                    "entity_reference"
+                      ? "CRM / database record"
+                      : item.label}
+                  </option>
+                ),
+              )}
+
+            <option value="multiple_choice">
+              Multiple choice
+            </option>
+
+            <option value="checklist">
+              Checklist
+            </option>
+          </select>
+        </Field>
+
         <Field label="Help text">
           <textarea
             className={textareaClass}
@@ -3147,7 +3537,7 @@ function CaptureInspector({
         <SectionTitle
           icon={Settings2}
           title="Data"
-          description="Where the value comes from and where it is saved."
+          description="Choose whether the employee types this or selects existing business data."
         />
         <Field label="Get value from">
           <select
@@ -3165,7 +3555,7 @@ function CaptureInspector({
             <option value="current_device">Current device</option>
             <option value="fixed">Fixed value</option>
             <option value="company_setting">Company setting</option>
-            <option value="query">Existing / queried data</option>
+            <option value="query">Existing business data</option>
             <option value="history">Previous / historical data</option>
             <option value="native_phone">Native phone capability</option>
           </select>
@@ -3213,18 +3603,56 @@ function CaptureInspector({
           Required before a related action can run
         </label>
 
-        {capture.kind === "choice" && (
-          <Field label="Choices — one per line">
+        {[
+          "choice",
+          "checklist",
+        ].includes(
+          capture.kind,
+        ) && (
+          <Field
+            label={
+              capture.kind ===
+              "choice"
+                ? "Choices — one per line"
+                : configString(
+                      capture.config,
+                      "presentation",
+                    ) ===
+                    "multi_choice"
+                  ? "Multiple-choice options — one per line"
+                  : "Checklist items — one per line"
+            }
+          >
             <textarea
-              className={textareaClass}
+              className={
+                textareaClass
+              }
               rows={5}
-              value={options.join("\n")}
-              onChange={(event) =>
+              value={
+                options.join(
+                  "\n",
+                )
+              }
+              onChange={(
+                event,
+              ) =>
                 patchConfig({
-                  options: event.target.value
-                    .split("\n")
-                    .map((item) => item.trim())
-                    .filter(Boolean),
+                  options:
+                    event
+                      .target
+                      .value
+                      .split(
+                        "\n",
+                      )
+                      .map(
+                        (
+                          item,
+                        ) =>
+                          item.trim(),
+                      )
+                      .filter(
+                        Boolean,
+                      ),
                 })
               }
             />
@@ -3237,23 +3665,138 @@ function CaptureInspector({
           "responsibility_reference",
         ].includes(capture.kind) && (
           <div className="space-y-2">
-            <Field label="Get options from">
-              <select
-                className={inputClass}
-                value={configString(capture.config, "source")}
-                onChange={(event) => patchConfig({ source: event.target.value })}
-              >
-                <option value="">Choose a source...</option>
-                {capture.kind === "person_reference" && (
-                  <option value="employees">Employees</option>
-                )}
-                {dataSources.map((source) => (
-                  <option key={source.id} value={source.key}>
-                    {source.title}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <div className="rounded-xl border bg-muted/[0.12] p-3">
+              <div className="text-[12px] font-semibold">
+                Connect business data
+              </div>
+
+              <div className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                The employee will search and choose an existing record instead
+                of typing this value manually.
+              </div>
+
+              <div className="mt-3">
+                <Field label="Choose data">
+                  <select
+                    className={inputClass}
+                    value={connectedSourceKey ?? ""}
+                    onChange={(event) => {
+                      const sourceKey =
+                        event.target.value;
+
+                      patch({
+                        ...capture,
+
+                        sourceKey:
+                          sourceKey || undefined,
+
+                        config: {
+                          ...capture.config,
+
+                          source: sourceKey,
+                          sourceKey,
+                          dataSourceKey: sourceKey,
+
+                          searchable:
+                            Boolean(sourceKey),
+                        },
+                      });
+                    }}
+                  >
+                    <option value="">
+                      Choose business data...
+                    </option>
+
+                    {capture.kind ===
+                      "person_reference" && (
+                      <option value="employees">
+                        Employees
+                      </option>
+                    )}
+
+                    {dataSources
+                      .filter(
+                        (source) =>
+                          source.isActive !== false,
+                      )
+                      .map((source) => (
+                        <option
+                          key={source.id}
+                          value={source.key}
+                        >
+                          {source.title}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+              </div>
+
+              {connectedSource && (
+                <div className="mt-3 rounded-lg border bg-background p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
+                      <Check className="h-3.5 w-3.5 text-primary" />
+                    </span>
+
+                    <div>
+                      <div className="text-xs font-semibold">
+                        Connected to {connectedSource.title}
+                      </div>
+
+                      <div className="mt-0.5 text-[11px] text-muted-foreground">
+                        Searchable in the employee app
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="rounded-md bg-muted/30 px-2.5 py-2">
+                      <div className="text-muted-foreground">
+                        Show
+                      </div>
+
+                      <div className="mt-0.5 font-medium">
+                        {connectedSource.displayField ||
+                          "Best display field"}
+                      </div>
+                    </div>
+
+                    <div className="rounded-md bg-muted/30 px-2.5 py-2">
+                      <div className="text-muted-foreground">
+                        Save
+                      </div>
+
+                      <div className="mt-0.5 font-medium">
+                        {connectedSource.valueField ||
+                          "Record ID"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {connectedSource.searchableFields
+                    .length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Search by
+                      </div>
+
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {connectedSource.searchableFields
+                          .slice(0, 5)
+                          .map((field) => (
+                            <span
+                              key={field}
+                              className="rounded-full bg-muted px-2 py-1 text-[10px]"
+                            >
+                              {humanize(field)}
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -4767,10 +5310,189 @@ function AutomaticAppInspector({
     tokens: {},
   };
 
+  const themePresets: Array<{
+    id: string;
+    name: string;
+    description: string;
+    swatches: string[];
+    theme: ResponsibilityUiTheme;
+  }> = [
+    {
+      id: "brixta",
+      name: "BRIXTA Clean",
+      description: "Your company app style. Clean and familiar.",
+      swatches: ["#2F6B62", "#F7F6F2", "#FFFFFF"],
+      theme: {
+        scope: "inherit",
+        base: "brixta_editorial_v1",
+        tokens: {},
+      },
+    },
+    {
+      id: "field",
+      name: "Field",
+      description: "Practical and clear for people working on the move.",
+      swatches: ["#2F6B62", "#F4F5F0", "#FFFFFF"],
+      theme: {
+        scope: "responsibility",
+        base: "brixta_editorial_v1",
+        tokens: {
+          colors: {
+            primary: "#2F6B62",
+            background: "#F4F5F0",
+            surface: "#FFFFFF",
+            foreground: "#18211D",
+            muted: "#65716B",
+            border: "#D7DED9",
+          },
+          typography: {
+            scale: 1,
+          },
+        },
+      },
+    },
+    {
+      id: "corporate",
+      name: "Corporate",
+      description: "Sharper hierarchy for approvals and office workflows.",
+      swatches: ["#264E86", "#F4F7FB", "#FFFFFF"],
+      theme: {
+        scope: "responsibility",
+        base: "brixta_editorial_v1",
+        tokens: {
+          colors: {
+            primary: "#264E86",
+            background: "#F4F7FB",
+            surface: "#FFFFFF",
+            foreground: "#152033",
+            muted: "#64748B",
+            border: "#D9E1EC",
+          },
+          typography: {
+            scale: 0.98,
+          },
+        },
+      },
+    },
+    {
+      id: "retail",
+      name: "Retail",
+      description: "Friendly style for dealers, retailers and orders.",
+      swatches: ["#B94B3B", "#FFF8F2", "#FFFFFF"],
+      theme: {
+        scope: "responsibility",
+        base: "brixta_editorial_v1",
+        tokens: {
+          colors: {
+            primary: "#B94B3B",
+            background: "#FFF8F2",
+            surface: "#FFFFFF",
+            foreground: "#2A1D19",
+            muted: "#78645D",
+            border: "#E9D8CF",
+          },
+          typography: {
+            scale: 1,
+          },
+        },
+      },
+    },
+    {
+      id: "minimal",
+      name: "Minimal",
+      description: "Quiet monochrome UI for forms used all day.",
+      swatches: ["#111111", "#F7F7F5", "#FFFFFF"],
+      theme: {
+        scope: "responsibility",
+        base: "brixta_editorial_v1",
+        tokens: {
+          colors: {
+            primary: "#111111",
+            background: "#F7F7F5",
+            surface: "#FFFFFF",
+            foreground: "#171717",
+            muted: "#737373",
+            border: "#E4E4E0",
+          },
+          typography: {
+            scale: 0.96,
+          },
+        },
+      },
+    },
+    {
+      id: "dark",
+      name: "Dark",
+      description: "Low-glare interface for evening field work.",
+      swatches: ["#8AB4F8", "#111315", "#1A1D21"],
+      theme: {
+        scope: "responsibility",
+        base: "brixta_editorial_v1",
+        tokens: {
+          colors: {
+            primary: "#8AB4F8",
+            background: "#111315",
+            surface: "#1A1D21",
+            foreground: "#F5F7FA",
+            muted: "#A5ADB8",
+            border: "#343A40",
+          },
+          typography: {
+            scale: 1,
+          },
+        },
+      },
+    },
+    {
+      id: "warm",
+      name: "Warm",
+      description: "Softer presentation for surveys and service workflows.",
+      swatches: ["#A85D3B", "#F7F1E8", "#FFFDF9"],
+      theme: {
+        scope: "responsibility",
+        base: "brixta_editorial_v1",
+        tokens: {
+          colors: {
+            primary: "#A85D3B",
+            background: "#F7F1E8",
+            surface: "#FFFDF9",
+            foreground: "#2D241F",
+            muted: "#74655C",
+            border: "#E5D8CC",
+          },
+          typography: {
+            scale: 1.02,
+          },
+        },
+      },
+    },
+  ];
+
+  function setVisualTheme(theme: ResponsibilityUiTheme) {
+    if (!visualDocument) return;
+
+    onChange({
+      ...kernel,
+
+      metadata: {
+        ...kernel.metadata,
+
+        ui: {
+          ...(kernel.metadata.ui ?? {
+            layout: [],
+          }),
+
+          uiDocument: {
+            ...visualDocument,
+            theme: clone(theme),
+          },
+        },
+      },
+    });
+  }
+
   function patchVisualTheme(patch: Partial<ResponsibilityUiTheme>) {
-    if (!visualDocument) {
-      return;
-    }
+    if (!visualDocument) return;
 
     const nextTheme: ResponsibilityUiTheme = {
       ...visualTheme,
@@ -4798,34 +5520,45 @@ function AutomaticAppInspector({
         : visualTheme.tokens,
     };
 
-    onChange({
-      ...kernel,
+    setVisualTheme(nextTheme);
+  }
 
-      metadata: {
-        ...kernel.metadata,
+  function isSelectedPreset(
+    preset: (typeof themePresets)[number],
+  ) {
+    if (preset.theme.scope === "inherit") {
+      return visualTheme.scope === "inherit";
+    }
 
-        ui: {
-          ...(kernel.metadata.ui ?? {
-            layout: [],
-          }),
+    if (visualTheme.scope !== preset.theme.scope) {
+      return false;
+    }
 
-          uiDocument: {
-            ...visualDocument,
-            theme: nextTheme,
-          },
-        },
-      },
-    });
+    return (
+      visualTheme.tokens?.colors?.primary ===
+        preset.theme.tokens?.colors?.primary &&
+      visualTheme.tokens?.colors?.background ===
+        preset.theme.tokens?.colors?.background &&
+      visualTheme.tokens?.colors?.surface ===
+        preset.theme.tokens?.colors?.surface &&
+      visualTheme.tokens?.colors?.foreground ===
+        preset.theme.tokens?.colors?.foreground
+    );
   }
 
   return (
     <div className="space-y-5">
       <div>
-        <div className="font-semibold">App settings</div>
+        <div className="font-semibold">
+          App settings
+        </div>
+
         <div className="text-xs text-muted-foreground">
-          Name the employee app. BRIXTA generates the runtime mechanics.
+          Name the app and choose how it should feel.
+          BRIXTA handles the technical runtime underneath.
         </div>
       </div>
+
       <Field label="App title">
         <input
           className={inputClass}
@@ -4833,10 +5566,15 @@ function AutomaticAppInspector({
           onChange={(event) =>
             onChange({
               ...kernel,
+
               metadata: {
                 ...kernel.metadata,
+
                 ui: {
-                  ...(kernel.metadata.ui ?? { layout: [] }),
+                  ...(kernel.metadata.ui ?? {
+                    layout: [],
+                  }),
+
                   title: event.target.value,
                 },
               },
@@ -4844,6 +5582,7 @@ function AutomaticAppInspector({
           }
         />
       </Field>
+
       <Field label="Description">
         <textarea
           className={textareaClass}
@@ -4852,10 +5591,15 @@ function AutomaticAppInspector({
           onChange={(event) =>
             onChange({
               ...kernel,
+
               metadata: {
                 ...kernel.metadata,
+
                 ui: {
-                  ...(kernel.metadata.ui ?? { layout: [] }),
+                  ...(kernel.metadata.ui ?? {
+                    layout: [],
+                  }),
+
                   description: event.target.value,
                 },
               },
@@ -4866,170 +5610,293 @@ function AutomaticAppInspector({
 
       {visualDocument && (
         <div className="rounded-xl border p-4">
-          {/* BRIXTA RESPONSIBILITY VISUAL THEME */}
-          <div className="text-sm font-semibold">Visual style</div>
+          <div className="text-sm font-semibold">
+            Choose a look
+          </div>
 
           <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            The installed BRIXTA Flutter design remains the base. Override only
-            this Responsibility when needed.
+            Pick a theme. Screens, data and business logic remain unchanged.
           </div>
 
-          <div className="mt-4 space-y-3">
-            <Field label="Theme scope">
-              <select
-                className={inputClass}
-                value={visualTheme.scope}
-                onChange={(event) =>
-                  patchVisualTheme({
-                    scope: event.target.value as ResponsibilityUiTheme["scope"],
-                  })
-                }
-              >
-                <option value="inherit">Inherit BRIXTA app</option>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {themePresets.map((preset) => {
+              const selected =
+                isSelectedPreset(preset);
 
-                <option value="responsibility">Responsibility theme</option>
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() =>
+                    setVisualTheme(preset.theme)
+                  }
+                  className={cx(
+                    "relative rounded-xl border p-3 text-left transition",
+                    selected
+                      ? "border-primary bg-primary/[0.045] ring-1 ring-primary/20"
+                      : "hover:border-foreground/20 hover:bg-muted/20",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex gap-1">
+                      {preset.swatches.map(
+                        (color) => (
+                          <span
+                            key={color}
+                            className="h-5 w-5 rounded-full border border-black/10"
+                            style={{
+                              backgroundColor:
+                                color,
+                            }}
+                          />
+                        ),
+                      )}
+                    </div>
 
-                <option value="immersive">Immersive full screen</option>
-              </select>
-            </Field>
+                    {selected && (
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                        <Check className="h-3 w-3" />
+                      </span>
+                    )}
+                  </div>
 
-            {visualTheme.scope !== "inherit" && (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Primary">
-                    <input
-                      className={inputClass}
-                      type="color"
-                      value={visualTheme.tokens?.colors?.primary ?? "#3D7068"}
-                      onChange={(event) =>
-                        patchVisualTheme({
-                          tokens: {
-                            colors: {
-                              primary: event.target.value,
-                            },
-                          },
-                        })
-                      }
-                    />
-                  </Field>
+                  <div className="mt-3 text-[13px] font-semibold">
+                    {preset.name}
+                  </div>
 
-                  <Field label="Background">
-                    <input
-                      className={inputClass}
-                      type="color"
-                      value={
-                        visualTheme.tokens?.colors?.background ?? "#F7F6F2"
-                      }
-                      onChange={(event) =>
-                        patchVisualTheme({
-                          tokens: {
-                            colors: {
-                              background: event.target.value,
-                            },
-                          },
-                        })
-                      }
-                    />
-                  </Field>
-
-                  <Field label="Surface">
-                    <input
-                      className={inputClass}
-                      type="color"
-                      value={visualTheme.tokens?.colors?.surface ?? "#FBFAF6"}
-                      onChange={(event) =>
-                        patchVisualTheme({
-                          tokens: {
-                            colors: {
-                              surface: event.target.value,
-                            },
-                          },
-                        })
-                      }
-                    />
-                  </Field>
-
-                  <Field label="Foreground">
-                    <input
-                      className={inputClass}
-                      type="color"
-                      value={
-                        visualTheme.tokens?.colors?.foreground ?? "#1C1C1C"
-                      }
-                      onChange={(event) =>
-                        patchVisualTheme({
-                          tokens: {
-                            colors: {
-                              foreground: event.target.value,
-                            },
-                          },
-                        })
-                      }
-                    />
-                  </Field>
-                </div>
-
-                <Field label="Typography scale">
-                  <input
-                    className={inputClass}
-                    type="number"
-                    min={0.75}
-                    max={1.6}
-                    step={0.05}
-                    value={visualTheme.tokens?.typography?.scale ?? 1}
-                    onChange={(event) =>
-                      patchVisualTheme({
-                        tokens: {
-                          typography: {
-                            scale: Math.max(
-                              0.75,
-                              Math.min(1.6, Number(event.target.value) || 1),
-                            ),
-                          },
-                        },
-                      })
-                    }
-                  />
-                </Field>
-              </>
-            )}
+                  <div className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                    {preset.description}
+                  </div>
+                </button>
+              );
+            })}
           </div>
+
+          <details className="mt-4 rounded-lg border bg-muted/10">
+            <summary className="cursor-pointer px-3 py-2.5 text-xs font-medium">
+              Customize theme
+            </summary>
+
+            <div className="space-y-3 border-t p-3">
+              <Field label="Theme behavior">
+                <select
+                  className={inputClass}
+                  value={visualTheme.scope}
+                  onChange={(event) =>
+                    patchVisualTheme({
+                      scope:
+                        event.target
+                          .value as ResponsibilityUiTheme["scope"],
+                    })
+                  }
+                >
+                  <option value="inherit">
+                    Use BRIXTA app theme
+                  </option>
+
+                  <option value="responsibility">
+                    Style this app
+                  </option>
+
+                  <option value="immersive">
+                    Immersive full screen
+                  </option>
+                </select>
+              </Field>
+
+              {visualTheme.scope !==
+                "inherit" && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Primary">
+                      <input
+                        className={inputClass}
+                        type="color"
+                        value={
+                          visualTheme.tokens
+                            ?.colors
+                            ?.primary ??
+                          "#2F6B62"
+                        }
+                        onChange={(event) =>
+                          patchVisualTheme({
+                            tokens: {
+                              colors: {
+                                primary:
+                                  event
+                                    .target
+                                    .value,
+                              },
+                            },
+                          })
+                        }
+                      />
+                    </Field>
+
+                    <Field label="Background">
+                      <input
+                        className={inputClass}
+                        type="color"
+                        value={
+                          visualTheme.tokens
+                            ?.colors
+                            ?.background ??
+                          "#F7F6F2"
+                        }
+                        onChange={(event) =>
+                          patchVisualTheme({
+                            tokens: {
+                              colors: {
+                                background:
+                                  event
+                                    .target
+                                    .value,
+                              },
+                            },
+                          })
+                        }
+                      />
+                    </Field>
+
+                    <Field label="Surface">
+                      <input
+                        className={inputClass}
+                        type="color"
+                        value={
+                          visualTheme.tokens
+                            ?.colors
+                            ?.surface ??
+                          "#FFFFFF"
+                        }
+                        onChange={(event) =>
+                          patchVisualTheme({
+                            tokens: {
+                              colors: {
+                                surface:
+                                  event
+                                    .target
+                                    .value,
+                              },
+                            },
+                          })
+                        }
+                      />
+                    </Field>
+
+                    <Field label="Text">
+                      <input
+                        className={inputClass}
+                        type="color"
+                        value={
+                          visualTheme.tokens
+                            ?.colors
+                            ?.foreground ??
+                          "#1C1C1C"
+                        }
+                        onChange={(event) =>
+                          patchVisualTheme({
+                            tokens: {
+                              colors: {
+                                foreground:
+                                  event
+                                    .target
+                                    .value,
+                              },
+                            },
+                          })
+                        }
+                      />
+                    </Field>
+                  </div>
+
+                  <Field label="Typography scale">
+                    <input
+                      className={inputClass}
+                      type="number"
+                      min={0.75}
+                      max={1.6}
+                      step={0.05}
+                      value={
+                        visualTheme.tokens
+                          ?.typography
+                          ?.scale ?? 1
+                      }
+                      onChange={(event) =>
+                        patchVisualTheme({
+                          tokens: {
+                            typography: {
+                              scale: Math.max(
+                                0.75,
+                                Math.min(
+                                  1.6,
+                                  Number(
+                                    event
+                                      .target
+                                      .value,
+                                  ) || 1,
+                                ),
+                              ),
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </Field>
+                </>
+              )}
+            </div>
+          </details>
         </div>
       )}
 
       <div className="rounded-xl border p-4">
-        <div className="text-sm font-semibold">Saved work</div>
+        <div className="text-sm font-semibold">
+          Saved work
+        </div>
+
         <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          Control whether employees can review entries they have already
-          submitted.
+          Choose whether employees can review entries
+          they have already submitted.
         </div>
 
         <label className="mt-4 flex cursor-pointer items-start gap-3">
           <input
             type="checkbox"
             className="mt-1"
-            checked={kernel.metadata.ui?.employeeOwnHistoryVisible !== false}
+            checked={
+              kernel.metadata.ui
+                ?.employeeOwnHistoryVisible !==
+              false
+            }
             onChange={(event) =>
               onChange({
                 ...kernel,
+
                 metadata: {
                   ...kernel.metadata,
+
                   ui: {
-                    ...(kernel.metadata.ui ?? { layout: [] }),
-                    employeeOwnHistoryVisible: event.target.checked,
+                    ...(kernel.metadata.ui ?? {
+                      layout: [],
+                    }),
+
+                    employeeOwnHistoryVisible:
+                      event.target.checked,
                   },
                 },
               })
             }
           />
+
           <div>
             <div className="text-sm font-medium">
               Let employees see their own saved entries
             </div>
+
             <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Each employee only sees their own records. For example, a Junior
-              Executive can review their own attendance, not another
-              employee&apos;s.
+              Employees only see records they are
+              allowed to access.
             </div>
           </div>
         </label>
@@ -5037,18 +5904,19 @@ function AutomaticAppInspector({
 
       <div className="rounded-xl border bg-muted/10 p-4">
         <div className="flex items-center gap-2 text-xs font-semibold">
-          <Sparkles className="h-4 w-4 text-primary" /> App brain · automatic
+          <Sparkles className="h-4 w-4 text-primary" />
+          App brain · automatic
         </div>
+
         <div className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          State, employee identity, record ownership, manager relationship,
-          organization, device/time/location context and action ordering are
-          compiler-owned.
+          Identity, state, ownership, manager,
+          organization, device context and action
+          ordering are handled automatically.
         </div>
       </div>
     </div>
   );
 }
-
 function AppInspector({
   kernel,
   onChange,
@@ -5826,6 +6694,15 @@ function PlayPhone({ kernel }: { kernel: ResponsibilityKernel }) {
   );
 }
 
+type CreatorStage =
+  | "start"
+  | "data"
+  | "design"
+  | "logic"
+  | "users"
+  | "preview"
+  | "publish";
+
 export default function ResponsibilityAppBuilder({
   responsibilityId,
   responsibilityTitle,
@@ -5834,6 +6711,16 @@ export default function ResponsibilityAppBuilder({
   roles,
   employees,
   departments,
+  targetRoleIds = [],
+  onToggleTargetRole,
+  publishedVersion = 0,
+  saving = false,
+  publishing = false,
+  errorCount = 0,
+  warningCount = 0,
+  onSaveDraft,
+  onPublish,
+  onShowChecks,
   onChange,
   toolbarStart,
 }: {
@@ -5844,8 +6731,29 @@ export default function ResponsibilityAppBuilder({
   roles: Role[];
   employees: Employee[];
   departments: Department[];
+
+  /** Which company Roles receive this app after publish. */
+  targetRoleIds?: number[];
+
+  onToggleTargetRole?: (
+    roleId: number,
+  ) => void;
+
+  publishedVersion?: number;
+
+  saving?: boolean;
+  publishing?: boolean;
+
+  errorCount?: number;
+  warningCount?: number;
+
+  onSaveDraft?: () => void;
+  onPublish?: () => void;
+  onShowChecks?: () => void;
+
   onChange: (kernel: ResponsibilityKernel) => void;
-  /** BRIXTA_UI_V2: controls shown at the left of the builder toolbar. */
+
+  /** Controls for In the app / Public link. */
   toolbarStart?: ReactNode;
 }) {
   const [selection, setSelection] = useState<Selection>({ kind: "app" });
@@ -5853,6 +6761,17 @@ export default function ResponsibilityAppBuilder({
   const [query, setQuery] = useState("");
   const [play, setPlay] = useState(false);
   const [showStarters, setShowStarters] = useState(false);
+
+  // BRIXTA_CREATOR_FLOW_V1
+  //
+  // The user thinks in product-building stages.
+  // Kernel / Pixel / compiler details remain underneath.
+  const [
+    creatorStage,
+    setCreatorStage,
+  ] = useState<CreatorStage>(
+    "design",
+  );
 
   // BRIXTA_AUTO_FUNCTIONAL_V4
   //
@@ -6771,6 +7690,1229 @@ export default function ResponsibilityAppBuilder({
         ) ?? null)
       : null;
 
+  // BRIXTA_CREATOR_STAGE_NAV_V1
+  const creatorStages: Array<{
+    id: CreatorStage;
+    label: string;
+    hint: string;
+  }> = [
+    {
+      id: "start",
+      label: "Start",
+      hint: "Identity and template",
+    },
+    {
+      id: "data",
+      label: "Data",
+      hint: "Business records and fields",
+    },
+    {
+      id: "design",
+      label: "Design",
+      hint: "Phone canvas",
+    },
+    {
+      id: "logic",
+      label: "Logic",
+      hint: "Actions and states",
+    },
+    {
+      id: "users",
+      label: "Users",
+      hint: "Who receives it",
+    },
+    {
+      id: "preview",
+      label: "Preview",
+      hint: "Real Flutter app",
+    },
+    {
+      id: "publish",
+      label: "Publish",
+      hint: "Checks and launch",
+    },
+  ];
+
+  const capturePossibilities =
+    kernel.possibilities.filter(
+      (
+        item,
+      ): item is Extract<
+        KernelPossibility,
+        {
+          type: "capture";
+        }
+      > =>
+        item.type ===
+        "capture",
+    );
+
+  const actionPossibilities =
+    kernel.possibilities.filter(
+      (
+        item,
+      ): item is Extract<
+        KernelPossibility,
+        {
+          type: "action";
+        }
+      > =>
+        item.type ===
+        "action",
+    );
+
+  const connectedCaptureCount =
+    capturePossibilities.filter(
+      (item) => {
+        const sourceKey =
+          item.capture.sourceKey ||
+          configString(
+            item.capture.config,
+            "sourceKey",
+          ) ||
+          configString(
+            item.capture.config,
+            "dataSourceKey",
+          ) ||
+          configString(
+            item.capture.config,
+            "source",
+          );
+
+        return Boolean(
+          sourceKey,
+        );
+      },
+    ).length;
+
+  const creatorNav = (
+    <div className="rounded-[15px] border border-[#E1E4E0] bg-white p-2">
+      <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:items-center">
+        {toolbarStart && (
+          <div className="shrink-0 px-1">
+            {toolbarStart}
+          </div>
+        )}
+
+        <div
+          className="flex min-w-0 flex-1 gap-1 overflow-x-auto"
+          role="tablist"
+          aria-label="App creation stages"
+        >
+          {creatorStages.map(
+            (
+              stage,
+              index,
+            ) => {
+              const active =
+                creatorStage ===
+                stage.id;
+
+              return (
+                <button
+                  key={
+                    stage.id
+                  }
+                  type="button"
+                  role="tab"
+                  aria-selected={
+                    active
+                  }
+                  onClick={() =>
+                    setCreatorStage(
+                      stage.id,
+                    )
+                  }
+                  className={cx(
+                    "group flex min-w-[110px] flex-1 items-center gap-2 rounded-[11px] px-3 py-2.5 text-left transition-colors",
+                    active
+                      ? "bg-[#1D2321] text-white"
+                      : "text-[#5F6964] hover:bg-[#F3F5F2] hover:text-[#1D2321]",
+                  )}
+                >
+                  <span
+                    className={cx(
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
+                      active
+                        ? "bg-white/15 text-white"
+                        : "bg-[#EEF1ED] text-[#5F6964]",
+                    )}
+                  >
+                    {index +
+                      1}
+                  </span>
+
+                  <span className="min-w-0">
+                    <span className="block text-[12.5px] font-semibold">
+                      {
+                        stage.label
+                      }
+                    </span>
+
+                    <span
+                      className={cx(
+                        "hidden truncate text-[10px] xl:block",
+                        active
+                          ? "text-white/60"
+                          : "text-[#8A938E]",
+                      )}
+                    >
+                      {
+                        stage.hint
+                      }
+                    </span>
+                  </span>
+                </button>
+              );
+            },
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // BRIXTA_CREATOR_FOOTER_V1
+  const creatorStageIndex =
+    creatorStages.findIndex(
+      (stage) =>
+        stage.id ===
+        creatorStage,
+    );
+
+  const previousCreatorStage =
+    creatorStageIndex > 0
+      ? creatorStages[
+          creatorStageIndex - 1
+        ]
+      : null;
+
+  const nextCreatorStage =
+    creatorStageIndex >= 0 &&
+    creatorStageIndex <
+      creatorStages.length - 1
+      ? creatorStages[
+          creatorStageIndex + 1
+        ]
+      : null;
+
+  const creatorFooter = (
+    <div className="flex items-center justify-between gap-3 rounded-[14px] border border-[#E1E4E0] bg-white px-4 py-3">
+      <div className="text-xs text-muted-foreground">
+        Step {
+          creatorStageIndex + 1
+        } of {
+          creatorStages.length
+        }
+      </div>
+
+      <div className="flex gap-2">
+        {previousCreatorStage && (
+          <SecondaryButton
+            type="button"
+            onClick={() =>
+              setCreatorStage(
+                previousCreatorStage.id,
+              )
+            }
+          >
+            ← {
+              previousCreatorStage.label
+            }
+          </SecondaryButton>
+        )}
+
+        {nextCreatorStage && (
+          <PrimaryButton
+            type="button"
+            onClick={() =>
+              setCreatorStage(
+                nextCreatorStage.id,
+              )
+            }
+          >
+            Next: {
+              nextCreatorStage.label
+            } →
+          </PrimaryButton>
+        )}
+      </div>
+    </div>
+  );
+
+  function creatorStagePanel() {
+    if (
+      creatorStage ===
+      "start"
+    ) {
+      return (
+        <div className="grid gap-4 xl:grid-cols-[1.1fr_.9fr]">
+          <Panel className="min-w-0">
+            <div className="text-lg font-semibold">
+              Start with the job
+            </div>
+
+            <div className="mt-1 text-sm leading-5 text-muted-foreground">
+              Pick the closest starting point. You can change every field,
+              screen and rule later.
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {STARTER_TEMPLATES.map(
+                (
+                  template,
+                ) => (
+                  <button
+                    key={
+                      template.key
+                    }
+                    type="button"
+                    onClick={() => {
+                      if (
+                        kernel
+                          .possibilities
+                          .length >
+                          0 &&
+                        !window.confirm(
+                          `Replace this draft with the ${template.label} template? Unsaved blocks will be lost.`,
+                        )
+                      ) {
+                        return;
+                      }
+
+                      onChange(
+                        template.create(),
+                      );
+
+                      setSelection({
+                        kind: "app",
+                      });
+                    }}
+                    className="rounded-[14px] border border-[#E1E4E0] bg-white p-4 text-left transition hover:border-[#AEB7B0] hover:bg-[#F7F8F6]"
+                  >
+                    <div className="text-[15px] font-semibold">
+                      {
+                        template.label
+                      }
+                    </div>
+
+                    <div className="mt-1 text-[12.5px] leading-[18px] text-muted-foreground">
+                      {
+                        template.description
+                      }
+                    </div>
+                  </button>
+                ),
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setAiOpen(
+                  true,
+                );
+
+                setAiImportResult(
+                  null,
+                );
+
+                setAiIssues(
+                  [],
+                );
+
+                setAiMessage(
+                  "",
+                );
+              }}
+              className="mt-4 flex w-full items-center justify-between rounded-[14px] border border-dashed border-[#BAC3BC] bg-[#F8FAF8] px-4 py-4 text-left hover:bg-[#F2F6F3]"
+            >
+              <span>
+                <span className="block text-sm font-semibold">
+                  Build with AI
+                </span>
+
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Describe what the employee should see and do. AI can generate the fields, actions and layout, then you can edit everything manually.
+                </span>
+              </span>
+
+              <Sparkles className="h-5 w-5 text-primary" />
+            </button>
+          </Panel>
+
+          <Panel className="min-w-0">
+            <AutomaticAppInspector
+              kernel={
+                kernel
+              }
+              onChange={
+                onChange
+              }
+            />
+          </Panel>
+        </div>
+      );
+    }
+
+    if (
+      creatorStage ===
+      "data"
+    ) {
+      return (
+        <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
+          <Panel className="min-w-0">
+            <div className="text-lg font-semibold">
+              Data & inputs
+            </div>
+
+            <div className="mt-1 text-sm leading-5 text-muted-foreground">
+              Existing CRM data becomes a searchable record picker. Employee
+              input is stored separately as new Responsibility data.
+            </div>
+
+            <div className="mt-5">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  App fields
+                </div>
+
+                <span className="text-xs text-muted-foreground">
+                  {
+                    capturePossibilities.length
+                  }
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {capturePossibilities.map(
+                  (
+                    item,
+                  ) => {
+                    const sourceKey =
+                      item.capture
+                        .sourceKey ||
+                      configString(
+                        item.capture
+                          .config,
+                        "sourceKey",
+                      ) ||
+                      configString(
+                        item.capture
+                          .config,
+                        "dataSourceKey",
+                      ) ||
+                      configString(
+                        item.capture
+                          .config,
+                        "source",
+                      );
+
+                    const source =
+                      dataSources.find(
+                        (
+                          candidate,
+                        ) =>
+                          candidate.key ===
+                          sourceKey,
+                      );
+
+                    const selected =
+                      selection.kind ===
+                        "possibility" &&
+                      selection.id ===
+                        item.id;
+
+                    return (
+                      <button
+                        key={
+                          item.id
+                        }
+                        type="button"
+                        onClick={() =>
+                          setSelection({
+                            kind: "possibility",
+                            id: item.id,
+                          })
+                        }
+                        className={cx(
+                          "w-full rounded-xl border p-3 text-left",
+                          selected
+                            ? "border-primary bg-primary/[0.045]"
+                            : "hover:bg-muted/20",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold">
+                              {
+                                item
+                                  .capture
+                                  .label
+                              }
+                            </div>
+
+                            <div className="mt-0.5 text-[11px] text-muted-foreground">
+                              {humanize(
+                                item
+                                  .capture
+                                  .kind,
+                              )}
+                            </div>
+                          </div>
+
+                          {source ? (
+                            <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">
+                              {
+                                source.title
+                              }
+                            </span>
+                          ) : (
+                            <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[10px] text-muted-foreground">
+                              Employee input
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  },
+                )}
+
+                {capturePossibilities.length ===
+                  0 && (
+                  <div className="rounded-xl border border-dashed p-5 text-center text-xs text-muted-foreground">
+                    No fields yet. Add them in Design.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border bg-muted/15 p-4">
+              <div className="text-xs font-semibold">
+                CRM pickers connected
+              </div>
+
+              <div className="mt-1 text-2xl font-semibold">
+                {
+                  connectedCaptureCount
+                }
+              </div>
+
+              <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                Searchable Dealer / Site / Product / other CRM-record
+                fields currently wired into this app.
+              </div>
+            </div>
+          </Panel>
+
+          <Panel className="min-w-0">
+            {selectedPossibility?.type ===
+            "capture" ? (
+              <CaptureInspector
+                kernel={
+                  kernel
+                }
+                possibility={
+                  selectedPossibility
+                }
+                dataSources={
+                  dataSources
+                }
+                onChange={
+                  onChange
+                }
+                onDelete={
+                  removeSelection
+                }
+                onApplyRecipe={
+                  applyRecipe
+                }
+              />
+            ) : (
+              <div className="flex min-h-[440px] items-center justify-center px-8 text-center">
+                <div className="max-w-[430px]">
+                  <div className="text-lg font-semibold">
+                    Select a field
+                  </div>
+
+                  <div className="mt-2 text-sm leading-6 text-muted-foreground">
+                    Choose a field on the left to connect it to existing
+                    business data, make it searchable, set validation or
+                    change how the employee captures it.
+                  </div>
+
+                  <SecondaryButton
+                    type="button"
+                    className="mt-5"
+                    onClick={() =>
+                      setCreatorStage(
+                        "design",
+                      )
+                    }
+                  >
+                    Add fields in Design
+                  </SecondaryButton>
+                </div>
+              </div>
+            )}
+          </Panel>
+        </div>
+      );
+    }
+
+    if (
+      creatorStage ===
+      "logic"
+    ) {
+      return (
+        <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
+          <Panel className="min-w-0">
+            <div className="text-lg font-semibold">
+              Logic
+            </div>
+
+            <div className="mt-1 text-sm leading-5 text-muted-foreground">
+              What can happen, when it can happen, and what state the work
+              moves to.
+            </div>
+
+            <div className="mt-5">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Actions
+              </div>
+
+              <div className="space-y-2">
+                {actionPossibilities.map(
+                  (
+                    item,
+                  ) => (
+                    <button
+                      key={
+                        item.id
+                      }
+                      type="button"
+                      onClick={() =>
+                        setSelection({
+                          kind: "possibility",
+                          id: item.id,
+                        })
+                      }
+                      className={cx(
+                        "w-full rounded-xl border p-3 text-left hover:bg-muted/20",
+                        selection.kind ===
+                            "possibility" &&
+                          selection.id ===
+                            item.id &&
+                          "border-primary bg-primary/[0.045]",
+                      )}
+                    >
+                      <div className="text-sm font-semibold">
+                        {
+                          item.action
+                            .label
+                        }
+                      </div>
+
+                      <div className="mt-1 text-[11px] text-muted-foreground">
+                        {humanize(
+                          item.action
+                            .kind,
+                        )}
+                        {typeof item.action
+                          .config
+                          .resultingState ===
+                        "string"
+                          ? ` → ${humanize(String(item.action.config.resultingState))}`
+                          : ""}
+                      </div>
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <div className="rounded-xl border p-3">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  States
+                </div>
+
+                <div className="mt-1 text-xl font-semibold">
+                  {
+                    kernel
+                      .runtimeWorld
+                      .states.length
+                  }
+                </div>
+              </div>
+
+              <div className="rounded-xl border p-3">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  People / actors
+                </div>
+
+                <div className="mt-1 text-xl font-semibold">
+                  {
+                    kernel
+                      .runtimeWorld
+                      .actors.length
+                  }
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {kernel.runtimeWorld.states.map(
+                (
+                  state,
+                ) => (
+                  <button
+                    type="button"
+                    key={
+                      state.id
+                    }
+                    onClick={() =>
+                      setSelection({
+                        kind: "state",
+                        id: state.id,
+                      })
+                    }
+                    className="w-full rounded-lg border px-3 py-2 text-left text-xs hover:bg-muted/20"
+                  >
+                    State · {
+                      state.label
+                    }
+                  </button>
+                ),
+              )}
+
+              {kernel.runtimeWorld.actors.map(
+                (
+                  actor,
+                ) => (
+                  <button
+                    type="button"
+                    key={
+                      actor.id
+                    }
+                    onClick={() =>
+                      setSelection({
+                        kind: "actor",
+                        id: actor.id,
+                      })
+                    }
+                    className="w-full rounded-lg border px-3 py-2 text-left text-xs hover:bg-muted/20"
+                  >
+                    Person · {
+                      actor.label
+                    }
+                  </button>
+                ),
+              )}
+            </div>
+          </Panel>
+
+          <Panel className="min-w-0">
+            {selectedPossibility?.type ===
+            "action" ? (
+              <AutomaticActionInspector
+                kernel={
+                  kernel
+                }
+                possibility={
+                  selectedPossibility
+                }
+                roles={
+                  roles
+                }
+                employees={
+                  employees
+                }
+                departments={
+                  departments
+                }
+                onChange={
+                  onChange
+                }
+                onDelete={
+                  removeSelection
+                }
+              />
+            ) : selectedState ? (
+              <StateInspector
+                kernel={
+                  kernel
+                }
+                state={
+                  selectedState
+                }
+                onChange={
+                  onChange
+                }
+                onDelete={
+                  removeSelection
+                }
+              />
+            ) : selectedActor ? (
+              <ActorInspector
+                kernel={
+                  kernel
+                }
+                actor={
+                  selectedActor
+                }
+                onChange={
+                  onChange
+                }
+                onDelete={
+                  removeSelection
+                }
+              />
+            ) : (
+              <div className="flex min-h-[440px] items-center justify-center px-8 text-center">
+                <div>
+                  <div className="text-lg font-semibold">
+                    Select an action or state
+                  </div>
+
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    BRIXTA keeps the underlying Kernel graph intact while
+                    exposing normal business behavior here.
+                  </div>
+                </div>
+              </div>
+            )}
+          </Panel>
+        </div>
+      );
+    }
+
+    if (
+      creatorStage ===
+      "users"
+    ) {
+      return (
+        <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
+          <Panel className="min-w-0">
+            <div className="text-lg font-semibold">
+              Who gets this app?
+            </div>
+
+            <div className="mt-1 text-sm leading-5 text-muted-foreground">
+              Choose the company Roles that should receive this Responsibility
+              after publishing.
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {roles.map(
+                (
+                  role,
+                ) => {
+                  const selected =
+                    targetRoleIds.includes(
+                      role.id,
+                    );
+
+                  return (
+                    <button
+                      key={
+                        role.id
+                      }
+                      type="button"
+                      aria-pressed={
+                        selected
+                      }
+                      disabled={
+                        !onToggleTargetRole
+                      }
+                      onClick={() =>
+                        onToggleTargetRole?.(
+                          role.id,
+                        )
+                      }
+                      className={cx(
+                        "rounded-[14px] border p-4 text-left transition",
+                        selected
+                          ? "border-[#2F6B62] bg-[#E8F1EE]"
+                          : "hover:border-[#B7C0B9] hover:bg-[#F8F9F7]",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold">
+                            {
+                              role.label
+                            }
+                          </div>
+
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Company Role
+                          </div>
+                        </div>
+
+                        <span
+                          className={cx(
+                            "flex h-6 w-6 items-center justify-center rounded-full border",
+                            selected
+                              ? "border-[#2F6B62] bg-[#2F6B62] text-white"
+                              : "border-[#CDD3CE]",
+                          )}
+                        >
+                          {selected && (
+                            <Check className="h-3.5 w-3.5" />
+                          )}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                },
+              )}
+            </div>
+
+            {roles.length ===
+              0 && (
+              <div className="mt-5 rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+                No company Roles exist yet.
+              </div>
+            )}
+          </Panel>
+
+          <Panel className="min-w-0">
+            <div className="text-sm font-semibold">
+              Delivery summary
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl border p-4">
+                <div className="text-[11px] text-muted-foreground">
+                  Selected Roles
+                </div>
+
+                <div className="mt-1 text-3xl font-semibold">
+                  {
+                    targetRoleIds.length
+                  }
+                </div>
+              </div>
+
+              <div className="rounded-xl border p-4">
+                <div className="text-[11px] text-muted-foreground">
+                  Mobile employees
+                </div>
+
+                <div className="mt-1 text-3xl font-semibold">
+                  {
+                    employees.length
+                  }
+                </div>
+              </div>
+
+              <div className="rounded-xl border bg-muted/15 p-4 text-xs leading-5 text-muted-foreground">
+                BRIXTA resolves actual employees from their Roles at runtime.
+                The app definition does not need employee names hard-coded into
+                it.
+              </div>
+            </div>
+          </Panel>
+        </div>
+      );
+    }
+
+    if (
+      creatorStage ===
+      "preview"
+    ) {
+      return (
+        <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
+          <Panel className="min-w-0">
+            <div className="mb-4">
+              <div className="text-lg font-semibold">
+                Exact app preview
+              </div>
+
+              <div className="mt-1 text-sm text-muted-foreground">
+                This is the real Flutter renderer running the current draft.
+              </div>
+            </div>
+
+            {kernel.metadata.ui
+              ?.uiDocument ? (
+              <FlutterLivePreview
+                kernel={
+                  kernel
+                }
+                embedded
+                selectedBlockId={
+                  selection.kind ===
+                  "ui"
+                    ? selection.id
+                    : undefined
+                }
+                onSelectBlock={(
+                  id,
+                ) =>
+                  setSelection({
+                    kind: "ui",
+                    id,
+                  })
+                }
+              />
+            ) : (
+              <VisualPhoneCanvas
+                kernel={
+                  kernel
+                }
+                selectedId={
+                  selection.kind ===
+                  "ui"
+                    ? selection.id
+                    : undefined
+                }
+                onSelect={(
+                  id,
+                ) =>
+                  setSelection({
+                    kind: "ui",
+                    id,
+                  })
+                }
+              />
+            )}
+          </Panel>
+
+          <Panel className="min-w-0">
+            <div className="text-sm font-semibold">
+              Preview facts
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl border p-3">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Fields
+                </div>
+
+                <div className="mt-1 text-xl font-semibold">
+                  {
+                    capturePossibilities.length
+                  }
+                </div>
+              </div>
+
+              <div className="rounded-xl border p-3">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Actions
+                </div>
+
+                <div className="mt-1 text-xl font-semibold">
+                  {
+                    actionPossibilities.length
+                  }
+                </div>
+              </div>
+
+              <div className="rounded-xl border p-3">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Business-data connections
+                </div>
+
+                <div className="mt-1 text-xl font-semibold">
+                  {
+                    connectedCaptureCount
+                  }
+                </div>
+              </div>
+
+              <SecondaryButton
+                type="button"
+                className="w-full justify-center"
+                onClick={() =>
+                  setPlay(
+                    true,
+                  )
+                }
+              >
+                <CirclePlay className="h-4 w-4" />
+                Simulate actions
+              </SecondaryButton>
+            </div>
+          </Panel>
+        </div>
+      );
+    }
+
+    if (
+      creatorStage ===
+      "publish"
+    ) {
+      const publishBlocked =
+        errorCount >
+          0 ||
+        targetRoleIds.length ===
+          0;
+
+      return (
+        <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
+          <Panel className="min-w-0">
+            <div className="text-lg font-semibold">
+              Ready to publish?
+            </div>
+
+            <div className="mt-1 text-sm leading-5 text-muted-foreground">
+              Publishing updates this Responsibility in the employee app. It
+              does not create a new Flutter project or APK for this change.
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {[
+                [
+                  "Fields",
+                  capturePossibilities.length,
+                ],
+                [
+                  "Actions",
+                  actionPossibilities.length,
+                ],
+                [
+                  "Connected data",
+                  connectedCaptureCount,
+                ],
+                [
+                  "Target Roles",
+                  targetRoleIds.length,
+                ],
+              ].map(
+                ([
+                  label,
+                  value,
+                ]) => (
+                  <div
+                    key={
+                      String(
+                        label,
+                      )
+                    }
+                    className="rounded-xl border p-4"
+                  >
+                    <div className="text-[11px] text-muted-foreground">
+                      {
+                        label
+                      }
+                    </div>
+
+                    <div className="mt-1 text-2xl font-semibold">
+                      {
+                        value
+                      }
+                    </div>
+                  </div>
+                ),
+              )}
+            </div>
+
+            <div
+              className={cx(
+                "mt-5 rounded-xl border p-4",
+                publishBlocked
+                  ? "border-amber-200 bg-amber-50"
+                  : "border-emerald-200 bg-emerald-50",
+              )}
+            >
+              <div className="text-sm font-semibold">
+                {publishBlocked
+                  ? "Needs attention"
+                  : "Ready"}
+              </div>
+
+              <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                {errorCount >
+                  0
+                  ? `${errorCount} blocking check${errorCount === 1 ? "" : "s"} must be fixed. `
+                  : "No blocking validation errors. "}
+
+                {targetRoleIds.length ===
+                  0
+                  ? "Choose at least one Role in Users."
+                  : `${targetRoleIds.length} Role${targetRoleIds.length === 1 ? "" : "s"} will receive the app.`}
+              </div>
+            </div>
+
+            {(errorCount >
+              0 ||
+              warningCount >
+                0) && (
+              <SecondaryButton
+                type="button"
+                className="mt-4"
+                onClick={
+                  onShowChecks
+                }
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Review checks
+              </SecondaryButton>
+            )}
+          </Panel>
+
+          <Panel className="min-w-0">
+            <div className="text-sm font-semibold">
+              Launch
+            </div>
+
+            <div className="mt-1 text-xs text-muted-foreground">
+              {publishedVersion >
+                0
+                ? `Currently published as v${publishedVersion}.`
+                : "This app has not been published yet."}
+            </div>
+
+            <div className="mt-5 space-y-2">
+              <SecondaryButton
+                type="button"
+                className="w-full justify-center"
+                disabled={
+                  saving
+                }
+                onClick={
+                  onSaveDraft
+                }
+              >
+                {saving
+                  ? "Saving…"
+                  : "Save draft"}
+              </SecondaryButton>
+
+              <PrimaryButton
+                type="button"
+                className="w-full justify-center"
+                disabled={
+                  publishing ||
+                  publishBlocked
+                }
+                onClick={
+                  onPublish
+                }
+              >
+                {publishing
+                  ? "Publishing…"
+                  : publishedVersion >
+                      0
+                    ? "Publish update"
+                    : "Publish to app"}
+              </PrimaryButton>
+            </div>
+
+            <div className="mt-4 rounded-xl bg-muted/20 p-4 text-xs leading-5 text-muted-foreground">
+              Ordinary design, field, data, rule and theme changes are delivered
+              through the Responsibility manifest. The universal Flutter app
+              remains the runtime.
+            </div>
+          </Panel>
+        </div>
+      );
+    }
+
+    return null;
+  }
+
   if (play) {
     return (
       <div className="space-y-4">
@@ -6806,6 +8948,181 @@ export default function ResponsibilityAppBuilder({
     }))
     .filter((section) => section.items.length > 0);
 
+  // BRIXTA_CREATOR_NON_DESIGN_STAGE_V1
+  if (
+    creatorStage !==
+    "design"
+  ) {
+    return (
+      <div className="space-y-4">
+        {creatorNav}
+        {creatorStagePanel()}
+        {creatorFooter}
+
+        <Modal
+          open={aiOpen}
+          size="xl"
+          title="Build with AI"
+          description="Describe the app, copy the prompt into ChatGPT or Claude, then paste the answer back here."
+          onClose={() => setAiOpen(false)}
+          footer={
+            <>
+              <SecondaryButton
+                type="button"
+                onClick={() =>
+                  setAiOpen(
+                    false,
+                  )
+                }
+              >
+                Close
+              </SecondaryButton>
+
+              <SecondaryButton
+                type="button"
+                onClick={
+                  validateAppBuilderAI
+                }
+                disabled={
+                  !aiImportText.trim()
+                }
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Check only
+              </SecondaryButton>
+
+              {aiImportResult &&
+              aiIssues.length ===
+                0 ? (
+                <PrimaryButton
+                  type="button"
+                  onClick={
+                    applyAppBuilderAI
+                  }
+                >
+                  <Check className="h-4 w-4" />
+                  Apply to phone
+                </PrimaryButton>
+              ) : (
+                <PrimaryButton
+                  type="button"
+                  disabled={
+                    !aiImportText.trim()
+                  }
+                  onClick={
+                    validateAndApplyAppBuilderAI
+                  }
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Generate App
+                </PrimaryButton>
+              )}
+            </>
+          }
+        >
+          <div className="space-y-5">
+            <AiBuilderBrief
+              kind="app"
+              bare
+              value={
+                aiUserBrief
+              }
+              onChange={
+                setAiUserBrief
+              }
+              mode={
+                aiGenerationMode
+              }
+              onModeChange={
+                setAiGenerationMode
+              }
+              inventory={[
+                `${CAPTURE_CATALOG.length} input primitives`,
+                `${ACTION_CATALOG.length} action primitives`,
+                `${OUTPUT_CATALOG.length} output primitives`,
+                `${allNativeBlocks.length} native / extension blocks`,
+              ]}
+              contextItems={[
+                "Current app",
+                "Roles",
+                "Employees",
+                "Departments",
+                "Business Data Sources",
+                "Visual blocks",
+                "Phone capabilities",
+              ]}
+            />
+
+            <SecondaryButton
+              type="button"
+              onClick={() =>
+                void copyAppBuilderAIContext()
+              }
+            >
+              <Sparkles className="h-4 w-4" />
+              Copy AI prompt
+            </SecondaryButton>
+
+            <div>
+              <div className="mb-2 text-sm font-medium">
+                AI result
+              </div>
+
+              <textarea
+                className={textareaClass}
+                rows={12}
+                value={
+                  aiImportText
+                }
+                onChange={(
+                  event,
+                ) =>
+                  setAiImportText(
+                    event
+                      .target
+                      .value,
+                  )
+                }
+                placeholder="Paste the generated App Builder JSON here"
+              />
+            </div>
+
+            {aiMessage && (
+              <Notice tone="info">
+                {
+                  aiMessage
+                }
+              </Notice>
+            )}
+
+            {aiIssues.length >
+              0 && (
+              <Notice tone="danger">
+                <ul className="list-disc space-y-1 pl-4">
+                  {aiIssues.map(
+                    (
+                      issue,
+                    ) => (
+                      <li
+                        key={
+                          issue
+                        }
+                      >
+                        {
+                          issue
+                        }
+                      </li>
+                    ),
+                  )}
+                </ul>
+              </Notice>
+            )}
+          </div>
+        </Modal>
+      </div>
+    );
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -6814,12 +9131,12 @@ export default function ResponsibilityAppBuilder({
     >
       {/* BRIXTA_UI_V2: one slim toolbar. AI lives in its own dialog. */}
       <div className="space-y-4">
+        {creatorNav}
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {toolbarStart ?? (
-            <p className="text-[13.5px] leading-5 text-muted-foreground">
-              Add blocks from the left, then tap one on the phone to set it up.
-            </p>
-          )}
+          <p className="text-[13.5px] leading-5 text-muted-foreground">
+            Add blocks from the left, then tap one on the phone to set it up.
+          </p>
           <div className="flex flex-wrap gap-2">
             <SecondaryButton
               type="button"
@@ -7190,6 +9507,9 @@ export default function ResponsibilityAppBuilder({
           </Panel>
         </div>
       </div>
+
+      {creatorFooter}
+
       {/* BRIXTA_UI_V2: everything AI in one dialog, in three plain steps. */}
       <Modal
         open={aiOpen}

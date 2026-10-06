@@ -246,10 +246,10 @@ export default function FieldRecordsClient() {
   if (!loading && data && !list) {
     return (
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
-        <PageIntro title="Field work" />
+        <PageIntro title="Data input" />
         <EmptyState
-          title="No list is in the field app yet"
-          description="Import a file in Responsibilities → ENTITIES, then press “Send to field app” on that list."
+          title="No CRM list is connected to Data input yet"
+          description="Open CRM & inputs, import or create a list, then choose “Use for data input” on that list."
         />
       </div>
     );
@@ -258,8 +258,8 @@ export default function FieldRecordsClient() {
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
       <PageIntro
-        title={list?.title ?? "Field work"}
-        description="Everything the field team has done on this list. Tick rows to assign them to an executive."
+        title={list?.title ?? "Data input"}
+        description="Assign CRM records and review exactly what field users entered. Existing CRM data stays separate from collected answers."
         action={
           <SecondaryButton type="button" onClick={() => void load()}>
             <RefreshCw className={cx("h-4 w-4", loading && "animate-spin")} />

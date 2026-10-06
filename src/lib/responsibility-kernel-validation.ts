@@ -4,12 +4,29 @@ import type {
   ResponsibilityKernel,
 } from "@/lib/responsibility-kernel-types";
 
+import {
+  BUILT_IN_SOURCE_KEYS,
+} from "@/lib/responsibility-power-catalog";
+
 export type KernelValidationIssue = {
   severity: "error" | "warning" | "good";
   code: string;
   message: string;
   target?: string;
 };
+
+export type KernelValidationOptions = {
+  dataSourceKeys?: Iterable<string>;
+};
+
+function configString(
+  config: Record<string, unknown>,
+  key: string,
+) {
+  return typeof config[key] === "string"
+    ? String(config[key]).trim()
+    : "";
+}
 
 function effectIssue(effect: KernelEffect): KernelValidationIssue | null {
   if (effect.kind === "change_state") {
@@ -44,7 +61,10 @@ function effectIssue(effect: KernelEffect): KernelValidationIssue | null {
   return null;
 }
 
-export function validateResponsibilityKernel(kernel: ResponsibilityKernel): KernelValidationIssue[] {
+export function validateResponsibilityKernel(
+  kernel: ResponsibilityKernel,
+  validationOptions: KernelValidationOptions = {},
+): KernelValidationIssue[] {
   const issues: KernelValidationIssue[] = [];
   const captures = kernel.possibilities.filter(
     (item): item is Extract<KernelPossibility, { type: "capture" }> => item.type === "capture",
@@ -62,11 +82,35 @@ export function validateResponsibilityKernel(kernel: ResponsibilityKernel): Kern
   const stateIds = new Set(kernel.runtimeWorld.states.map((item) => item.id));
   const actionIds = new Set(actions.map((item) => item.action.id));
 
-  if (!kernel.runtimeWorld.states.some((state) => state.initial)) {
+  const knownDataSourceKeys =
+    validationOptions.dataSourceKeys
+      ? new Set([
+          ...validationOptions.dataSourceKeys,
+          ...BUILT_IN_SOURCE_KEYS,
+        ])
+      : null;
+
+  const storageKeys =
+    new Map<string, string>();
+
+  const initialStates =
+    kernel.runtimeWorld.states.filter(
+      (state) => state.initial,
+    );
+
+  if (initialStates.length === 0) {
     issues.push({
       severity: "error",
       code: "NO_INITIAL_STATE",
       message: "Choose one initial process state so Run/Preview knows where the Responsibility begins.",
+    });
+  }
+
+  if (initialStates.length > 1) {
+    issues.push({
+      severity: "error",
+      code: "MULTIPLE_INITIAL_STATES",
+      message: "Only one process state can be the initial state.",
     });
   }
 
@@ -82,19 +126,129 @@ export function validateResponsibilityKernel(kernel: ResponsibilityKernel): Kern
     if (!item.capture.label.trim()) {
       issues.push({ severity: "error", code: "CAPTURE_NO_LABEL", message: "A capture block has no label.", target: item.id });
     }
-    if (!item.capture.storeAs?.trim()) {
-      issues.push({ severity: "error", code: "CAPTURE_NO_STORAGE_KEY", message: `${item.capture.label || "Capture"} has no storage key.`, target: item.id });
-    }
-    if (
-      ["person_reference", "entity_reference", "responsibility_reference"].includes(item.capture.kind) &&
-      typeof item.capture.config.source !== "string"
-    ) {
+    const storageKey =
+      item.capture.storeAs?.trim() ?? "";
+
+    if (!storageKey) {
       issues.push({
-        severity: "warning",
-        code: "REFERENCE_NO_SOURCE",
-        message: `${item.capture.label} is a reference but no source is selected yet.`,
+        severity: "error",
+        code: "CAPTURE_NO_STORAGE_KEY",
+        message: `${item.capture.label || "Capture"} has no storage key.`,
         target: item.id,
       });
+    } else {
+      const existing =
+        storageKeys.get(storageKey);
+
+      if (existing) {
+        issues.push({
+          severity: "error",
+          code: "CAPTURE_DUPLICATE_STORAGE_KEY",
+          message: `${item.capture.label} uses the same storage key as another input: “${storageKey}”.`,
+          target: item.id,
+        });
+      } else {
+        storageKeys.set(
+          storageKey,
+          item.id,
+        );
+      }
+    }
+
+    const isReference =
+      [
+        "person_reference",
+        "entity_reference",
+        "responsibility_reference",
+      ].includes(
+        item.capture.kind,
+      );
+
+    const sourceKey =
+      item.capture.sourceKey?.trim() ||
+      configString(
+        item.capture.config,
+        "sourceKey",
+      ) ||
+      configString(
+        item.capture.config,
+        "dataSourceKey",
+      ) ||
+      configString(
+        item.capture.config,
+        "source",
+      );
+
+    if (
+      isReference &&
+      !sourceKey
+    ) {
+      issues.push({
+        severity: "error",
+        code: "REFERENCE_NO_SOURCE",
+        message: `${item.capture.label} needs a CRM/Data Source before this Responsibility can be published.`,
+        target: item.id,
+      });
+    }
+
+    /*
+     * Only true record-reference inputs resolve through Data Sources.
+     *
+     * Native capture blocks may legitimately use values such as:
+     *   camera
+     *   gallery
+     *   microphone
+     *   gps
+     *   barcode
+     *
+     * Those describe device capabilities, NOT CRM/Data Sources.
+     */
+    if (
+      isReference &&
+      sourceKey &&
+      knownDataSourceKeys &&
+      !knownDataSourceKeys.has(
+        sourceKey,
+      )
+    ) {
+      issues.push({
+        severity: "error",
+        code: "REFERENCE_SOURCE_MISSING",
+        message: `${item.capture.label} points to Data Source “${sourceKey}”, but that source does not exist or is disabled.`,
+        target: item.id,
+      });
+    }
+
+    if (
+      [
+        "choice",
+        "checklist",
+      ].includes(
+        item.capture.kind,
+      )
+    ) {
+      const options =
+        Array.isArray(
+          item.capture.config.options,
+        )
+          ? item.capture.config.options.filter(
+              (option) =>
+                String(
+                  option ?? "",
+                ).trim(),
+            )
+          : [];
+
+      if (
+        options.length < 2
+      ) {
+        issues.push({
+          severity: "error",
+          code: "CHOICE_NO_OPTIONS",
+          message: `${item.capture.label} needs at least two configured options.`,
+          target: item.id,
+        });
+      }
     }
   }
 

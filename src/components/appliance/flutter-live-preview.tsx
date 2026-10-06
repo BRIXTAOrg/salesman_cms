@@ -33,6 +33,15 @@ type Props = {
   designContent?: ReactNode;
   /** BRIXTA_UI_V2: render the launcher in place instead of floating. */
   inline?: boolean;
+
+  /**
+   * BRIXTA_CREATOR_PREVIEW_V1
+   *
+   * Render the real Flutter iframe directly inside the page instead of
+   * opening it through the preview overlay.
+   */
+  embedded?: boolean;
+
   [key: string]: unknown;
 };
 
@@ -40,7 +49,16 @@ function previewUrl() {
   const configured =
     process.env.NEXT_PUBLIC_BRIXTA_FLUTTER_PREVIEW_URL?.trim();
 
-  const url = new URL(configured || "http://localhost:5050/");
+  const base =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "http://localhost";
+
+  const url = new URL(
+    configured || "/flutter-preview/",
+    base,
+  );
+
   url.searchParams.set("brixtaPreview", "1");
   return url;
 }
@@ -65,6 +83,7 @@ export function FlutterLivePreview(props: Props) {
     draggingBlockId,
     designContent,
     inline = false,
+    embedded = false,
   } = props;
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -258,16 +277,15 @@ export function FlutterLivePreview(props: Props) {
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F1F3F0]">
                   <WifiOff className="h-5 w-5 text-[#5F6964]" />
                 </span>
-                <div className="text-[15px] font-semibold text-[#1D2321]">Live preview isn&apos;t running</div>
+                <div className="text-[15px] font-semibold text-[#1D2321]">
+                  Exact app preview is unavailable
+                </div>
+
                 <div className="text-[13px] leading-5 text-[#5F6964]">
                   {designContent
-                    ? "Use the Design tab to see this screen now."
-                    : "The phone in the builder already shows your draft."}{" "}
-                  To test the real app here, start the CMS with:
+                    ? "Your editable Design preview still works. The exact Flutter renderer has not been installed in this deployment yet."
+                    : "The Flutter renderer has not been installed in this deployment yet."}
                 </div>
-                <code className="rounded-[8px] bg-[#F1F3F0] px-2.5 py-1.5 text-[12.5px] text-[#1D2321]">
-                  npm run dev:studio
-                </code>
                 <button
                   type="button"
                   onClick={retry}
@@ -282,6 +300,18 @@ export function FlutterLivePreview(props: Props) {
       </div>
     </div>
   );
+
+  // BRIXTA_EMBEDDED_FLUTTER_PREVIEW_V1
+  //
+  // Preview stage in the creator uses the EXACT same Flutter renderer
+  // that the employee app uses — not a React imitation.
+  if (embedded) {
+    return (
+      <div className="w-full">
+        {liveContent}
+      </div>
+    );
+  }
 
   const tabs: SoftPreviewTab[] = [
     ...(designContent

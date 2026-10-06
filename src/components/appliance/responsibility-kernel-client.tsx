@@ -303,6 +303,9 @@ export default function ResponsibilityKernelClient() {
   const [checkOpen, setCheckOpen] = useState(false);
   const [developerOpen, setDeveloperOpen] = useState(false);
 
+  // BRIXTA_DIRTY_GUARD_V1
+  const [dirty, setDirty] = useState(false);
+
   /*
    * One Responsibility, multiple delivery surfaces.
    *
@@ -323,8 +326,21 @@ export default function ResponsibilityKernelClient() {
   );
 
   const validation = useMemo(
-    () => validateResponsibilityKernel(kernel),
-    [kernel],
+    () =>
+      validateResponsibilityKernel(
+        kernel,
+        {
+          dataSourceKeys:
+            dataSources.map(
+              (source) =>
+                source.key,
+            ),
+        },
+      ),
+    [
+      kernel,
+      dataSources,
+    ],
   );
   const compiled = useMemo(
     () => compileKernelToBaseDefinition(kernel),
@@ -405,6 +421,7 @@ export default function ResponsibilityKernelClient() {
 
         setExtension(body.extension.draftConfig);
         setKernel(asKernel(body.extension.draftConfig, responsibility));
+        setDirty(false);
         setTargetRoleIds(targetRoleIdsFrom(body.extension.draftConfig));
         setPublishedVersion(body.extension.publishedVersion ?? 0);
       } catch (error) {
@@ -451,6 +468,8 @@ export default function ResponsibilityKernelClient() {
       );
 
       setExtension(nextExtension);
+      setDirty(false);
+
       if (!silent) {
         setMessage(
           "Draft saved. Role targeting is baked into the draft; employee devices remain on the last published version.",
@@ -460,6 +479,84 @@ export default function ResponsibilityKernelClient() {
       setSaving(false);
     }
   }
+
+  // BRIXTA_UNSAVED_GUARD_V1
+  useEffect(() => {
+    if (!dirty) {
+      return;
+    }
+
+    const handleBeforeUnload = (
+      event: BeforeUnloadEvent,
+    ) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener(
+      "beforeunload",
+      handleBeforeUnload,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "beforeunload",
+        handleBeforeUnload,
+      );
+    };
+  }, [dirty]);
+
+  useEffect(() => {
+    const handleKeyboardSave = (
+      event: KeyboardEvent,
+    ) => {
+      const saveShortcut =
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLowerCase() === "s";
+
+      if (!saveShortcut) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (
+        !dirty ||
+        saving ||
+        !responsibilityId ||
+        !extension
+      ) {
+        return;
+      }
+
+      void saveDraft().catch((error) => {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to save draft.",
+        );
+      });
+    };
+
+    window.addEventListener(
+      "keydown",
+      handleKeyboardSave,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleKeyboardSave,
+      );
+    };
+  }, [
+    dirty,
+    saving,
+    responsibilityId,
+    extension,
+    kernel,
+    targetRoleIds,
+  ]);
 
   async function syncInlineReviewWorkflows() {
     if (!selectedResponsibility) return;
@@ -717,6 +814,7 @@ export default function ResponsibilityKernelClient() {
       setResponsibilityId(created.id);
       setExtension(nextExtension);
       setKernel(nextKernel);
+      setDirty(false);
       setTargetRoleIds(newTargetRoleIds);
       setPublishedVersion(0);
 
@@ -742,11 +840,16 @@ export default function ResponsibilityKernelClient() {
 
   function toggleTargetRole(roleId: number, creating = false) {
     const setter = creating ? setNewTargetRoleIds : setTargetRoleIds;
+
     setter((current) =>
       current.includes(roleId)
         ? current.filter((item) => item !== roleId)
         : [...current, roleId],
     );
+
+    if (!creating) {
+      setDirty(true);
+    }
   }
 
   if (loading && responsibilities.length === 0 && !createOpen) {
@@ -803,8 +906,31 @@ export default function ResponsibilityKernelClient() {
                   placeholder="Choose a responsibility"
                   searchPlaceholder="Search responsibilities"
                   onChange={(value) => {
-                    const next = Array.isArray(value) ? value[0] : value;
-                    if (next) setResponsibilityId(Number(next));
+                    const next =
+                      Array.isArray(value)
+                        ? value[0]
+                        : value;
+
+                    if (!next) {
+                      return;
+                    }
+
+                    const nextId =
+                      Number(next);
+
+                    if (
+                      dirty &&
+                      nextId !== responsibilityId &&
+                      !window.confirm(
+                        "You have unsaved changes. Discard them and open another Responsibility?",
+                      )
+                    ) {
+                      return;
+                    }
+
+                    setResponsibilityId(
+                      nextId,
+                    );
                   }}
                 />
               </div>
@@ -812,9 +938,19 @@ export default function ResponsibilityKernelClient() {
               <div className="text-[15px] font-semibold">No responsibilities yet</div>
             )}
             {selectedResponsibility && (
-              <Pill tone={publishedVersion ? "good" : "neutral"}>
-                {publishedVersion ? `Published v${publishedVersion}` : "Not published"}
-              </Pill>
+              <>
+                <Pill tone={publishedVersion ? "good" : "neutral"}>
+                  {publishedVersion
+                    ? `Published v${publishedVersion}`
+                    : "Not published"}
+                </Pill>
+
+                {dirty && (
+                  <Pill tone="neutral">
+                    Unsaved changes
+                  </Pill>
+                )}
+              </>
             )}
             <SecondaryButton
               type="button"
@@ -854,11 +990,16 @@ export default function ResponsibilityKernelClient() {
             </SecondaryButton>
             <SecondaryButton
               type="button"
-              disabled={!responsibilityId || saving}
+              disabled={!responsibilityId || saving || !dirty}
               onClick={() => void saveDraft()}
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save draft
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+
+              {dirty ? "Save draft" : "Saved"}
             </SecondaryButton>
             <PrimaryButton
               type="button"
@@ -1100,14 +1241,46 @@ export default function ResponsibilityKernelClient() {
               roles={roles}
               employees={employees}
               departments={departments}
-              onChange={setKernel}
+
+              targetRoleIds={targetRoleIds}
+              onToggleTargetRole={(roleId) =>
+                toggleTargetRole(roleId)
+              }
+
+              publishedVersion={publishedVersion}
+
+              saving={saving}
+              publishing={publishing}
+
+              errorCount={errorCount}
+              warningCount={warningCount}
+
+              onSaveDraft={() => {
+                void saveDraft();
+              }}
+
+              onPublish={() => {
+                void publish();
+              }}
+
+              onShowChecks={() =>
+                setCheckOpen(true)
+              }
+
+              onChange={(nextKernel) => {
+                setKernel(nextKernel);
+                setDirty(true);
+              }}
             />
           ) : (
             <ResponsibilityExternalLinkBuilder
               responsibilityId={selectedResponsibility.id}
               responsibilityTitle={selectedResponsibility.title}
               kernel={kernel}
-              onChange={setKernel}
+              onChange={(nextKernel) => {
+                setKernel(nextKernel);
+                setDirty(true);
+              }}
             />
           )}
         </>

@@ -74,7 +74,7 @@ function navGroups(
     }
   >,
 ): WorkspaceNavGroup[] {
-  const preferred = ["Overview", "People", "Field work", "QR rewards", "App builder"];
+  const preferred = ["Overview", "People", "Data input", "QR rewards", "App builder"];
 
   return [...map.entries()]
     .map(([key, group]) => ({
@@ -201,7 +201,7 @@ export function buildWorkspaceManifest({
   >();
 
   // BRIXTA_CLEAN_UI_V1 — five plain groups, named by what people do:
-  // Overview, People, Field work, QR rewards, App builder.
+  // Overview, People, Data input, QR rewards, App builder.
 
   // ---- Overview --------------------------------------------------------
   addNav(nav, "Overview", {
@@ -244,21 +244,21 @@ export function buildWorkspaceManifest({
     });
   }
 
-  // ---- Field work (BRIXTA_FIELD_APP_V1) --------------------------------
+  // ---- Data input --------------------------------------------------------
   if (canManage) {
-    addNav(nav, "Field work", {
+    addNav(nav, "Data input", {
       key: "field_work",
-      label: "Field work",
+      label: "Data input",
       href: "/dashboard/field",
       icon: "map-pin",
-      description: "Track, assign and review the lists your field team works on.",
+      description: "Assign CRM records and review the data collected by field users.",
     });
-    addNav(nav, "Field work", {
+    addNav(nav, "Data input", {
       key: "lists",
-      label: "Lists & imports",
+      label: "CRM & inputs",
       href: "/dashboard/lists",
       icon: "file-chart",
-      description: "Import a spreadsheet and send a list to the field app.",
+      description: "Import CRM lists, expose them as searchable form data, and configure extra employee input.",
     });
   }
 

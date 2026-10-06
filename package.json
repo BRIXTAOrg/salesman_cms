@@ -13,7 +13,10 @@
     "check:full": "npm run check && npm run lint && npm run build",
     "qr-rewards:provision": "node scripts/provision-qr-rewards.mjs",
     "build:qr-rewards": "NEXT_PUBLIC_BRIXTA_EDITION=qr-voucher-rewards next build",
-    "start:qr-rewards": "NEXT_PUBLIC_BRIXTA_EDITION=qr-voucher-rewards next start"
+    "start:qr-rewards": "NEXT_PUBLIC_BRIXTA_EDITION=qr-voucher-rewards next start",
+    "preview:install": "node scripts/install-flutter-preview.mjs",
+    "smoke:brixta": "node scripts/brixta-smoke-check.mjs",
+    "release:brixta": "python3 scripts/brixta-release-check.py"
   },
   "dependencies": {
     "@corbe30/fortune-excel": "^2.3.2",
