@@ -444,9 +444,8 @@ export default function DepartmentsClient() {
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 p-4 md:p-6">
       <PageIntro
-        eyebrow="Management"
         title="Departments"
-        description="Create company Departments once, then use them as simple approval/review destinations inside any Responsibility."
+        description="Set up your departments once. Responsibilities can then send approvals and reviews to a department."
       />
 
       {message && (
@@ -459,7 +458,7 @@ export default function DepartmentsClient() {
 
       <Panel>
         <div className="font-semibold">
-          Create Department
+          Create department
         </div>
 
         <div className="mt-1 text-sm text-muted-foreground">
@@ -541,7 +540,7 @@ export default function DepartmentsClient() {
               void create()
             }
           >
-            Create Department
+            Create department
           </PrimaryButton>
         </div>
       </Panel>

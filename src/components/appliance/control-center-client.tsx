@@ -92,7 +92,6 @@ export default function ControlCenterClient() {
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
       <PageIntro
-        eyebrow="Control Center"
         title={
           manifest?.controlCenter
             .title ??

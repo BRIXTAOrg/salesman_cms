@@ -67,7 +67,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import type { Department, Employee, Role } from "@/lib/appliance-types";
 import type { PlatformDataSource } from "@/lib/platform-vnext-types";
@@ -135,6 +135,8 @@ import { cx } from "./client";
 import {
   Field,
   inputClass,
+  Modal,
+  Notice,
   Panel,
   Pill,
   PrimaryButton,
@@ -5833,6 +5835,7 @@ export default function ResponsibilityAppBuilder({
   employees,
   departments,
   onChange,
+  toolbarStart,
 }: {
   responsibilityId: number | string;
   responsibilityTitle: string;
@@ -5842,6 +5845,8 @@ export default function ResponsibilityAppBuilder({
   employees: Employee[];
   departments: Department[];
   onChange: (kernel: ResponsibilityKernel) => void;
+  /** BRIXTA_UI_V2: controls shown at the left of the builder toolbar. */
+  toolbarStart?: ReactNode;
 }) {
   const [selection, setSelection] = useState<Selection>({ kind: "app" });
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -6807,72 +6812,55 @@ export default function ResponsibilityAppBuilder({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
-      {/* BRIXTA_AI_BRIEF_UI_V11 */}
-      <AiBuilderBrief
-        kind="app"
-        value={aiUserBrief}
-        onChange={setAiUserBrief}
-        mode={aiGenerationMode}
-        onModeChange={
-          setAiGenerationMode
-        }
-        inventory={[
-          `${CAPTURE_CATALOG.length} capture / input primitives`,
-          `${ACTION_CATALOG.length} action primitives`,
-          `${OUTPUT_CATALOG.length} output primitives`,
-          `${NATIVE_BLOCKS.length + RESPONSIBILITY_APP_BUILDER_BLOCKS.length} native / extension blocks`,
-          "Existing visual presentation registry",
-          "Existing interactive PlayPhone simulator",
-        ]}
-        contextItems={[
-          "Current app",
-          "Roles",
-          "Employees",
-          "Departments",
-          "Data Sources",
-          "Visual blocks",
-          "Phone capabilities",
-        ]}
-      />
-
+      {/* BRIXTA_UI_V2: one slim toolbar. AI lives in its own dialog. */}
       <div className="space-y-4">
-        <Panel>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="text-lg font-semibold">Responsibility Canvas</div>
-              <div className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                Search what you want in normal business language, drag it onto
-                the phone, then click it. BRIXTA asks only what that feature
-                needs.
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <PrimaryButton
-                type="button"
-                onClick={() => {
-                  setAiOpen(true);
-                  setAiImportResult(null);
-                  setAiIssues([]);
-                  setAiMessage("");
-                }}
-              >
-                <Sparkles className="h-4 w-4" />
-                Generate with AI
-              </PrimaryButton>
-
-              <SecondaryButton
-                type="button"
-                onClick={() => setShowStarters((value) => !value)}
-              >
-                <WandSparkles className="h-4 w-4" /> Starters
-              </SecondaryButton>
-              <PrimaryButton type="button" onClick={() => setPlay(true)}>
-                <CirclePlay className="h-4 w-4" /> Play app
-              </PrimaryButton>
-            </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {toolbarStart ?? (
+            <p className="text-[13.5px] leading-5 text-muted-foreground">
+              Add blocks from the left, then tap one on the phone to set it up.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <SecondaryButton
+              type="button"
+              className="h-9 px-3"
+              onClick={() => setShowStarters((value) => !value)}
+              aria-expanded={showStarters}
+            >
+              <WandSparkles className="h-4 w-4" /> Start from a template
+            </SecondaryButton>
+            <SecondaryButton
+              type="button"
+              className="h-9 px-3"
+              onClick={() => {
+                setAiOpen(true);
+                setAiImportResult(null);
+                setAiIssues([]);
+                setAiMessage("");
+              }}
+            >
+              <Sparkles className="h-4 w-4" />
+              Build with AI
+            </SecondaryButton>
+            <SecondaryButton type="button" className="h-9 px-3" onClick={() => setPlay(true)}>
+              <CirclePlay className="h-4 w-4" /> Try it
+            </SecondaryButton>
           </div>
-          {showStarters && (
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+        </div>
+
+        {showStarters && (
+          <Panel className="p-4 md:p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="text-[14px] font-medium">Start from a template</div>
+              <button
+                type="button"
+                onClick={() => setShowStarters(false)}
+                className="text-[13px] font-medium text-muted-foreground hover:text-foreground"
+              >
+                Close
+              </button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {STARTER_TEMPLATES.map((template) => (
                 <button
                   key={template.key}
@@ -6881,7 +6869,7 @@ export default function ResponsibilityAppBuilder({
                     if (
                       kernel.possibilities.length &&
                       !window.confirm(
-                        `Replace this draft with the ${template.label} starter?`,
+                        `Replace this draft with the ${template.label} template? Unsaved blocks will be lost.`,
                       )
                     )
                       return;
@@ -6889,27 +6877,24 @@ export default function ResponsibilityAppBuilder({
                     setSelection({ kind: "app" });
                     setShowStarters(false);
                   }}
-                  className="rounded-xl border p-3 text-left hover:bg-muted/30"
+                  className="rounded-[12px] border border-[#E1E4E0] bg-white p-3 text-left transition-colors hover:border-[#BFC6C0] hover:bg-[#F7F8F6]"
                 >
-                  <WandSparkles className="h-4 w-4" />
-                  <div className="mt-2 text-sm font-medium">
-                    {template.label}
-                  </div>
-                  <div className="mt-1 text-[11px] text-muted-foreground">
+                  <div className="text-[14px] font-medium">{template.label}</div>
+                  <div className="mt-0.5 text-[12.5px] leading-[18px] text-muted-foreground">
                     {template.description}
                   </div>
                 </button>
               ))}
             </div>
-          )}
-        </Panel>
+          </Panel>
+        )}
 
-        <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(240px,0.72fr)_minmax(0,1.15fr)_minmax(260px,0.9fr)]">
+        <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(240px,280px)_minmax(360px,1fr)_minmax(300px,380px)]">
           <Panel className="brixta-builder-library min-w-0">
-            <div className="sticky top-0 z-10 -mx-1 bg-background px-1 pb-3">
-              <div className="font-semibold">What do you want?</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Search a goal, feature, phone capability or business rule.
+            <div className="pb-3">
+              <div className="text-[14px] font-medium">Add to the app</div>
+              <div className="mt-0.5 text-[12.5px] leading-[18px] text-muted-foreground">
+                Search in plain words, like &ldquo;photo proof&rdquo; or &ldquo;manager approval&rdquo;.
               </div>
               <div className="relative mt-3">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -6917,7 +6902,8 @@ export default function ResponsibilityAppBuilder({
                   className={`${inputClass} pl-9`}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="e.g. deduct money when late"
+                  placeholder="Search blocks"
+                  aria-label="Search blocks"
                 />
               </div>
               {!query && (
@@ -6934,7 +6920,7 @@ export default function ResponsibilityAppBuilder({
                       key={idea}
                       type="button"
                       onClick={() => setQuery(idea)}
-                      className="rounded-full border px-2 py-1 text-[10px] hover:bg-muted/30"
+                      className="h-7 rounded-full border border-[#E1E4E0] px-2.5 text-[12px] text-[#3A433F] hover:bg-[#F1F3F0]"
                     >
                       {idea}
                     </button>
@@ -7011,7 +6997,6 @@ export default function ResponsibilityAppBuilder({
               <div className="brixta-demo-quick-add">
                 <div className="brixta-demo-quick-add-head">
                   <span>Quick add</span>
-                  <span>Demo fast</span>
                 </div>
 
                 <div className="brixta-demo-quick-add-grid">
@@ -7088,87 +7073,54 @@ export default function ResponsibilityAppBuilder({
             </div>
           </Panel>
 
-          <div className="min-w-0">
-{visualBlocks.length > 0 && (
-              <FlutterLivePreview
-                kernel={kernel}
-                selectedBlockId={
-                  selection.kind === "ui"
-                    ? selection.id
-                    : undefined
-                }
-                onSelectBlock={(id) =>
-                  setSelection({
-                    kind: "ui",
-                    id,
-                  })
-                }
-              
-                designContent={
-                  <VisualPhoneCanvas
-                    kernel={kernel}
-                    selectedId={
-                      selection.kind === "ui"
-                        ? selection.id
-                        : undefined
-                    }
-                    onSelect={(id) =>
-                      setSelection({
-                        kind: "ui",
-                        id,
-                      })
-                    }
-                  />
-                }
-/>
-            )}
-
-            {visualBlocks.length > 0 && (
-              <Panel className="mt-4">
-                <div className="flex items-start gap-3">
-                  <Sparkles className="mt-0.5 h-4 w-4 text-primary" />
-
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold">
-                      Visual app layer
-                    </div>
-
-                    <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      This designed layer can contain both presentation and
-                      real interactive controls. Functional inputs reuse the same canonical
-                      captures and actions used by the Responsibility Kernel.
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {visualBlocks.map((block) => (
-                        <span
-                          key={block.id}
-                          className="rounded-full border bg-muted/20 px-2 py-1 text-[10px]"
-                        >
-                          {block.type.replace(/[._]/g, " ")}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </Panel>
-            )}
-
-            <Panel className="mt-4">
-              <div className="flex items-start gap-3">
-                <Sparkles className="mt-0.5 h-4 w-4 text-primary" />
-                <div>
-                  <div className="text-sm font-semibold">
-                    App brain · automatic
-                  </div>
-                  <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    BRIXTA derives employee context, manager relationships,
-                    device/time/location, lifecycle, button visibility and
-                    record targeting from the blocks above.
-                  </div>
-                </div>
+          {/* BRIXTA_UI_V2: the phone is the work surface, always in view. */}
+          <div className="min-w-0 xl:sticky xl:top-[72px]">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="text-[14px] font-medium">
+                Phone
+                <span className="ml-2 text-[13px] font-normal text-muted-foreground">
+                  {visualBlocks.length === 0
+                    ? "empty"
+                    : `${visualBlocks.length} block${visualBlocks.length === 1 ? "" : "s"}`}
+                </span>
               </div>
-            </Panel>
+              {visualBlocks.length > 0 && (
+                <FlutterLivePreview
+                  kernel={kernel}
+                  inline
+                  selectedBlockId={
+                    selection.kind === "ui"
+                      ? selection.id
+                      : undefined
+                  }
+                  onSelectBlock={(id) =>
+                    setSelection({
+                      kind: "ui",
+                      id,
+                    })
+                  }
+                />
+              )}
+            </div>
+
+            <VisualPhoneCanvas
+              kernel={kernel}
+              selectedId={
+                selection.kind === "ui"
+                  ? selection.id
+                  : undefined
+              }
+              onSelect={(id) =>
+                setSelection({
+                  kind: "ui",
+                  id,
+                })
+              }
+            />
+
+            <p className="mx-auto mt-3 max-w-[430px] text-center text-[12.5px] leading-[18px] text-muted-foreground">
+              Who, when and where are worked out from these blocks automatically.
+            </p>
           </div>
 
           <Panel className="brixta-builder-inspector min-w-0">
@@ -7238,224 +7190,145 @@ export default function ResponsibilityAppBuilder({
           </Panel>
         </div>
       </div>
-      {aiOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl border bg-background p-5 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5" />
-
-                  <h2 className="text-lg font-semibold">
-                    Generate Responsibility App with AI
-                  </h2>
-                </div>
-
-                <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                  Generate the App Builder blocks only. Pixel Logic remains
-                  separate and can be generated afterward from the Pixel Logic
-                  section.
-                </p>
-              </div>
-
-              <button
+      {/* BRIXTA_UI_V2: everything AI in one dialog, in three plain steps. */}
+      <Modal
+        open={aiOpen}
+        size="xl"
+        title="Build with AI"
+        description="Describe the app, copy the prompt into ChatGPT or Claude, then paste the answer back here."
+        onClose={() => setAiOpen(false)}
+        footer={
+          <>
+            <SecondaryButton type="button" onClick={() => setAiOpen(false)}>
+              Close
+            </SecondaryButton>
+            <SecondaryButton type="button" onClick={validateAppBuilderAI} disabled={!aiImportText.trim()}>
+              <ShieldCheck className="h-4 w-4" />
+              Check only
+            </SecondaryButton>
+            {aiImportResult && aiIssues.length === 0 ? (
+              <PrimaryButton type="button" onClick={applyAppBuilderAI}>
+                <Check className="h-4 w-4" />
+                Apply to phone
+              </PrimaryButton>
+            ) : (
+              <PrimaryButton
                 type="button"
-                className="rounded-lg border px-3 py-1.5 text-sm"
-                onClick={() => setAiOpen(false)}
+                disabled={!aiImportText.trim()}
+                onClick={validateAndApplyAppBuilderAI}
               >
-                Close
-              </button>
+                <Sparkles className="h-4 w-4" />
+                Check and apply
+              </PrimaryButton>
+            )}
+          </>
+        }
+      >
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="min-w-0 space-y-5">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-[14px] font-medium">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E5EFEC] text-[12px] font-semibold text-[#1F4C45]">1</span>
+                Describe what your team should do
+              </div>
+              <AiBuilderBrief
+                kind="app"
+                bare
+                value={aiUserBrief}
+                onChange={setAiUserBrief}
+                mode={aiGenerationMode}
+                onModeChange={setAiGenerationMode}
+                inventory={[
+                  `${CAPTURE_CATALOG.length} capture / input primitives`,
+                  `${ACTION_CATALOG.length} action primitives`,
+                  `${OUTPUT_CATALOG.length} output primitives`,
+                  `${NATIVE_BLOCKS.length + RESPONSIBILITY_APP_BUILDER_BLOCKS.length} native / extension blocks`,
+                  "Existing visual presentation registry",
+                  "Existing interactive PlayPhone simulator",
+                ]}
+                contextItems={[
+                  "Current app",
+                  "Roles",
+                  "Employees",
+                  "Departments",
+                  "Data Sources",
+                  "Visual blocks",
+                  "Phone capabilities",
+                ]}
+              />
             </div>
 
-            <div className="mt-5 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-              <div className="space-y-4">
-                <div className="rounded-xl border p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Step 1
-                  </div>
+          </div>
 
-                  <div className="mt-1 font-medium">
-                    Copy the complete App Builder context
-                  </div>
-
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    It contains the current Responsibility, available fields,
-                    actions, outputs, native phone blocks, company roles,
-                    employees, runtime rules, platform restrictions and the
-                    exact accepted JSON shape.
-                  </p>
-
-                  <SecondaryButton
-                    type="button"
-                    className="mt-3"
-                    onClick={() => void copyAppBuilderAIContext()}
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Copy AI Context
-                  </SecondaryButton>
-                </div>
-
-                <div className="rounded-xl border p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Step 2
-                  </div>
-
-                  <div className="mt-1 font-medium">
-                    Tell AI what the employee app should contain
-                  </div>
-
-                  <p className="mt-2 text-sm text-muted-foreground">Example:</p>
-
-                  <div className="mt-2 rounded-lg bg-muted/30 p-3 text-sm">
-                    Employee sees Start Journey, the phone tracks the journey,
-                    then Stop Journey saves the distance. Completed journey
-                    records should be visible on the dashboard.
-                  </div>
-                </div>
-
-                <div className="rounded-xl border p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Separation
-                  </div>
-
-                  <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                    <div>✓ App Builder AI creates UI / phone blocks.</div>
-                    <div>✓ It may define basic action lifecycle states.</div>
-                    <div>✕ It cannot generate Pixel nodes or wires.</div>
-                    <div>
-                      ✕ It cannot invent unregistered phone capabilities.
-                    </div>
-                  </div>
-                </div>
+          <div className="min-w-0 space-y-3">
+            <div className="rounded-[12px] border border-[#E1E4E0] bg-[#F7F8F6] p-4">
+              <div className="flex items-center gap-2 text-[14px] font-medium">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E5EFEC] text-[12px] font-semibold text-[#1F4C45]">2</span>
+                Copy the prompt and paste it into ChatGPT or Claude
               </div>
+              <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
+                It carries your description, this app, your roles and data, and the exact format BRIXTA accepts. Automations aren&apos;t generated here.
+              </p>
+              <SecondaryButton type="button" className="mt-3 h-9 px-3" onClick={() => void copyAppBuilderAIContext()}>
+                <Sparkles className="h-4 w-4" />
+                Copy prompt
+              </SecondaryButton>
+            </div>
 
-              <div className="space-y-3">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Step 3
-                  </div>
+            <div className="flex items-center gap-2 text-[14px] font-medium">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E5EFEC] text-[12px] font-semibold text-[#1F4C45]">3</span>
+              Paste the AI&apos;s answer
+            </div>
 
-                  <div className="mt-1 font-medium">Paste AI JSON</div>
-                </div>
-
-                <textarea
-                  className={`${textareaClass} min-h-[420px] font-mono text-xs`}
-                  value={aiImportText}
-                  placeholder={`{
+            <textarea
+              className={`${textareaClass} min-h-[260px] font-mono text-[12px]`}
+              value={aiImportText}
+              aria-label="AI answer (JSON)"
+              placeholder={`{
   "format": "brixta.app-builder",
   "formatVersion": 1,
   ...
 }`}
-                  onChange={(event) => {
-                    setAiImportText(event.target.value);
+              onChange={(event) => {
+                setAiImportText(event.target.value);
+                setAiImportResult(null);
+                setAiIssues([]);
+              }}
+            />
 
-                    setAiImportResult(null);
+            {aiMessage && (
+              <Notice tone={aiIssues.length > 0 ? "danger" : "good"}>{aiMessage}</Notice>
+            )}
 
-                    setAiIssues([]);
-                  }}
-                />
+            {aiIssues.length > 0 && (
+              <Notice tone="danger">
+                <div className="font-medium">Fix these before applying</div>
+                <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                  {aiIssues.map((issue, index) => (
+                    <li key={`${issue}-${index}`}>{issue}</li>
+                  ))}
+                </ul>
+              </Notice>
+            )}
 
-                <div className="flex flex-wrap gap-2">
-                  <SecondaryButton type="button" onClick={validateAppBuilderAI}>
-                    <ShieldCheck className="h-4 w-4" />
-                    Validate only
-                  </SecondaryButton>
-
-                  <PrimaryButton
-                    type="button"
-                    disabled={!aiImportText.trim()}
-                    onClick={validateAndApplyAppBuilderAI}
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Validate & Generate
-                  </PrimaryButton>
-
-                  {aiImportResult && aiIssues.length === 0 && (
-                    <SecondaryButton type="button" onClick={applyAppBuilderAI}>
-                      Apply validated result
-                    </SecondaryButton>
-                  )}
-                </div>
-
-                {aiMessage && (
-                  <div
-                    className={cx(
-                      "rounded-xl border p-3 text-sm",
-                      aiIssues.length > 0
-                        ? "border-red-500/30 bg-red-500/5"
-                        : "border-emerald-500/30 bg-emerald-500/5",
-                    )}
-                  >
-                    {aiMessage}
+            {aiImportResult && aiIssues.length === 0 && (
+              <div className="grid grid-cols-4 overflow-hidden rounded-[12px] border border-[#E1E4E0] bg-white text-center">
+                {[
+                  ["Fields", aiImportResult.app.captures.length],
+                  ["Actions", aiImportResult.app.actions.length],
+                  ["Outputs", aiImportResult.app.outputs.length],
+                  ["Blocks", aiImportResult.app.layout.length],
+                ].map(([label, count]) => (
+                  <div key={String(label)} className="border-r border-[#E1E4E0] px-2 py-2.5 last:border-r-0">
+                    <div className="text-[18px] font-semibold leading-6">{count}</div>
+                    <div className="text-[12px] text-muted-foreground">{label}</div>
                   </div>
-                )}
-
-                {aiIssues.length > 0 && (
-                  <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-3">
-                    <div className="text-sm font-medium">
-                      Blocking validation issues
-                    </div>
-
-                    <ul className="mt-2 space-y-1 text-sm">
-                      {aiIssues.map((issue, index) => (
-                        <li key={`${issue}-${index}`}>• {issue}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {aiImportResult && aiIssues.length === 0 && (
-                  <div className="rounded-xl border p-4">
-                    <div className="text-sm font-medium">AI App Preview</div>
-
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-                      <div className="rounded-lg bg-muted/30 p-2">
-                        <div className="text-xs text-muted-foreground">
-                          Fields
-                        </div>
-
-                        <div className="text-lg font-semibold">
-                          {aiImportResult.app.captures.length}
-                        </div>
-                      </div>
-
-                      <div className="rounded-lg bg-muted/30 p-2">
-                        <div className="text-xs text-muted-foreground">
-                          Actions
-                        </div>
-
-                        <div className="text-lg font-semibold">
-                          {aiImportResult.app.actions.length}
-                        </div>
-                      </div>
-
-                      <div className="rounded-lg bg-muted/30 p-2">
-                        <div className="text-xs text-muted-foreground">
-                          Outputs
-                        </div>
-
-                        <div className="text-lg font-semibold">
-                          {aiImportResult.app.outputs.length}
-                        </div>
-                      </div>
-
-                      <div className="rounded-lg bg-muted/30 p-2">
-                        <div className="text-xs text-muted-foreground">
-                          Phone blocks
-                        </div>
-
-                        <div className="text-lg font-semibold">
-                          {aiImportResult.app.layout.length}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                ))}
               </div>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      </Modal>
 
       <DragOverlay>
         {activeDragId ? (

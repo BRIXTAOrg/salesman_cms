@@ -71,10 +71,7 @@ async function AuthenticatedLayout({
 
   const session = auth.session;
   const primaryJob = session.jobRoles?.[0] ?? "";
-  const roleDisplay =
-    primaryJob && session.orgRole
-      ? `${session.orgRole}:${primaryJob}`
-      : session.orgRole || primaryJob || "Team Member";
+  const roleDisplay = session.orgRole || primaryJob || "Team member";
 
   return (
     <DashboardShell

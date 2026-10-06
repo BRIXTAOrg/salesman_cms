@@ -21,6 +21,7 @@ import {
   PageIntro,
   Panel,
   Pill,
+  Portal,
   PrimaryButton,
   SecondaryButton,
   inputClass,
@@ -245,7 +246,7 @@ export default function FieldRecordsClient() {
   if (!loading && data && !list) {
     return (
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
-        <PageIntro eyebrow="Field work" title="Field work" />
+        <PageIntro title="Field work" />
         <EmptyState
           title="No list is in the field app yet"
           description="Import a file in Responsibilities → ENTITIES, then press “Send to field app” on that list."
@@ -257,7 +258,6 @@ export default function FieldRecordsClient() {
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
       <PageIntro
-        eyebrow="Field work"
         title={list?.title ?? "Field work"}
         description="Everything the field team has done on this list. Tick rows to assign them to an executive."
         action={
@@ -514,11 +514,12 @@ export default function FieldRecordsClient() {
       </Panel>
 
       {openId && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <Portal>
+        <div className="fixed inset-0 z-[100] flex justify-end">
           <button
             type="button"
             aria-label="Close"
-            className="absolute inset-0 bg-black/25"
+            className="absolute inset-0 bg-[rgba(22,28,26,0.45)]"
             onClick={() => {
               setOpenId(null);
               setDetail(null);
@@ -693,6 +694,7 @@ export default function FieldRecordsClient() {
             ) : null}
           </aside>
         </div>
+        </Portal>
       )}
     </div>
   );

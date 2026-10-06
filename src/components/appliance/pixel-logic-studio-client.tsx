@@ -80,6 +80,7 @@ import {
   EmptyState,
   Field,
   inputClass,
+  Notice,
   Panel,
   Pill,
   PrimaryButton,
@@ -753,7 +754,7 @@ export default function PixelLogicStudioClient() {
       setAiOpen(false);
 
       setMessage(
-        "AI logic validated and applied to the draft canvas. Review the graph, then click Save logic.",
+        "AI logic validated and applied to the draft canvas. Review it, then press Save and publish.",
       );
     } catch (error) {
       setAiImportResult(null);
@@ -918,7 +919,7 @@ export default function PixelLogicStudioClient() {
     setToPort("");
     setAiOpen(false);
     setMessage(
-      "AI logic update applied to the draft canvas. Review the graph and Validation panel, then click Save logic to publish the new behaviour.",
+      "AI logic update applied to the draft canvas. Review the graph and Validation panel, then press Save and publish.",
     );
   }
 
@@ -1104,65 +1105,79 @@ export default function PixelLogicStudioClient() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1700px] flex-col gap-5">
-      <Panel>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <GitBranch className="h-5 w-5" />
-              <div className="text-xl font-semibold">Pixel Logic</div>
-              <Pill tone={program.enabled ? "info" : undefined}>
-                {program.enabled ? "enabled" : "disabled"}
+      {/* BRIXTA_UI_V2: one toolbar — which responsibility, on/off, health, save. */}
+      <div className="rounded-[14px] border border-[#E1E4E0] bg-white">
+        <div className="flex min-w-0 flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+            <select
+              aria-label="Responsibility"
+              value={responsibilityId ?? ""}
+              onChange={(event) =>
+                setResponsibilityId(
+                  event.target.value ? Number(event.target.value) : null,
+                )
+              }
+              className={`${inputClass} w-full sm:w-[260px]`}
+            >
+              {responsibilities.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title}
+                </option>
+              ))}
+            </select>
+
+            <label className="flex h-9 items-center gap-2 rounded-[10px] px-1 text-[13.5px] font-medium">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[#2F6B62]"
+                checked={program.enabled}
+                onChange={(event) =>
+                  setProgram((current) => ({
+                    ...current,
+                    enabled: event.target.checked,
+                  }))
+                }
+              />
+              Automations on
+            </label>
+
+            <span className="text-[13px] text-muted-foreground">
+              {program.nodes.length} step{program.nodes.length === 1 ? "" : "s"} · {program.edges.length} link{program.edges.length === 1 ? "" : "s"}
+            </span>
+            {errorCount > 0 && <Pill tone="danger">{errorCount} to fix</Pill>}
+            {errorCount === 0 && warningCount > 0 && (
+              <Pill tone="warning">
+                {warningCount} warning{warningCount === 1 ? "" : "s"}
               </Pill>
-            </div>
-            <div className="mt-1 text-sm text-muted-foreground">
-              Wire the selected Responsibility&apos;s events, data, calculations,
-              conditions and effects. This extends the existing builder; it does
-              not replace it.
-            </div>
+            )}
           </div>
 
-          <div className="flex flex-wrap items-end gap-2">
-            <Field label="Responsibility">
-              <select
-                value={responsibilityId ?? ""}
-                onChange={(event) =>
-                  setResponsibilityId(
-                    event.target.value ? Number(event.target.value) : null,
-                  )
-                }
-                className={inputClass}
-              >
-                {responsibilities.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.title}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <SecondaryButton type="button" onClick={() => void loadBase()}>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button
+              type="button"
+              title="Reload"
+              aria-label="Reload"
+              onClick={() => void loadBase()}
+              className="flex h-10 w-10 items-center justify-center rounded-[10px] text-[#5F6964] transition-colors hover:bg-[#F1F3F0]"
+            >
               <RefreshCw className="h-4 w-4" />
-              Refresh
-            </SecondaryButton>
+            </button>
 
             <SecondaryButton
               type="button"
-              onClick={() =>
-                setLogicSurface(
-                  "integrations",
-                )
-              }
+              onClick={() => setLogicSurface("integrations")}
             >
-              API Integrations
+              Connect an API
             </SecondaryButton>
 
             <SecondaryButton
               type="button"
               onClick={() => setAiOpen((current) => !current)}
               disabled={!selectedResponsibility || loading}
+              aria-expanded={aiOpen}
             >
               <Zap className="h-4 w-4" />
-              Talk with AI
+              Describe with AI
             </SecondaryButton>
 
             <PrimaryButton
@@ -1175,67 +1190,19 @@ export default function PixelLogicStudioClient() {
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              Save logic
+              Save and publish
             </PrimaryButton>
           </div>
         </div>
-
-        {/* BRIXTA_LOGIC_SUBNAV_V1 */}
-        <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
-          <button
-            type="button"
-            className="rounded-lg border border-primary bg-primary/[0.08] px-4 py-2 text-sm font-medium"
-          >
-            Flow
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              setLogicSurface(
-                "integrations",
-              )
-            }
-            className="rounded-lg border px-4 py-2 text-sm text-muted-foreground transition hover:bg-muted"
-          >
-            API Integrations
-          </button>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-3 border-t pt-4 text-sm">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={program.enabled}
-              onChange={(event) =>
-                setProgram((current) => ({
-                  ...current,
-                  enabled: event.target.checked,
-                }))
-              }
-            />
-            Program enabled
-          </label>
-          <Pill>{program.nodes.length} nodes</Pill>
-          <Pill>{program.edges.length} wires</Pill>
-          <Pill tone={errorCount ? "danger" : undefined}>
-            {errorCount} errors
-          </Pill>
-          <Pill tone={warningCount ? "warning" : undefined}>
-            {warningCount} warnings
-          </Pill>
-          {selectedResponsibility && (
-            <span className="text-muted-foreground">
-              Draft logic for {selectedResponsibility.title}
-            </span>
-          )}
-        </div>
-      </Panel>
+      </div>
 
       {message && (
-        <Panel className="py-3">
-          <div className="text-sm">{message}</div>
-        </Panel>
+        <Notice
+          tone={/unable|fix|error|failed|could not/i.test(message) ? "danger" : "good"}
+          onDismiss={() => setMessage(null)}
+        >
+          {message}
+        </Notice>
       )}
 
       {aiOpen && selectedResponsibility && (
@@ -1243,7 +1210,7 @@ export default function PixelLogicStudioClient() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div className="text-base font-semibold">
-                Talk with AI
+                Describe with AI
               </div>
 
               <div className="mt-1 max-w-3xl text-sm text-muted-foreground">

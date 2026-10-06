@@ -9,12 +9,18 @@ import {
   type ReactNode,
 } from "react";
 
+import { Loader2, RefreshCw, WifiOff } from "lucide-react";
+
 import type { ResponsibilityKernel } from "@/lib/responsibility-kernel-types";
 
 import {
   SoftPreviewOverlay,
+  type SoftPreviewStatus,
   type SoftPreviewTab,
 } from "./soft-preview-overlay";
+
+/** How long to wait for the Flutter preview before saying it isn't running. */
+const CONNECT_TIMEOUT_MS = 8000;
 
 type Props = {
   kernel: ResponsibilityKernel;
@@ -25,6 +31,8 @@ type Props = {
   isDragging?: boolean;
   draggingBlockId?: string | null;
   designContent?: ReactNode;
+  /** BRIXTA_UI_V2: render the launcher in place instead of floating. */
+  inline?: boolean;
   [key: string]: unknown;
 };
 
@@ -56,10 +64,15 @@ export function FlutterLivePreview(props: Props) {
     isDragging = false,
     draggingBlockId,
     designContent,
+    inline = false,
   } = props;
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
+  // BRIXTA_UI_V2: say plainly when the live preview isn't running.
+  const [timedOut, setTimedOut] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [frameMounted, setFrameMounted] = useState(false);
   const url = useMemo(() => previewUrl(), []);
   const document = kernel.metadata.ui?.uiDocument;
 
@@ -195,14 +208,32 @@ export function FlutterLivePreview(props: Props) {
     return () => window.clearTimeout(timer);
   }, [ready, send]);
 
+  useEffect(() => {
+    if (ready || !frameMounted) return;
+    const timer = window.setTimeout(() => setTimedOut(true), CONNECT_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [ready, attempt, frameMounted]);
+
   if (!document) return null;
 
+  const status: SoftPreviewStatus = ready ? "live" : timedOut ? "offline" : "connecting";
+
+  function retry() {
+    setReady(false);
+    setTimedOut(false);
+    setAttempt((value) => value + 1);
+  }
+
   const liveContent = (
-    <div className="brixta-flutter-preview-stage">
-      <div className="brixta-flutter-device-frame">
+    <div className="flex min-h-full justify-center py-2">
+      <div className="relative h-[min(720px,calc(100vh-200px))] min-h-[480px] w-full max-w-[390px] overflow-hidden rounded-[32px] border-[6px] border-[#1D2321] bg-white shadow-[0_8px_20px_rgba(29,35,33,0.08),0_24px_56px_rgba(29,35,33,0.12)]">
         <iframe
-          ref={iframeRef}
-          title="BRIXTA Flutter preview"
+          key={attempt}
+          ref={(node) => {
+            iframeRef.current = node;
+            if (node && !frameMounted) setFrameMounted(true);
+          }}
+          title="Live app preview"
           src={url.toString()}
           className="h-full w-full border-0"
           sandbox="allow-scripts allow-same-origin"
@@ -211,6 +242,43 @@ export function FlutterLivePreview(props: Props) {
             window.setTimeout(send, 120);
           }}
         />
+
+        {status !== "live" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white px-6 text-center">
+            {status === "connecting" ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin text-[#2F6B62]" />
+                <div className="text-[14px] font-medium text-[#1D2321]">Connecting to the app…</div>
+                <div className="text-[13px] leading-5 text-[#5F6964]">
+                  This takes a few seconds the first time.
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F1F3F0]">
+                  <WifiOff className="h-5 w-5 text-[#5F6964]" />
+                </span>
+                <div className="text-[15px] font-semibold text-[#1D2321]">Live preview isn&apos;t running</div>
+                <div className="text-[13px] leading-5 text-[#5F6964]">
+                  {designContent
+                    ? "Use the Design tab to see this screen now."
+                    : "The phone in the builder already shows your draft."}{" "}
+                  To test the real app here, start the CMS with:
+                </div>
+                <code className="rounded-[8px] bg-[#F1F3F0] px-2.5 py-1.5 text-[12.5px] text-[#1D2321]">
+                  npm run dev:studio
+                </code>
+                <button
+                  type="button"
+                  onClick={retry}
+                  className="mt-1 inline-flex h-9 items-center gap-2 rounded-[10px] border border-[#D3D8D3] bg-white px-3.5 text-[13px] font-medium text-[#1D2321] hover:bg-[#F6F7F5]"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Try again
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -222,7 +290,7 @@ export function FlutterLivePreview(props: Props) {
             id: "design",
             label: "Design",
             content: (
-              <div className="brixta-design-preview-stage">
+              <div className="flex min-h-full justify-center py-2">
                 {designContent}
               </div>
             ),
@@ -237,13 +305,28 @@ export function FlutterLivePreview(props: Props) {
   ];
 
   return (
-    <div className="brixta-live-preview-dock">
+    <div className={inline ? "shrink-0" : "fixed bottom-4 right-4 z-[90] sm:bottom-5 sm:right-6"}>
       <SoftPreviewOverlay
-        title="App Preview"
-        subtitle="Design and live runtime in one place."
-        badge={ready ? "LIVE" : "CONNECTING"}
+        variant={inline ? "inline" : "floating"}
+        launcherLabel={inline ? "Live app" : "Preview app"}
+        title={designContent ? "App preview" : "Live app"}
+        subtitle={
+          designContent
+            ? "What your team sees on the phone. Tap a part to edit it."
+            : "The real app running your draft. Tap a part to select it."
+        }
+        badge={
+          !frameMounted
+            ? undefined
+            : status === "live"
+              ? "Live"
+              : status === "connecting"
+                ? "Connecting…"
+                : "Live off"
+        }
+        status={status}
         tabs={tabs}
-        defaultTabId="live"
+        defaultTabId={designContent ? "design" : "live"}
       />
     </div>
   );

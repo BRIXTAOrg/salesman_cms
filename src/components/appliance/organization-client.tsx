@@ -463,9 +463,8 @@ export default function OrganizationClient() {
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
       <PageIntro
-        eyebrow="Workforce"
         title="Organization"
-        description="Your account panorama across companies, plus the detailed organization view for the company currently open."
+        description="Your companies at a glance, and who reports to whom in the one that is open."
         action={
           <div className="flex items-center gap-2">
             <Link
@@ -495,10 +494,10 @@ export default function OrganizationClient() {
             <div>
               <div className="flex items-center gap-2 text-lg font-semibold">
                 <Layers3 className="h-5 w-5" />
-                Account panorama
+                Your companies
               </div>
               <div className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                See the workforce structure and active Responsibilities of every company attached to this account. Each firm's data still stays inside its own PostgreSQL schema; this screen only reads account-authorized summaries.
+                People, departments and responsibilities in every company you can open. Each company's data stays separate.
               </div>
             </div>
 
@@ -535,7 +534,7 @@ export default function OrganizationClient() {
           ) : portfolio.length === 0 ? (
             <EmptyState
               title="No account companies found"
-              description="The current company has not been linked into the account registry yet."
+              description="This company isn't linked to your account yet."
             />
           ) : (
             <div className="grid gap-4 xl:grid-cols-2">
@@ -556,10 +555,10 @@ export default function OrganizationClient() {
         <Building2 className="h-5 w-5" />
         <div>
           <div className="font-semibold">
-            Current company detail
+            This company
           </div>
           <div className="text-xs text-muted-foreground">
-            The section below is the full workforce hierarchy for the company currently open.
+            Who reports to whom in the company that is open now.
           </div>
         </div>
       </div>

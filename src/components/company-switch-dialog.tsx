@@ -19,6 +19,8 @@ import {
   X,
 } from "lucide-react";
 
+import { Portal } from "@/components/appliance/primitives";
+
 type SwitchTarget = {
   id: number;
   name: string;
@@ -177,15 +179,16 @@ function CompanyPasswordDialog({
   }
 
   return (
+    <Portal>
     <div
-      className="fixed inset-0 z-[80] flex items-start justify-center bg-black/45 p-4 pt-[14vh] backdrop-blur-[2px]"
+      className="fixed inset-0 z-[110] flex items-start justify-center bg-[rgba(22,28,26,0.45)] p-4 pt-[14vh]"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) cancel();
       }}
     >
       <form
         onSubmit={submit}
-        className="brixta-soft-card w-full max-w-sm rounded-[20px] border bg-card p-6 shadow-xl"
+        className="w-full max-w-sm rounded-[16px] border border-[#E1E4E0] bg-white p-6 shadow-[0_24px_48px_rgba(29,35,33,0.16)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="company-switch-title"
@@ -226,7 +229,7 @@ function CompanyPasswordDialog({
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder="Password"
-          className="brixta-input mt-5 h-11 w-full rounded-xl border px-3 text-[14px] outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          className="brixta-input mt-5 h-10 w-full rounded-[10px] border px-3 text-[14px] outline-none"
           disabled={busy}
         />
 
@@ -240,14 +243,14 @@ function CompanyPasswordDialog({
           <button
             type="button"
             onClick={cancel}
-            className="brixta-secondary-button inline-flex h-10 items-center rounded-full border px-4 text-[14px] font-medium"
+            className="brixta-secondary-button inline-flex h-10 items-center px-4 text-[14px] font-medium"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!password || busy}
-            className="brixta-primary-button inline-flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-[14px] font-medium text-primary-foreground disabled:opacity-50"
+            className="brixta-primary-button inline-flex h-10 items-center gap-2 bg-primary px-5 text-[14px] font-medium text-primary-foreground disabled:opacity-50"
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             Switch
@@ -255,5 +258,6 @@ function CompanyPasswordDialog({
         </div>
       </form>
     </div>
+    </Portal>
   );
 }

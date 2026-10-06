@@ -235,7 +235,6 @@ export default function AssignmentsClient() {
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
       <PageIntro
-        eyebrow="Workspace"
         title="Assignments"
         description="Assign Responsibilities and explicitly tick which published Pixel Logic programs may execute for each employee. Organization-wide Responsibility rules still resolve in addition to direct assignments."
         action={

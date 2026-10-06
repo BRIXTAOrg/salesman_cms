@@ -25,8 +25,8 @@ import {
 } from "./client";
 import {
   Modal,
+  Notice,
   PageIntro,
-  Panel,
   Pill,
   SecondaryButton,
 } from "./primitives";
@@ -68,6 +68,9 @@ export default function DashboardAccessClient() {
     useState(false);
   const [closeHint, setCloseHint] =
     useState(false);
+  // BRIXTA_UI_V2: you can't switch off your own access from here.
+  const [meId, setMeId] =
+    useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,6 +95,9 @@ export default function DashboardAccessClient() {
 
   useEffect(() => {
     void load();
+    apiJson<{ userId?: number }>("/api/me")
+      .then((me) => setMeId(typeof me.userId === "number" ? me.userId : null))
+      .catch(() => setMeId(null));
   }, [load]);
 
   async function toggleAccess(
@@ -134,7 +140,7 @@ export default function DashboardAccessClient() {
       } else {
         // Turning access off only flips isDashboardUser; the login stays
         // intact so access can be restored later.
-        toast.success(`${displayName}'s dashboard access removed.`);
+        toast.success(`${displayName} can no longer sign in to the dashboard.`);
       }
 
       await load();
@@ -254,26 +260,36 @@ export default function DashboardAccessClient() {
         header: "Status",
         cell: ({ row }) => (
           <Pill tone={row.original.status === "active" ? "good" : "neutral"}>
-            {row.original.status ?? "unknown"}
+            {row.original.status === "active"
+              ? "Active"
+              : row.original.status
+                ? row.original.status.charAt(0).toUpperCase() + row.original.status.slice(1)
+                : "Unknown"}
           </Pill>
         ),
       },
       {
         id: "action",
-        header: "Action",
+        header: "Dashboard sign-in",
         cell: ({ row }) => {
           const user = row.original;
           const isPending = pendingUserId === user.id;
+          const isMe = meId !== null && user.id === meId;
 
           return (
             <div className="flex items-center gap-2">
               <Switch
                 checked={Boolean(user.isDashboardUser)}
-                disabled={isPending}
+                disabled={isPending || (isMe && Boolean(user.isDashboardUser))}
+                aria-label={`Dashboard sign-in for ${user.username ?? user.email}`}
+                title={isMe ? "You can't switch off your own access" : undefined}
                 onCheckedChange={(checked) =>
                   void toggleAccess(user, checked)
                 }
               />
+              {isMe && (
+                <span className="text-[12px] font-medium text-muted-foreground">You</span>
+              )}
               {user.isDashboardUser && (
                 <button
                   type="button"
@@ -295,15 +311,14 @@ export default function DashboardAccessClient() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pendingUserId],
+    [pendingUserId, meId],
   );
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 p-4 md:p-6">
       <PageIntro
-        eyebrow="Administration"
-        title="Dashboard Access"
-        description="Dashboard authority is separate from Responsibilities. Toggle access on for anyone who needs to log into this dashboard."
+        title="Dashboard access"
+        description="Turn on dashboard sign-in for anyone who manages work here. Field app logins aren't affected."
         action={
           <SecondaryButton type="button" onClick={() => void load()}>
             <RefreshCw className="h-4 w-4" />
@@ -313,13 +328,13 @@ export default function DashboardAccessClient() {
       />
 
       {message && (
-        <Panel className="py-3">
-          <div className="text-sm">{message}</div>
-        </Panel>
+        <Notice tone="danger" onDismiss={() => setMessage(null)}>
+          {message}
+        </Notice>
       )}
 
       {loading ? (
-        <div className="h-64 animate-pulse rounded-lg border bg-muted/30" />
+        <div className="h-64 animate-pulse rounded-[14px] border border-[#E1E4E0] bg-white" />
       ) : (
         <DataTableReusable
           columns={columns}
@@ -336,16 +351,16 @@ export default function DashboardAccessClient() {
       >
         {credentials && (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 rounded-md border border-emerald-600/20 bg-emerald-600/5 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+            <div className="flex items-center gap-2 rounded-[12px] border border-[#CFE2DC] bg-[#F0F7F4] px-3.5 py-2.5 text-[13.5px] text-[#1F4C45]">
               <ShieldCheck className="h-4 w-4 shrink-0" />
               {credentials.reason === "reset"
                 ? "New password created. The old one no longer works."
-                : "Dashboard access enabled."}
+                : "Dashboard sign-in is on."}
             </div>
 
-            <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+            <div className="space-y-3 rounded-[12px] border border-[#E1E4E0] bg-[#F7F8F6] p-4">
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <div className="text-[12.5px] font-medium text-muted-foreground">
                   Login ID
                 </div>
                 <div className="mt-1 font-mono text-[14px]">
@@ -353,7 +368,7 @@ export default function DashboardAccessClient() {
                 </div>
               </div>
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <div className="text-[12.5px] font-medium text-muted-foreground">
                   Password
                 </div>
                 <div className="mt-1 font-mono text-[14px]">
@@ -363,7 +378,7 @@ export default function DashboardAccessClient() {
             </div>
 
             {closeHint && !copied && (
-              <div className="text-[13px] text-amber-600 dark:text-amber-400">
+              <div className="text-[13px] text-[#7A4F10]">
                 Copy the credentials to close this window — they will not be
                 shown again.
               </div>
@@ -373,7 +388,7 @@ export default function DashboardAccessClient() {
               <button
                 type="button"
                 onClick={() => void copyCredentials()}
-                className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-[14px] font-medium text-primary-foreground transition-[transform,background-color] duration-150 ease-out hover:-translate-y-px active:translate-y-0"
+                className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-[#2F6B62] px-4 text-[14px] font-medium text-white transition-colors duration-150 hover:bg-[#275A53]"
               >
                 {copied ? (
                   <>

@@ -19,9 +19,7 @@ import type {
   WorkspaceManifest,
   WorkspaceNavItem,
 } from "@/lib/workspace-types";
-import {
-  Separator,
-} from "@/components/ui/separator";
+import AccountSwitcher from "@/components/account-switcher";
 import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
@@ -49,7 +47,7 @@ function titleForPath(
     return key.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
-  return "Control Center";
+  return "Home";
 }
 
 export function SiteHeader() {
@@ -176,23 +174,19 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="brixta-site-header sticky top-0 z-30 flex min-h-16 shrink-0 items-center border-b bg-background">
+    <header className="brixta-site-header sticky top-0 z-30 flex shrink-0 items-center">
       <div className="flex w-full items-center gap-3 px-4 lg:px-6">
-        <SidebarTrigger className="-ml-1" />
-        <Separator orientation="vertical" className="h-5" />
+        <SidebarTrigger className="-ml-1 text-muted-foreground" />
 
-        <div className="hidden min-w-36 text-sm font-medium capitalize md:block">
+        <div className="hidden min-w-0 truncate text-[14px] font-semibold md:block">
           {titleForPath(pathname, actions)}
         </div>
 
-        <div ref={searchRef} className="relative ml-auto w-full max-w-xl">
+        <div ref={searchRef} className="relative ml-auto w-full max-w-md">
           <div
             className={[
-              "flex h-10 items-center gap-2 rounded-md border bg-background px-3",
-              "transition-colors duration-150 ease-out",
-              focused
-                ? "border-primary ring-2 ring-primary/20 ring-offset-2 ring-offset-background"
-                : "border-border",
+              "flex h-9 items-center gap-2 rounded-[10px] border bg-white px-3 transition-[border-color,box-shadow] duration-150",
+              focused ? "border-primary shadow-[0_0_0_3px_rgba(47,107,98,0.15)]" : "border-border",
             ].join(" ")}
           >
             <Search className="h-4 w-4 text-muted-foreground" />
@@ -201,34 +195,37 @@ export function SiteHeader() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onFocus={() => setFocused(true)}
-              placeholder="Search this workspace..."
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && results[0]) go(results[0].href);
+              }}
+              placeholder="Jump to a page or responsibility"
+              aria-label="Search pages"
+              className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none placeholder:text-muted-foreground"
             />
-            <div className="hidden items-center gap-1 rounded border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground sm:flex">
+            <kbd className="hidden items-center gap-0.5 rounded-md border bg-[#F6F7F5] px-1.5 py-0.5 font-sans text-[11px] text-muted-foreground sm:flex">
               <Command className="h-3 w-3" />K
-            </div>
+            </kbd>
           </div>
 
           {focused && (
-            <div className="absolute left-0 right-0 top-12 overflow-hidden rounded-lg border bg-popover shadow-xl">
+            <div className="absolute left-0 right-0 top-11 z-40 overflow-hidden rounded-[12px] border bg-popover shadow-[0_12px_32px_rgba(29,35,33,0.12)]">
               {results.length === 0 ? (
-                <div className="px-4 py-5 text-sm text-muted-foreground">
-                  No available workspace destination matches this search.
+                <div className="px-4 py-4 text-[13.5px] text-muted-foreground">
+                  Nothing matches “{query}”.
                 </div>
               ) : (
-                <div className="p-2">
+                <div className="max-h-[60vh] overflow-y-auto p-1.5">
                   {results.map((item) => (
                     <button
                       type="button"
                       key={item.key}
                       onClick={() => go(item.href)}
-                      className="flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left hover:bg-muted"
+                      className="flex w-full items-start gap-3 rounded-[8px] px-3 py-2 text-left hover:bg-[#F1F3F0]"
                     >
-                      <Search className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                       <div className="min-w-0">
-                        <div className="text-sm font-medium">{item.label}</div>
+                        <div className="text-[13.5px] font-medium">{item.label}</div>
                         {item.description && (
-                          <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                          <div className="mt-0.5 truncate text-[12.5px] text-muted-foreground">
                             {item.description}
                           </div>
                         )}
@@ -240,6 +237,8 @@ export function SiteHeader() {
             </div>
           )}
         </div>
+
+        <AccountSwitcher />
       </div>
     </header>
   );

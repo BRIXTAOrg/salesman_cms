@@ -50,6 +50,7 @@ import {
   EmptyState,
   Field,
   inputClass,
+  Notice,
   Panel,
   Pill,
   PrimaryButton,
@@ -756,144 +757,240 @@ export default function ResponsibilityKernelClient() {
     );
   }
 
+  // BRIXTA_UI_V2: "In the app" / "Public link" sits in the builder's own toolbar.
+  const surfaceSwitch = (
+    <div className="inline-flex rounded-[10px] border border-[#D3D8D3] bg-[#F6F7F5] p-0.5" role="tablist" aria-label="Where people use it">
+      {(
+        [
+          ["app", "In the app", Sparkles],
+          ["external", "Public link", Globe2],
+        ] as const
+      ).map(([value, label, Icon]) => (
+        <button
+          key={value}
+          type="button"
+          role="tab"
+          aria-selected={builderSurface === value}
+          onClick={() => setBuilderSurface(value)}
+          className={cx(
+            "inline-flex h-8 items-center gap-2 rounded-[8px] px-3 text-[13.5px] font-medium transition-colors",
+            builderSurface === value
+              ? "bg-white text-[#1D2321] shadow-[0_1px_2px_rgba(29,35,33,0.08)]"
+              : "text-[#5F6964] hover:text-[#1D2321]",
+          )}
+        >
+          <Icon className="h-4 w-4" />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="w-full min-w-0 max-w-full overflow-x-clip space-y-4 pb-8">
-      <div className="rounded-2xl border bg-background/95 p-3 shadow-sm sm:p-4">
-        <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <div className="text-base font-semibold">
-                Responsibility Canvas
-              </div>
-              <Pill>v{publishedVersion || "draft"}</Pill>
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Choose the Role → drag the app → publish. World, context and
-              workflow wiring are infrastructure, not extra homework.
-            </div>
-          </div>
-
-          <div className="flex min-w-0 flex-wrap items-end gap-2">
-            {responsibilities.length > 0 && (
-              <div className="w-full sm:w-[260px]">
-                <div className="mb-1 text-[11px] font-medium text-muted-foreground">
-                  Responsibility
-                </div>
+      {/* BRIXTA_CLEAN_UI_V1: one toolbar — which responsibility, who gets it, save, publish. */}
+      <div className="rounded-[14px] border border-[#E1E4E0] bg-white">
+        <div className="flex min-w-0 flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            {responsibilities.length > 0 ? (
+              <div className="w-full sm:w-[300px]">
                 <SearchSelect
                   options={responsibilities.map((item) => ({
                     label: item.title,
                     value: String(item.id),
                   }))}
                   value={responsibilityId ? String(responsibilityId) : ""}
-                  placeholder="Choose Responsibility..."
-                  searchPlaceholder="Search Responsibilities..."
+                  placeholder="Choose a responsibility"
+                  searchPlaceholder="Search responsibilities"
                   onChange={(value) => {
                     const next = Array.isArray(value) ? value[0] : value;
                     if (next) setResponsibilityId(Number(next));
                   }}
                 />
               </div>
+            ) : (
+              <div className="text-[15px] font-semibold">No responsibilities yet</div>
             )}
-
+            {selectedResponsibility && (
+              <Pill tone={publishedVersion ? "good" : "neutral"}>
+                {publishedVersion ? `Published v${publishedVersion}` : "Not published"}
+              </Pill>
+            )}
             <SecondaryButton
               type="button"
+              className="h-9 px-3"
               onClick={() => setCreateOpen((value) => !value)}
             >
-              <Plus className="h-4 w-4" /> New
+              <Plus className="h-4 w-4" /> New responsibility
             </SecondaryButton>
-            <SecondaryButton
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button
               type="button"
+              title="Reload from server"
+              aria-label="Reload from server"
               disabled={!responsibilityId || loading}
-              onClick={() =>
-                responsibilityId && void loadDetail(responsibilityId)
-              }
+              onClick={() => responsibilityId && void loadDetail(responsibilityId)}
+              className="flex h-10 w-10 items-center justify-center rounded-[10px] text-[#5F6964] transition-colors hover:bg-[#F1F3F0] disabled:opacity-40"
             >
-              <RefreshCw className="h-4 w-4" /> Reload
-            </SecondaryButton>
+              <RefreshCw className={cx("h-4 w-4", loading && "animate-spin")} />
+            </button>
             <SecondaryButton
               type="button"
               onClick={() => setCheckOpen((value) => !value)}
-              className={cx(errorCount > 0 && "border-destructive/50")}
+              className={cx(errorCount > 0 && "border-[#F1C4BF] text-[#B42318]")}
             >
               {errorCount > 0 ? (
                 <AlertTriangle className="h-4 w-4" />
               ) : (
                 <CheckCircle2 className="h-4 w-4" />
               )}
-              Check{" "}
               {errorCount > 0
-                ? errorCount
+                ? `${errorCount} to fix`
                 : warningCount > 0
-                  ? warningCount
-                  : "✓"}
+                  ? `${warningCount} warning${warningCount === 1 ? "" : "s"}`
+                  : "Checks pass"}
             </SecondaryButton>
             <SecondaryButton
               type="button"
               disabled={!responsibilityId || saving}
               onClick={() => void saveDraft()}
             >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              Save
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save draft
             </SecondaryButton>
             <PrimaryButton
               type="button"
               disabled={!responsibilityId || publishing}
               onClick={() => void publish()}
             >
-              {publishing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Rocket className="h-4 w-4" />
-              )}
-              Publish
+              {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+              Publish to app
             </PrimaryButton>
           </div>
         </div>
 
         {roles.length > 0 && selectedResponsibility && (
-          <div className="mt-3 rounded-lg border bg-muted/10 p-3">
-            <div className="mb-2 flex items-center gap-2 text-xs font-medium">
-              <UsersRound className="h-3.5 w-3.5" />
-              This Responsibility is for
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {roles.map((role) => (
+          <div className="flex flex-wrap items-center gap-2 border-t border-[#E1E4E0] px-4 py-3">
+            <span className="mr-1 flex items-center gap-1.5 text-[13px] font-medium text-[#5F6964]">
+              <UsersRound className="h-4 w-4" />
+              Who gets this
+            </span>
+            {roles.map((role) => {
+              const on = targetRoleIds.includes(role.id);
+              return (
                 <button
                   key={role.id}
                   type="button"
+                  aria-pressed={on}
                   onClick={() => toggleTargetRole(role.id)}
                   className={cx(
-                    "rounded-full border px-3 py-1 text-xs transition",
-                    targetRoleIds.includes(role.id)
-                      ? "border-primary bg-primary/[0.08] text-foreground"
-                      : "text-muted-foreground hover:bg-muted",
+                    "h-8 rounded-full border px-3 text-[13px] font-medium transition-colors",
+                    on
+                      ? "border-[#2F6B62] bg-[#E5EFEC] text-[#1F4C45]"
+                      : "border-[#D3D8D3] bg-white text-[#5F6964] hover:bg-[#F6F7F5]",
                   )}
                 >
+                  {on && <CheckCircle2 className="-ml-0.5 mr-1 inline h-3.5 w-3.5" />}
                   {role.label}
                 </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {message && (
-          <div className="mt-3 rounded-lg border bg-muted/20 px-3 py-2 text-sm">
-            {message}
+              );
+            })}
+            {targetRoleIds.length === 0 && (
+              <span className="text-[13px] text-[#8A5A12]">Pick at least one role before publishing.</span>
+            )}
           </div>
         )}
       </div>
 
+      {checkOpen && (
+        <Panel>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[15px] font-semibold">Checks before publishing</div>
+              <div className="mt-0.5 text-[13px] text-muted-foreground">
+                Fix anything marked red. Warnings won&apos;t stop you publishing.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCheckOpen(false)}
+              aria-label="Hide checks"
+              className="rounded-md p-2 hover:bg-muted"
+            >
+              <ChevronUp className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-2">
+            {validation.map((issue) => (
+              <div
+                key={`${issue.code}-${issue.target ?? "root"}`}
+                className={cx(
+                  "flex items-start gap-3 rounded-lg border p-3",
+                  issue.severity === "error" && "border-destructive/40",
+                  issue.severity === "good" && "border-emerald-500/30",
+                )}
+              >
+                {issue.severity === "error" ? (
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                ) : issue.severity === "good" ? (
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                ) : (
+                  <Settings2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
+                <div>
+                  <div className="text-sm">{issue.message}</div>
+                  <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                    {issue.code}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setDeveloperOpen((value) => !value)}
+            className="mt-4 flex items-center gap-2 text-[12.5px] text-muted-foreground hover:text-foreground"
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+            Technical details
+            {developerOpen ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
+          </button>
+
+          {developerOpen && (
+            <pre className="mt-3 max-h-[520px] overflow-auto rounded-lg border bg-muted/20 p-3 text-[10px] leading-relaxed">
+              {JSON.stringify(
+                {
+                  targetRoleIds,
+                  kernel,
+                  compiledBaseDefinition: compiled,
+                },
+                null,
+                2,
+              )}
+            </pre>
+          )}
+        </Panel>
+      )}
+
+      {message && (
+        <Notice tone={/blocked|unable|could not|failed|error/i.test(message) ? "danger" : "info"} onDismiss={() => setMessage(null)}>
+          {message}
+        </Notice>
+      )}
+
       {createOpen && (
         <Panel>
-          <div className="text-lg font-semibold">Create Responsibility</div>
+          <div className="text-[17px] font-semibold">New responsibility</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            First choose who this is for. Then the builder can become
-            role-aware.
+            Name it, pick a starting point and choose who gets it. You can change all of this later.
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -963,7 +1060,7 @@ export default function ResponsibilityKernelClient() {
               ) : (
                 <Plus className="h-4 w-4" />
               )}
-              Create & open canvas
+              Create and open builder
             </PrimaryButton>
           </div>
         </Panel>
@@ -973,53 +1070,29 @@ export default function ResponsibilityKernelClient() {
         <EmptyState
           title={
             responsibilities.length === 0
-              ? "Create your first Responsibility"
-              : "Choose a Responsibility"
+              ? "Create your first responsibility"
+              : "Choose a responsibility"
           }
           description={
             responsibilities.length === 0
-              ? "Use New above. Choose the target Role(s), then build the experience."
-              : "Select a Responsibility above to open its builders."
+              ? "A responsibility is a job your team does in the app, like a site visit or an expense claim. Press “New responsibility” to start."
+              : "Pick one from the list above to open the builder."
           }
         />
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-2">
-            <button
-              type="button"
-              onClick={() => setBuilderSurface("app")}
-              className={cx(
-                "rounded-lg px-4 py-2 text-sm font-medium transition",
-                builderSurface === "app"
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:bg-muted",
-              )}
-            >
-              <Sparkles className="mr-2 inline h-4 w-4" />
-              App Builder
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setBuilderSurface("external")}
-              className={cx(
-                "rounded-lg px-4 py-2 text-sm font-medium transition",
-                builderSurface === "external"
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:bg-muted",
-              )}
-            >
-              <Globe2 className="mr-2 inline h-4 w-4" />
-              External Link
-            </button>
-
-            <div className="ml-auto px-2 text-[11px] text-muted-foreground">
-              Same Responsibility · same UI · same Pixel Logic
+          {builderSurface === "external" && (
+            <div className="flex flex-wrap items-center gap-3">
+              {surfaceSwitch}
+              <span className="text-[13px] text-[#5F6964]">
+                A web form for people outside your team, like customers or dealers.
+              </span>
             </div>
-          </div>
+          )}
 
           {builderSurface === "app" ? (
             <ResponsibilityAppBuilder
+              toolbarStart={surfaceSwitch}
               responsibilityId={selectedResponsibility.id}
               responsibilityTitle={selectedResponsibility.title}
               kernel={kernel}
@@ -1040,80 +1113,6 @@ export default function ResponsibilityKernelClient() {
         </>
       )}
 
-      {checkOpen && (
-        <Panel>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="font-semibold">Canvas check</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Safety validation only. This is not another builder.
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setCheckOpen(false)}
-              className="rounded-md p-2 hover:bg-muted"
-            >
-              <ChevronUp className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="mt-4 grid gap-2">
-            {validation.map((issue) => (
-              <div
-                key={`${issue.code}-${issue.target ?? "root"}`}
-                className={cx(
-                  "flex items-start gap-3 rounded-lg border p-3",
-                  issue.severity === "error" && "border-destructive/40",
-                  issue.severity === "good" && "border-emerald-500/30",
-                )}
-              >
-                {issue.severity === "error" ? (
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                ) : issue.severity === "good" ? (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                ) : (
-                  <Settings2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                )}
-                <div>
-                  <div className="text-sm">{issue.message}</div>
-                  <div className="mt-0.5 text-[10px] text-muted-foreground">
-                    {issue.code}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setDeveloperOpen((value) => !value)}
-            className="mt-4 flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <Settings2 className="h-3.5 w-3.5" />
-            Developer contract
-            {developerOpen ? (
-              <ChevronUp className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronDown className="h-3.5 w-3.5" />
-            )}
-          </button>
-
-          {developerOpen && (
-            <pre className="mt-3 max-h-[520px] overflow-auto rounded-lg border bg-muted/20 p-3 text-[10px] leading-relaxed">
-              {JSON.stringify(
-                {
-                  targetRoleIds,
-                  kernel,
-                  compiledBaseDefinition: compiled,
-                },
-                null,
-                2,
-              )}
-            </pre>
-          )}
-        </Panel>
-      )}
     </div>
   );
 }

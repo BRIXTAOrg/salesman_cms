@@ -40,6 +40,9 @@ type Props = {
 
   contextItems?:
     string[];
+
+  /** BRIXTA_UI_V2: no card or heading — for use inside a dialog step. */
+  bare?: boolean;
 };
 
 
@@ -148,6 +151,7 @@ export function AiBuilderBrief({
   onModeChange,
   inventory = [],
   contextItems = [],
+  bare = false,
 }: Props) {
 
   const modes =
@@ -164,12 +168,13 @@ export function AiBuilderBrief({
 
 
   return (
-    <section className="brixta-ai-compact">
+    <section className={bare ? "brixta-ai-compact brixta-ai-bare" : "brixta-ai-compact"}>
 
       {/* =====================================================
           HEADER
           ===================================================== */}
 
+      {!bare && (
       <div className="brixta-ai-compact-header">
 
         <div className="flex min-w-0 items-center gap-2">
@@ -214,6 +219,7 @@ export function AiBuilderBrief({
         </div>
 
       </div>
+      )}
 
 
 

@@ -1,0 +1,449 @@
+/*
+ * BRIXTA_UI_V2 — the CMS look, loaded after globals.css.
+ *
+ * Every selector is prefixed with "html body" (and tokens use html:root) so
+ * these rules win over any older theme layers that may still sit in
+ * globals.css (iOS-12 / soft-sidebar passes). Components also style their
+ * key surfaces with plain utilities, so dialogs and buttons never depend on
+ * this file alone.
+ */
+
+
+html:root {
+  --radius: 0.625rem;
+  --background: #F4F5F3;
+  --foreground: #1D2321;
+  --card: #FFFFFF;
+  --card-foreground: #1D2321;
+  --popover: #FFFFFF;
+  --popover-foreground: #1D2321;
+  --primary: #2F6B62;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EEF0ED;
+  --secondary-foreground: #1D2321;
+  --muted: #EEF0ED;
+  --muted-foreground: #5F6964;
+  --accent: #E5EFEC;
+  --accent-foreground: #1F4C45;
+  --destructive: #B42318;
+  --border: #E1E4E0;
+  --input: #D3D8D3;
+  --ring: #2F6B62;
+  --chart-1: #2F6B62;
+  --chart-2: #B7791F;
+  --chart-3: #4F6D8F;
+  --chart-4: #8A5A44;
+  --chart-5: #6B7F3A;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1D2321;
+  --sidebar-primary: #2F6B62;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E5EFEC;
+  --sidebar-accent-foreground: #1F4C45;
+  --sidebar-border: #E1E4E0;
+  --sidebar-ring: #2F6B62;
+  --sidebar-sub-item-active-bg: #E5EFEC;
+  --sidebar-sub-item-active-foreground: #1F4C45;
+  --brixta-shadow-sm: 0 1px 2px rgba(29, 35, 33, 0.05);
+  --brixta-shadow: 0 1px 2px rgba(29, 35, 33, 0.05), 0 12px 32px rgba(29, 35, 33, 0.08);
+  --brixta-display: var(--font-display), var(--font-geist-sans), system-ui, sans-serif;
+}
+
+html {
+  color-scheme: light;
+}
+
+html body {
+  background: var(--background) !important;
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-feature-settings: "cv11", "ss01";
+}
+
+::selection {
+  background: rgba(47, 107, 98, 0.18);
+}
+
+:where(a, summary):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ---- Page shell ------------------------------------------------------- */
+
+html body .brixta-cms-shell {
+  background: var(--background) !important;
+  isolation: auto !important;
+}
+
+html body .brixta-site-header {
+  min-height: 56px !important;
+  background: rgba(244, 245, 243, 0.94) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+html body .brixta-page-title,
+html body main h1 {
+  font-family: var(--brixta-display);
+  letter-spacing: -0.02em;
+}
+
+/* ---- Sidebar ---------------------------------------------------------- */
+
+html body .brixta-sidebar,
+html body .brixta-sidebar [data-sidebar="sidebar"] {
+  background: #FFFFFF !important;
+  color: var(--foreground) !important;
+  border-right: 1px solid var(--border) !important;
+  box-shadow: none !important;
+}
+
+html body .brixta-sidebar [data-sidebar="header"] {
+  padding: 12px !important;
+  border-bottom: 1px solid var(--border) !important;
+  background: transparent !important;
+}
+
+html body .brixta-sidebar [data-sidebar="content"] {
+  padding: 8px !important;
+}
+
+html body .brixta-sidebar [data-sidebar="group"] {
+  padding: 6px 4px !important;
+}
+
+html body .brixta-sidebar [data-sidebar="menu"] {
+  gap: 1px !important;
+}
+
+html body .brixta-sidebar [data-sidebar="menu-button"] {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 10px !important;
+  border-radius: 8px !important;
+  color: #3A433F !important;
+  background: transparent !important;
+  font-weight: 500 !important;
+  transition: background-color 120ms ease, color 120ms ease !important;
+}
+
+html body .brixta-sidebar [data-sidebar="menu-button"] svg {
+  color: #7A847F !important;
+}
+
+html body .brixta-sidebar [data-sidebar="menu-button"]:hover {
+  background: #F1F3F0 !important;
+  color: var(--foreground) !important;
+}
+
+html body .brixta-sidebar [data-sidebar="menu-button"][data-active="true"] {
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+  font-weight: 600 !important;
+}
+
+html body .brixta-sidebar [data-sidebar="menu-button"][data-active="true"] svg {
+  color: var(--primary) !important;
+}
+
+html body .brixta-sidebar [data-sidebar="menu-button"] a,
+html body .brixta-sidebar [data-sidebar="menu-button"] span {
+  color: inherit !important;
+}
+
+/* ---- Surfaces --------------------------------------------------------- */
+
+html body .brixta-panel,
+html body .card-premium,
+html body .brixta-soft-card {
+  background: #FFFFFF !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+/* ---- Buttons ---------------------------------------------------------- */
+
+html body .brixta-primary-button,
+html body .brixta-secondary-button,
+html body .brixta-danger-button {
+  min-height: 38px;
+  border-radius: 10px !important;
+  font-weight: 500;
+  transform: none !important;
+}
+
+html body .brixta-primary-button {
+  background: var(--primary) !important;
+  color: #FFFFFF !important;
+  border: 1px solid var(--primary) !important;
+  box-shadow: 0 1px 1px rgba(29, 35, 33, 0.08) !important;
+}
+
+html body .brixta-primary-button:hover:not(:disabled) {
+  background: #275A53 !important;
+  border-color: #275A53 !important;
+}
+
+html body .brixta-secondary-button {
+  background: #FFFFFF !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--input) !important;
+  box-shadow: 0 1px 1px rgba(29, 35, 33, 0.04) !important;
+}
+
+html body .brixta-secondary-button:hover:not(:disabled) {
+  background: #F6F7F5 !important;
+}
+
+html body .brixta-danger-button {
+  background: #FFFFFF !important;
+  color: var(--destructive) !important;
+  border: 1px solid #F1C4BF !important;
+}
+
+html body .brixta-danger-button:hover:not(:disabled) {
+  background: #FDF1EF !important;
+}
+
+/* ---- Inputs ----------------------------------------------------------- */
+
+html body .brixta-input,
+html body .brixta-textarea {
+  background: #FFFFFF !important;
+  border: 1px solid var(--input) !important;
+  border-radius: 10px !important;
+  color: var(--foreground) !important;
+  box-shadow: none !important;
+}
+
+html body .brixta-input:hover:not(:focus),
+html body .brixta-textarea:hover:not(:focus) {
+  border-color: #BFC6C0 !important;
+}
+
+html body .brixta-input:focus,
+html body .brixta-textarea:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(47, 107, 98, 0.15) !important;
+  outline: none !important;
+}
+
+html body .brixta-input[aria-invalid="true"],
+html body .brixta-textarea[aria-invalid="true"] {
+  border-color: var(--destructive) !important;
+}
+
+/* ---- Tables (shadcn table + data table) ------------------------------- */
+
+html body main [data-slot="table-container"] {
+  border-radius: 14px;
+}
+
+html body main [data-slot="table-header"] [data-slot="table-row"] {
+  background: #F7F8F6;
+}
+
+html body main [data-slot="table-head"] {
+  height: 40px;
+  color: var(--muted-foreground);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+html body main [data-slot="table-row"] {
+  border-color: var(--border);
+}
+
+html body main [data-slot="table-body"] [data-slot="table-row"]:hover {
+  background: #F9FAF8;
+}
+
+/* ---- Dialogs ---------------------------------------------------------- */
+
+html body .brixta-dialog-backdrop {
+  background: rgba(22, 28, 26, 0.42);
+}
+
+html body .brixta-dialog {
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--brixta-shadow);
+}
+
+html body main :where(
+  [class*="rounded-lg"][class*="border"][class*="bg-card"],
+  [class*="rounded-xl"][class*="border"][class*="bg-card"]
+) {
+  border-color: var(--border) !important;
+}
+
+html body .brixta-cms-shell [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- Neutralise older theme layers if globals.css still has them ------- */
+
+html body .brixta-cms-shell {
+  position: relative;
+  isolation: auto !important;
+  background-image: none !important;
+  background-attachment: scroll !important;
+}
+
+html body .brixta-sidebar,
+html body .brixta-sidebar [data-sidebar="sidebar"] {
+  background-image: none !important;
+}
+
+html body .brixta-sidebar [data-sidebar="header"] > a {
+  min-height: 0 !important;
+  padding: 6px !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+html body .brixta-sidebar [data-sidebar="header"] > a:hover {
+  background: #F1F3F0 !important;
+}
+
+html body .brixta-sidebar [data-sidebar="header"] > a > div:first-child {
+  background: var(--primary) !important;
+  background-image: none !important;
+  color: #FFFFFF !important;
+  border: 0 !important;
+}
+
+html body .brixta-sidebar [data-sidebar="group"] > div:first-child,
+html body .brixta-sidebar [data-sidebar="group-label"] {
+  color: var(--muted-foreground) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+html body .brixta-sidebar [data-sidebar="menu-button"].bg-sidebar-accent {
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+
+html body .brixta-sidebar [data-sidebar="footer"] {
+  background: transparent !important;
+}
+
+/* ---- App builder: readable sizes, one accent colour ------------------- */
+
+html body .brixta-ai-bare {
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  overflow: visible !important;
+}
+
+html body .brixta-ai-bare .brixta-ai-body {
+  padding: 0 !important;
+}
+
+html body .brixta-ai-mode-tabs {
+  background: #EEF0ED !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+}
+
+html body .brixta-ai-mode-tabs button {
+  min-height: 32px !important;
+  border-radius: 8px !important;
+  color: var(--muted-foreground) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+html body .brixta-ai-mode-tabs button[data-active="true"] {
+  background: #FFFFFF !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 1px 2px rgba(29, 35, 33, 0.08) !important;
+}
+
+html body .brixta-ai-mode-hint {
+  color: var(--muted-foreground) !important;
+  font-size: 12.5px !important;
+}
+
+html body .brixta-ai-field-head,
+html body .brixta-demo-quick-add-head {
+  color: var(--muted-foreground) !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+html body .brixta-demo-quick-add {
+  background: #FFFFFF !important;
+  background-image: none !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+}
+
+html body .brixta-demo-quick-add-grid button {
+  min-height: 34px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  color: var(--foreground) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+html body .brixta-demo-quick-add-grid button:hover {
+  background: #F6F7F5 !important;
+}
+
+html body .brixta-browse-all-blocks,
+html body .brixta-functional-drawer,
+html body .brixta-discovery-group,
+html body .brixta-ai-stack {
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  background: #FFFFFF !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html body .brixta-browse-all-blocks > summary,
+html body .brixta-functional-drawer > summary,
+html body .brixta-discovery-group > summary,
+html body .brixta-ai-stack > summary {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--foreground) !important;
+}
+
+html body .brixta-browse-all-blocks > summary span:last-child {
+  font-size: 12px !important;
+  color: var(--muted-foreground) !important;
+}
+
+html body .brixta-ai-stack-title {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+html body .brixta-ai-stack-preview {
+  font-size: 12px !important;
+  color: var(--muted-foreground) !important;
+}

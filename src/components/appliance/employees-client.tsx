@@ -1,14 +1,26 @@
 "use client";
 
+/*
+ * BRIXTA_CLEAN_UI_V1 — Employees.
+ *
+ * One list, one "Add employee" dialog, one "Manage" dialog.
+ *   - Only name, employee ID and an app password are needed to add someone.
+ *     The password is generated for you and shown once, ready to copy.
+ *   - Manager / approver is optional ("Not set yet" is allowed).
+ *   - Every error shows inside the dialog you're working in.
+ */
+
+import Link from "next/link";
 import {
-  FormEvent,
+  type FormEvent,
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import Link from "next/link";
 import {
+  Check,
+  Copy,
   KeyRound,
   Loader2,
   Plus,
@@ -16,7 +28,9 @@ import {
   Search,
   ShieldOff,
   UserRound,
+  Wand2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import type {
   Employee,
@@ -25,22 +39,18 @@ import type {
   ReportingSnapshot,
   Role,
 } from "@/lib/appliance-types";
-import {
-  apiJson,
-  formatWhen,
-} from "./client";
-import type { ColumnDef } from "@tanstack/react-table";
-
-import { DataTableReusable } from "@/components/data-table-reusable";
-import { SearchSelect } from "@/components/search-select";
 import { MultiSelect } from "@/components/multi-select";
+import { SearchSelect } from "@/components/search-select";
+import { apiJson, cx, formatWhen } from "./client";
 import ReportingPolicyEditor from "./reporting-policy-editor";
 import RolesVNextClient from "./roles-vnext-client";
 import {
+  DangerButton,
   EmptyState,
   Field,
   inputClass,
   Modal,
+  Notice,
   PageIntro,
   Panel,
   Pill,
@@ -48,1095 +58,1052 @@ import {
   SecondaryButton,
 } from "./primitives";
 
-function capitalizeFirst(value: string) {
-  if (!value) return value;
-  return value.charAt(0).toUpperCase() + value.slice(1);
+const UNSET: ReportingPolicy = { version: 1, mode: "unset" };
+
+// No 0/o, 1/l/i — easy to read out and type on a phone.
+const PASSWORD_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
+
+function makePassword() {
+  const bytes = new Uint32Array(8);
+  crypto.getRandomValues(bytes);
+  const chars = Array.from(bytes, (value) => PASSWORD_ALPHABET[value % PASSWORD_ALPHABET.length]);
+  return `${chars.slice(0, 4).join("")}-${chars.slice(4).join("")}`;
 }
 
-function SectionHeading({ children }: { children: string }) {
+function suggestEmployeeId(employees: Employee[]) {
+  let highest = 0;
+  for (const employee of employees) {
+    const match = /^EMP-?(\d+)$/i.exec(employee.employeeCode ?? "");
+    if (match) highest = Math.max(highest, Number(match[1]));
+  }
+  return `EMP-${String(highest + 1).padStart(3, "0")}`;
+}
+
+function nameOf(employee: Employee) {
+  return employee.name ?? employee.username ?? `Employee ${employee.id}`;
+}
+
+function splitList(value: string | null | undefined) {
+  return value
+    ? value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+}
+
+function capitalizeFirst(value: string) {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+type Credentials = {
+  name: string;
+  employeeCode: string;
+  password: string;
+};
+
+function CredentialsCard({
+  credentials,
+  companyCode,
+}: {
+  credentials: Credentials;
+  companyCode: string | null;
+}) {
+  const [copied, setCopied] = useState(false);
+  const text = [
+    companyCode ? `Company code: ${companyCode}` : null,
+    `Employee ID: ${credentials.employeeCode}`,
+    `Password: ${credentials.password}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast.error("Copy didn't work here. Select the text and copy it.");
+    }
+  }
+
   return (
-    <div className="pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground first:pt-0">
-      {children}
+    <div className="space-y-4">
+      <Notice tone="good">
+        {credentials.name} can now sign in to the field app. Share these details with them; the
+        password won&apos;t be shown again.
+      </Notice>
+      <dl className="grid gap-3 rounded-[12px] border bg-[#FAFBFA] p-4 sm:grid-cols-3">
+        {companyCode && (
+          <div>
+            <dt className="text-[12px] text-muted-foreground">Company code</dt>
+            <dd className="mt-0.5 font-mono text-[15px] font-medium">{companyCode}</dd>
+          </div>
+        )}
+        <div>
+          <dt className="text-[12px] text-muted-foreground">Employee ID</dt>
+          <dd className="mt-0.5 font-mono text-[15px] font-medium">{credentials.employeeCode}</dd>
+        </div>
+        <div>
+          <dt className="text-[12px] text-muted-foreground">Password</dt>
+          <dd className="mt-0.5 font-mono text-[15px] font-medium">{credentials.password}</dd>
+        </div>
+      </dl>
+      <SecondaryButton onClick={() => void copy()}>
+        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+        {copied ? "Copied" : "Copy login details"}
+      </SecondaryButton>
     </div>
   );
 }
 
 export default function EmployeesClient() {
-  const [employees, setEmployees] =
-    useState<Employee[]>([]);
-  const [roles, setRoles] =
-    useState<Role[]>([]);
-  const [loading, setLoading] =
-    useState(true);
-  const [saving, setSaving] =
-    useState(false);
-  const [query, setQuery] =
-    useState("");
-  const [department, setDepartment] =
-    useState("all");
-  const [message, setMessage] =
-    useState<string | null>(null);
+  const [tab, setTab] = useState<"people" | "roles">("people");
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [companyCode, setCompanyCode] = useState<string | null>(null);
+  const [meId, setMeId] = useState<number | null>(null);
 
-  const [peopleTab, setPeopleTab] =
-    useState<"employees" | "roles">("employees");
-
-  const [showCreate, setShowCreate] =
-    useState(false);
-  const [createDepartments, setCreateDepartments] =
-    useState<string[]>([]);
-  const [createDesignation, setCreateDesignation] =
-    useState("");
-  const [selectedId, setSelectedId] =
-    useState<number | null>(null);
-  const [detail, setDetail] =
-    useState<EmployeeDetail | null>(null);
-  const [editDepartments, setEditDepartments] =
-    useState<string[]>([]);
-  const [editDesignation, setEditDesignation] =
-    useState("");
-  const [roleIds, setRoleIds] =
-    useState<number[]>([]);
-
-  const [
-    createReportingPolicy,
-    setCreateReportingPolicy,
-  ] = useState<ReportingPolicy>({
-    version: 1,
-    mode: "unset",
-  });
-
-  const [
-    editReportingPolicy,
-    setEditReportingPolicy,
-  ] = useState<ReportingPolicy>({
-    version: 1,
-    mode: "unset",
-  });
-
-  const [
-    reportingSnapshot,
-    setReportingSnapshot,
-  ] = useState<ReportingSnapshot | null>(
-    null,
-  );
+  const [query, setQuery] = useState("");
+  const [department, setDepartment] = useState("all");
+  const [status, setStatus] = useState<"active" | "all" | "inactive">("active");
 
   const load = useCallback(async () => {
     setLoading(true);
-    setMessage(null);
-
+    setLoadError(null);
     try {
       const [employeeBody, roleBody] = await Promise.all([
-        apiJson<{ employees: Employee[] }>(
-          "/api/appliance/employees",
-        ),
-        apiJson<{ roles: Role[] }>(
-          "/api/appliance/roles",
-        ),
+        apiJson<{ employees: Employee[] }>("/api/appliance/employees"),
+        apiJson<{ roles: Role[] }>("/api/appliance/roles"),
       ]);
-
       setEmployees(employeeBody.employees ?? []);
       setRoles(roleBody.roles ?? []);
     } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to load employees.",
-      );
+      setLoadError(error instanceof Error ? error.message : "Could not load employees.");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const loadDetail = useCallback(async (id: number) => {
-    setSelectedId(id);
-    setDetail(null);
-    setMessage(null);
-
-    try {
-      const body = await apiJson<EmployeeDetail>(
-        `/api/appliance/employees/${id}`,
-      );
-      setDetail(body);
-      setRoleIds(body.directRoleIds ?? []);
-      setEditDepartments(
-        body.employee.department
-          ? body.employee.department
-              .split(",")
-              .map((item) => item.trim())
-              .filter(Boolean)
-          : [],
-      );
-      setEditDesignation(body.employee.designation ?? "");
-
-      setEditReportingPolicy(
-        body.reporting?.policy ?? {
-          version: 1,
-          mode:
-            body.employee.reportsToId
-              ? "specific_user"
-              : "unset",
-          userId:
-            body.employee.reportsToId ??
-            undefined,
-        },
-      );
-
-      setReportingSnapshot(
-        body.reporting ??
-        null,
-      );
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to load employee.",
-      );
-    }
-  }, []);
-
   useEffect(() => {
     void load();
+    apiJson<{ schemaName?: string; userId?: number }>("/api/me")
+      .then((me) => {
+        setCompanyCode(me.schemaName ?? null);
+        setMeId(typeof me.userId === "number" ? me.userId : null);
+      })
+      .catch(() => setCompanyCode(null));
   }, [load]);
 
+  const departmentOptions = useMemo(
+    () =>
+      [...new Set(roles.map((role) => role.jobRole).filter((value): value is string => Boolean(value)))]
+        .sort()
+        .map((value) => ({ label: value, value })),
+    [roles],
+  );
+
+  const designationOptions = useMemo(
+    () =>
+      [...new Set(roles.map((role) => role.orgRole).filter((value): value is string => Boolean(value)))]
+        .sort()
+        .map((value) => ({ label: value, value })),
+    [roles],
+  );
+
   const departments = useMemo(
-    () => [...new Set(
-      employees
-        .map((employee) => employee.department)
-        .filter((value): value is string => Boolean(value)),
-    )].sort(),
+    () => [...new Set(employees.flatMap((employee) => splitList(employee.department)))].sort(),
     [employees],
   );
 
-  const jobRoleOptions = useMemo(
-    () => [...new Set(
-      roles
-        .map((role) => role.jobRole)
-        .filter((value): value is string => Boolean(value)),
-    )]
-      .sort()
-      .map((value) => ({ label: value, value })),
-    [roles],
-  );
-
-  const orgRoleOptions = useMemo(
-    () => [...new Set(
-      roles
-        .map((role) => role.orgRole)
-        .filter((value): value is string => Boolean(value)),
-    )]
-      .sort()
-      .map((value) => ({ label: value, value })),
-    [roles],
-  );
+  const counts = useMemo(() => {
+    const active = employees.filter((employee) => employee.status === "active").length;
+    return { all: employees.length, active, inactive: employees.length - active };
+  }, [employees]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
+    return employees
+      .filter((employee) => {
+        if (status === "active" && employee.status !== "active") return false;
+        if (status === "inactive" && employee.status === "active") return false;
+        if (department !== "all" && !splitList(employee.department).includes(department)) return false;
+        if (!needle) return true;
+        return [
+          employee.name,
+          employee.username,
+          employee.employeeCode,
+          employee.department,
+          employee.designation,
+          employee.phoneNumber,
+          employee.email,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(needle);
+      })
+      .sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+  }, [employees, query, department, status]);
 
-    return employees.filter((employee) => {
-      const text = [
-        employee.name,
-        employee.username,
-        employee.employeeCode,
-        employee.department,
-        employee.designation,
-        employee.phoneNumber,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+  const [creating, setCreating] = useState(false);
+  const [manageId, setManageId] = useState<number | null>(null);
 
-      return (
-        (!needle || text.includes(needle)) &&
-        (department === "all" || employee.department === department)
-      );
-    });
-  }, [employees, query, department]);
-
-  const columns = useMemo<ColumnDef<Employee>[]>(
-    () => [
-      {
-        id: "employee",
-        header: "Employee",
-        accessorFn: (employee) => employee.name ?? employee.username ?? `Employee ${employee.id}`,
-        cell: ({ row }) => (
-          <div>
-            <div className="font-medium">
-              {row.original.name ?? row.original.username ?? `Employee ${row.original.id}`}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {row.original.employeeCode ?? "No employee ID"}
-            </div>
-          </div>
-        ),
-      },
-      {
-        accessorKey: "department",
-        header: "Department",
-        cell: ({ row }) => row.original.department ?? "—",
-      },
-      {
-        accessorKey: "designation",
-        header: "Designation",
-        cell: ({ row }) => row.original.designation ?? "—",
-      },
-      {
-        id: "reportingRule",
-        header: "Reporting Rule",
-        cell: ({ row }) => {
-          const policy =
-            row.original.reportingPolicy;
-
-          const mode =
-            policy?.mode ??
-            row.original.reportingMode ??
-            "unset";
-
-          if (mode === "top_level") {
-            return (
-              <div className="space-y-1">
-                <div className="font-medium">
-                  Top level
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  No direct manager
-                </div>
-              </div>
-            );
-          }
-
-          if (mode === "specific_user") {
-            const manager =
-              employees.find(
-                (employee) =>
-                  employee.id ===
-                  policy?.userId,
-              );
-
-            return (
-              <div className="space-y-1">
-                <div className="font-medium">
-                  Specific employee
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {manager?.name ??
-                    manager?.employeeCode ??
-                    (policy?.userId
-                      ? `Employee ${policy.userId}`
-                      : "Not selected")}
-                </div>
-              </div>
-            );
-          }
-
-          if (mode === "role") {
-            const role =
-              roles.find(
-                (item) =>
-                  item.id ===
-                  policy?.roleId,
-              );
-
-            const roleName =
-              role?.label ??
-              (
-                [
-                  role?.orgRole,
-                  role?.jobRole,
-                ]
-                  .filter(Boolean)
-                  .join(" · ") ||
-                (
-                  policy?.roleId
-                    ? `Role ${policy.roleId}`
-                    : "Role not selected"
-                )
-              );
-
-            const scopeLabels:
-              Record<string, string> = {
-                same_department:
-                  "Same department",
-
-                same_area:
-                  "Same area",
-
-                same_zone:
-                  "Same zone",
-
-                same_department_area:
-                  "Same department + area",
-
-                same_department_zone:
-                  "Same department + zone",
-
-                organization:
-                  "Entire organization",
-              };
-
-            return (
-              <div className="space-y-1">
-                <div className="font-medium">
-                  {roleName}
-                </div>
-
-                <div className="text-xs text-muted-foreground">
-                  {scopeLabels[
-                    policy?.scope ??
-                    "same_department"
-                  ] ??
-                    policy?.scope ??
-                    "Same department"}
-                </div>
-              </div>
-            );
-          }
-
-          return (
-            <Pill tone="neutral">
-              Not configured
-            </Pill>
-          );
-        },
-      },
-
-      {
-        id: "reportsTo",
-        header: "Reports To",
-        cell: ({ row }) => {
-          const status =
-            row.original.reportingStatus;
-
-          if (status === "resolved") {
-            return (
-              <div className="space-y-1">
-                <div className="font-medium">
-                  {row.original
-                    .reportingManagerName ??
-                    "Resolved manager"}
-                </div>
-
-                <Pill tone="good">
-                  Resolved
-                </Pill>
-              </div>
-            );
-          }
-
-          if (status === "top_level") {
-            return (
-              <Pill tone="info">
-                Top level
-              </Pill>
-            );
-          }
-
-          if (status === "no_match") {
-            return (
-              <Pill tone="neutral">
-                No match
-              </Pill>
-            );
-          }
-
-          if (status === "ambiguous") {
-            return (
-              <Pill tone="danger">
-                Ambiguous
-              </Pill>
-            );
-          }
-
-          if (status === "invalid") {
-            return (
-              <Pill tone="danger">
-                Invalid rule
-              </Pill>
-            );
-          }
-
-          return (
-            <Pill tone="neutral">
-              Not configured
-            </Pill>
-          );
-        },
-      },
-      {
-        accessorKey: "directReportCount",
-        header: "Team",
-        cell: ({ row }) =>
-          row.original
-            .directReportCount ??
-          0,
-      },
-      {
-        accessorKey: "directResponsibilityCount",
-        header: "Direct Responsibilities",
-        cell: ({ row }) => row.original.directResponsibilityCount ?? 0,
-      },
-      {
-        accessorKey: "lastSeenAt",
-        header: "Last seen",
-        cell: ({ row }) => (
-          <span className="text-muted-foreground">
-            {formatWhen(row.original.lastSeenAt)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => (
-          <Pill
-            tone={
-              row.original.status === "active"
-                ? "good"
-                : row.original.status === "suspended"
-                  ? "danger"
-                  : "neutral"
-            }
-          >
-            {row.original.status ?? "unknown"}
-          </Pill>
-        ),
-      },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => (
-          <div className="text-right">
-            <SecondaryButton
-              type="button"
-              className="h-9"
-              onClick={() => void loadDetail(row.original.id)}
-            >
-              Manage
-            </SecondaryButton>
-          </div>
-        ),
-      },
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-
-  async function createEmployee(
-    event: FormEvent<HTMLFormElement>,
-  ) {
-    event.preventDefault();
-    setSaving(true);
-    setMessage(null);
-
-    const data = new FormData(event.currentTarget);
-    if (
-      createReportingPolicy.mode === "unset"
-    ) {
-      setSaving(false);
-      setMessage(
-        "Choose a reporting method: Specific employee, Role + scope, or Top level.",
-      );
-      return;
-    }
-
-    const areaValue = String(data.get("area") ?? "").trim();
-    const zoneValue = String(data.get("zone") ?? "").trim();
-
-    const payload = {
-      employeeCode: String(data.get("employeeCode") ?? "").trim(),
-      password: String(data.get("password") ?? ""),
-      name: String(data.get("name") ?? "").trim(),
-      department: createDepartments.length
-        ? createDepartments.join(", ")
-        : null,
-      designation: createDesignation.trim() || null,
-      phoneNumber: String(data.get("phoneNumber") ?? "").trim() || null,
-      email: String(data.get("email") ?? "").trim() || null,
-      // Role is not a separate UI field — it mirrors the selected
-      // Designation and is only ever read from the database, never edited
-      // directly.
-      role: createDesignation.trim() || null,
-      area: areaValue || "area",
-      zone: zoneValue || "zone",
-      reportingPolicy:
-        createReportingPolicy,
-      responsibilityIds: [],
-      roleIds: [],
-    };
-
-    try {
-      await apiJson("/api/appliance/employees", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      setShowCreate(false);
-      setCreateDepartments([]);
-      setCreateDesignation("");
-      setCreateReportingPolicy({
-        version: 1,
-        mode: "unset",
-      });
-      setMessage(`${payload.name} was added.`);
-      await load();
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to create employee.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function updateProfile(
-    event: FormEvent<HTMLFormElement>,
-  ) {
-    event.preventDefault();
-    if (!selectedId) return;
-
-    setSaving(true);
-    const data = new FormData(event.currentTarget);
-    const managerRaw = String(data.get("reportsToId") ?? "");
-    const areaValue = String(data.get("area") ?? "").trim();
-    const zoneValue = String(data.get("zone") ?? "").trim();
-
-    try {
-      await apiJson(
-        `/api/appliance/employees/${selectedId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            name: String(data.get("name") ?? "").trim(),
-            department: editDepartments.length
-              ? editDepartments.join(", ")
-              : null,
-            designation: editDesignation.trim() || null,
-            phoneNumber: String(data.get("phoneNumber") ?? "").trim() || null,
-            email: String(data.get("email") ?? "").trim() || null,
-            role: editDesignation.trim() || null,
-            area: areaValue || "area",
-            zone: zoneValue || "zone",
-            reportingPolicy:
-              editReportingPolicy,
-          }),
-        },
-      );
-
-      await Promise.all([
-        load(),
-        loadDetail(selectedId),
-      ]);
-      setMessage("Employee profile saved.");
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to save employee.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function previewReporting() {
-    if (!selectedId) return;
-
-    try {
-      const body =
-        await apiJson<ReportingSnapshot>(
-          `/api/appliance/employees/${selectedId}/reporting-policy/preview`,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              reportingPolicy:
-                editReportingPolicy,
-            }),
-          },
-        );
-
-      setReportingSnapshot(body);
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to preview reporting rule.",
-      );
-    }
-  }
-
-  async function saveRoles() {
-    if (!selectedId) return;
-    setSaving(true);
-
-    try {
-      await apiJson(
-        `/api/appliance/employees/${selectedId}/roles`,
-        {
-          method: "PUT",
-          body: JSON.stringify({ roleIds }),
-        },
-      );
-      await loadDetail(selectedId);
-      setMessage("Role assignments saved.");
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to save roles.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function setStatus(
-    status: "active" | "inactive" | "suspended",
-  ) {
-    if (!selectedId) return;
-    setSaving(true);
-
-    try {
-      await apiJson(
-        `/api/appliance/employees/${selectedId}/status`,
-        {
-          method: "POST",
-          body: JSON.stringify({ status }),
-        },
-      );
-      await Promise.all([
-        load(),
-        loadDetail(selectedId),
-      ]);
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to change employee status.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function resetPassword() {
-    if (!selectedId) return;
-    const password = window.prompt(
-      "Enter a new mobile password (minimum 6 characters).",
-    );
-    if (!password) return;
-
-    setSaving(true);
-    try {
-      await apiJson(
-        `/api/appliance/employees/${selectedId}/reset-password`,
-        {
-          method: "POST",
-          body: JSON.stringify({ password }),
-        },
-      );
-      setMessage("Mobile password reset.");
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to reset password.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (peopleTab === "roles") {
+  if (tab === "roles") {
     return (
-      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setPeopleTab("employees")}
-            className="rounded-md border px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
-          >
-            Employees
-          </button>
-
-          <button
-            type="button"
-            className="rounded-md border border-primary bg-primary/[0.06] px-3 py-2 text-sm font-medium"
-          >
-            Roles
-          </button>
-        </div>
-
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 p-4 md:p-6">
+        <Tabs tab={tab} onChange={setTab} />
         <RolesVNextClient />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="rounded-md border border-primary bg-primary/[0.06] px-3 py-2 text-sm font-medium"
-        >
-          Employees
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setPeopleTab("roles")}
-          className="rounded-md border px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
-        >
-          Roles
-        </button>
-      </div>
+    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 p-4 md:p-6">
       <PageIntro
-        eyebrow="People"
         title="Employees"
-        description="Identity and organization metadata live here. Responsibilities are assigned separately and Roles determine administrative/approval authority."
+        description="Everyone on your team. Add someone, give them a field app login and choose their manager."
         action={
-          <div className="flex gap-2">
-            <SecondaryButton type="button" onClick={() => void load()}>
-              <RefreshCw className="h-4 w-4" />
+          <>
+            <SecondaryButton onClick={() => void load()} disabled={loading}>
+              <RefreshCw className={cx("h-4 w-4", loading && "animate-spin")} />
               Refresh
             </SecondaryButton>
-            <PrimaryButton
-              type="button"
-              onClick={() => {
-                setCreateDepartments([]);
-                setCreateDesignation("");
-                setCreateReportingPolicy({
-                  version: 1,
-                  mode: "unset",
-                });
-                setShowCreate(true);
-              }}
-            >
+            <PrimaryButton onClick={() => setCreating(true)}>
               <Plus className="h-4 w-4" />
               Add employee
             </PrimaryButton>
-          </div>
+          </>
         }
       />
 
-      {message && (
-        <Panel className="py-3">
-          <div className="text-sm">{message}</div>
-        </Panel>
+      <Tabs tab={tab} onChange={setTab} />
+
+      {loadError && (
+        <Notice tone="danger">
+          {loadError}{" "}
+          <button type="button" className="font-medium underline" onClick={() => void load()}>
+            Try again
+          </button>
+        </Notice>
       )}
 
-      <div className="grid gap-3 md:grid-cols-[1fr_220px]">
-        <div className="flex h-10 items-center gap-2 rounded-md border bg-background px-3">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search employee, ID, department..."
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-          />
-        </div>
-        <select
-          value={department}
-          onChange={(event) => setDepartment(event.target.value)}
-          className={inputClass}
-        >
-          <option value="all">All departments</option>
-          {departments.map((item) => (
-            <option key={item} value={item}>{item}</option>
-          ))}
-        </select>
-      </div>
-
-      {loading ? (
-        <Panel className="overflow-hidden p-0">
-          <div className="flex min-h-64 items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin" />
+      <Panel className="p-0 md:p-0">
+        <div className="flex flex-col gap-3 border-b px-4 py-3 md:flex-row md:items-center">
+          <div className="flex h-10 w-full min-w-0 shrink-0 items-center gap-2 rounded-[10px] md:flex-1 border border-input bg-white px-3 focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgba(47,107,98,0.15)]">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search name, ID, phone or department"
+              aria-label="Search employees"
+              className="min-w-0 flex-1 bg-transparent text-[14px] outline-none"
+            />
           </div>
-        </Panel>
-      ) : filtered.length === 0 ? (
-        <Panel className="p-5">
-          <EmptyState title="No employees found" />
-        </Panel>
-      ) : (
-        <DataTableReusable columns={columns} data={filtered} />
+          <select
+            value={department}
+            onChange={(event) => setDepartment(event.target.value)}
+            className={cx(inputClass, "md:w-52")}
+            aria-label="Department"
+          >
+            <option value="all">All departments</option>
+            {departments.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+          <div className="flex rounded-[10px] border border-input bg-[#F6F7F5] p-0.5" role="group" aria-label="Status">
+            {(
+              [
+                ["active", `Active ${counts.active}`],
+                ["inactive", `Inactive ${counts.inactive}`],
+                ["all", `All ${counts.all}`],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setStatus(value)}
+                className={cx(
+                  "h-9 rounded-[8px] px-3 text-[13px] font-medium transition-colors",
+                  status === value ? "bg-white text-foreground shadow-[0_1px_2px_rgba(29,35,33,0.08)]" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loading && employees.length === 0 ? (
+          <div className="flex h-56 items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-5">
+            <EmptyState
+              title={employees.length === 0 ? "No employees yet" : "No one matches these filters"}
+              description={
+                employees.length === 0
+                  ? "Add your first employee to give them a field app login."
+                  : "Try another name, department or status."
+              }
+              action={
+                employees.length === 0 ? (
+                  <PrimaryButton onClick={() => setCreating(true)}>
+                    <Plus className="h-4 w-4" />
+                    Add employee
+                  </PrimaryButton>
+                ) : undefined
+              }
+            />
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-[14px]">
+              <thead>
+                <tr className="border-b bg-[#F7F8F6] text-[12.5px] text-muted-foreground">
+                  <th className="px-4 py-2.5 font-semibold">Name</th>
+                  <th className="px-4 py-2.5 font-semibold">Phone</th>
+                  <th className="px-4 py-2.5 font-semibold">Department</th>
+                  <th className="px-4 py-2.5 font-semibold">Manager</th>
+                  <th className="px-4 py-2.5 font-semibold">Last seen</th>
+                  <th className="px-4 py-2.5 font-semibold">Status</th>
+                  <th className="px-4 py-2.5" />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((employee) => (
+                  <tr
+                    key={employee.id}
+                    onClick={() => setManageId(employee.id)}
+                    className="cursor-pointer border-b last:border-b-0 hover:bg-[#F9FAF8]"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{nameOf(employee)}</div>
+                      <div className="text-[12.5px] text-muted-foreground">
+                        {employee.employeeCode ?? "No app login"}
+                        {employee.designation ? `, ${employee.designation}` : ""}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{employee.phoneNumber || "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{employee.department || "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {employee.reportingStatus === "resolved"
+                        ? employee.reportingManagerName ?? "Set"
+                        : employee.reportingStatus === "top_level"
+                          ? "Top level"
+                          : employee.reportingStatus === "ambiguous" || employee.reportingStatus === "invalid"
+                            ? <span className="text-[#9A2A1F]">Needs fixing</span>
+                            : "Not set"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{formatWhen(employee.lastSeenAt)}</td>
+                    <td className="px-4 py-3">
+                      <Pill tone={employee.status === "active" ? "good" : employee.status === "suspended" ? "danger" : "neutral"}>
+                        {employee.status === "active" ? "Active" : employee.status === "suspended" ? "Suspended" : "Inactive"}
+                      </Pill>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <SecondaryButton
+                        className="h-8 px-3 text-[13px]"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setManageId(employee.id);
+                        }}
+                      >
+                        Manage
+                      </SecondaryButton>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+
+      {creating && (
+        <AddEmployeeDialog
+          employees={employees}
+          roles={roles}
+          departmentOptions={departmentOptions}
+          designationOptions={designationOptions}
+          companyCode={companyCode}
+          onClose={() => setCreating(false)}
+          onCreated={() => void load()}
+        />
       )}
 
+      {manageId !== null && (
+        <ManageEmployeeDialog
+          employeeId={manageId}
+          employees={employees}
+          roles={roles}
+          departmentOptions={departmentOptions}
+          designationOptions={designationOptions}
+          companyCode={companyCode}
+          isMe={meId !== null && manageId === meId}
+          onClose={() => setManageId(null)}
+          onChanged={() => void load()}
+        />
+      )}
+    </div>
+  );
+}
+
+function Tabs({
+  tab,
+  onChange,
+}: {
+  tab: "people" | "roles";
+  onChange: (tab: "people" | "roles") => void;
+}) {
+  return (
+    <div className="flex gap-1 border-b">
+      {(
+        [
+          ["people", "People"],
+          ["roles", "Roles & permissions"],
+        ] as const
+      ).map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => onChange(value)}
+          className={cx(
+            "-mb-px border-b-2 px-3 pb-2.5 pt-1 text-[14px] font-medium transition-colors",
+            tab === value
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+type Option = { label: string; value: string };
+
+function AddEmployeeDialog({
+  employees,
+  roles,
+  departmentOptions,
+  designationOptions,
+  companyCode,
+  onClose,
+  onCreated,
+}: {
+  employees: Employee[];
+  roles: Role[];
+  departmentOptions: Option[];
+  designationOptions: Option[];
+  companyCode: string | null;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [employeeCode, setEmployeeCode] = useState(() => suggestEmployeeId(employees));
+  const [password, setPassword] = useState(makePassword);
+  const [departmentsPicked, setDepartmentsPicked] = useState<string[]>([]);
+  const [designation, setDesignation] = useState("");
+  const [area, setArea] = useState("");
+  const [zone, setZone] = useState("");
+  const [policy, setPolicy] = useState<ReportingPolicy>(UNSET);
+  const [showReporting, setShowReporting] = useState(false);
+
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [created, setCreated] = useState<Credentials | null>(null);
+
+  function reset() {
+    setName("");
+    setPhone("");
+    setEmail("");
+    setEmployeeCode(suggestEmployeeId(employees));
+    setPassword(makePassword());
+    setDepartmentsPicked([]);
+    setDesignation("");
+    setArea("");
+    setZone("");
+    setPolicy(UNSET);
+    setShowReporting(false);
+    setError(null);
+    setFieldErrors({});
+    setCreated(null);
+  }
+
+  async function submit(event?: FormEvent) {
+    event?.preventDefault();
+    const problems: Record<string, string> = {};
+    if (!name.trim()) problems.name = "Enter their name.";
+    if (!employeeCode.trim()) problems.employeeCode = "Enter an employee ID.";
+    if (password.length < 6) problems.password = "At least 6 characters.";
+    const digits = phone.replace(/\D/g, "");
+    if (phone.trim() && digits.length < 6) problems.phone = "This phone number looks too short.";
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) problems.email = "Check the email address.";
+    if (policy.mode === "specific_user" && !policy.userId) problems.policy = "Pick the manager, or choose “Not set yet”.";
+    if (policy.mode === "role" && !policy.roleId) problems.policy = "Pick the manager's role, or choose “Not set yet”.";
+    setFieldErrors(problems);
+    if (Object.keys(problems).length) {
+      setError("Fix the highlighted fields.");
+      if (problems.policy) setShowReporting(true);
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      await apiJson("/api/appliance/employees", {
+        method: "POST",
+        body: JSON.stringify({
+          name: name.trim(),
+          employeeCode: employeeCode.trim(),
+          password,
+          phoneNumber: phone.trim() || null,
+          email: email.trim() || null,
+          department: departmentsPicked.length ? departmentsPicked.join(", ") : null,
+          designation: designation.trim() || null,
+          role: designation.trim() || null,
+          area: area.trim() || null,
+          zone: zone.trim() || null,
+          ...(policy.mode === "unset" ? {} : { reportingPolicy: policy }),
+          responsibilityIds: [],
+          roleIds: [],
+        }),
+      });
+      setCreated({ name: name.trim(), employeeCode: employeeCode.trim(), password });
+      toast.success(`${name.trim()} was added.`);
+      onCreated();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not add this employee.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (created) {
+    return (
       <Modal
-        open={showCreate}
-        title="Add employee"
-        description="Create the mobile identity. Responsibilities can be assigned afterwards."
-        onClose={() => setShowCreate(false)}
-        wide
+        open
+        size="md"
+        title="Employee added"
+        onClose={onClose}
+        footer={
+          <>
+            <SecondaryButton onClick={reset}>Add another</SecondaryButton>
+            <PrimaryButton onClick={onClose}>Done</PrimaryButton>
+          </>
+        }
       >
-        <form onSubmit={createEmployee} className="space-y-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <SectionHeading>Identity</SectionHeading>
-            </div>
-            <Field label="Full name">
-              <input name="name" required className={inputClass} />
-            </Field>
-            <Field label="Phone">
-              <input name="phoneNumber" className={inputClass} />
-            </Field>
-            <Field label="Email">
-              <input name="email" type="email" className={inputClass} />
-            </Field>
+        <CredentialsCard credentials={created} companyCode={companyCode} />
+      </Modal>
+    );
+  }
 
-            <div className="md:col-span-2">
-              <SectionHeading>Mobile login</SectionHeading>
-            </div>
-            <Field label="Employee ID" hint="Used as the login ID for the field app.">
-              <input name="employeeCode" required className={inputClass} />
-            </Field>
-            <Field label="Initial mobile password">
-              <input name="password" type="password" required minLength={6} className={inputClass} />
-            </Field>
+  return (
+    <Modal
+      open
+      size="lg"
+      title="Add employee"
+      description="Only the name, employee ID and password are required. Everything else can be added later."
+      onClose={onClose}
+      footer={
+        <>
+          <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={() => void submit()} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Add employee
+          </PrimaryButton>
+        </>
+      }
+    >
+      <form onSubmit={(event) => void submit(event)} className="space-y-6" noValidate>
+        {error && <Notice tone="danger">{error}</Notice>}
 
-            <div className="md:col-span-2">
-              <SectionHeading>Role</SectionHeading>
-            </div>
-            <Field label="Department" hint="Select one or more.">
+        <section className="grid gap-4 sm:grid-cols-2">
+          <Field label="Full name" required error={fieldErrors.name} className="sm:col-span-2">
+            <input
+              autoFocus
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className={inputClass}
+              placeholder="e.g. Rahul Das"
+            />
+          </Field>
+          <Field label="Phone" hint="Employees can also sign in with this number." error={fieldErrors.phone}>
+            <input
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              className={inputClass}
+              inputMode="tel"
+              placeholder="98XXXXXXXX"
+            />
+          </Field>
+          <Field label="Email" error={fieldErrors.email}>
+            <input
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className={inputClass}
+              type="email"
+              placeholder="Optional"
+            />
+          </Field>
+        </section>
+
+        <section className="space-y-3">
+          <div className="text-[14px] font-semibold">Field app login</div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Employee ID" required hint="They type this to sign in." error={fieldErrors.employeeCode}>
+              <input
+                value={employeeCode}
+                onChange={(event) => setEmployeeCode(event.target.value.toUpperCase())}
+                className={cx(inputClass, "font-mono")}
+              />
+            </Field>
+            <Field label="Password" required hint="Generated for you. You can type your own." error={fieldErrors.password}>
+              <div className="flex gap-2">
+                <input
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className={cx(inputClass, "font-mono")}
+                  aria-label="Password"
+                />
+                <SecondaryButton
+                  className="w-10 shrink-0 px-0"
+                  title="Make a new password"
+                  aria-label="Make a new password"
+                  onClick={() => setPassword(makePassword())}
+                >
+                  <Wand2 className="h-4 w-4" />
+                </SecondaryButton>
+              </div>
+            </Field>
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <div className="text-[14px] font-semibold">Team</div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Department">
               <MultiSelect
-                options={jobRoleOptions}
-                selectedValues={createDepartments}
-                onValueChange={setCreateDepartments}
-                placeholder="Search departments..."
+                options={departmentOptions}
+                selectedValues={departmentsPicked}
+                onValueChange={setDepartmentsPicked}
+                placeholder="Choose departments"
               />
             </Field>
             <Field label="Designation">
               <SearchSelect
-                options={orgRoleOptions}
-                value={createDesignation}
-                onChange={(next) => setCreateDesignation(next as string)}
-                placeholder="Search designations..."
+                options={designationOptions}
+                value={designation}
+                onChange={(next) => setDesignation(String(next ?? ""))}
+                placeholder="Choose a designation"
               />
             </Field>
-
-            <div className="md:col-span-2">
-              <SectionHeading>Location & reporting</SectionHeading>
-            </div>
             <Field label="Area">
               <input
-                name="area"
-                placeholder="Area"
+                value={area}
+                onChange={(event) => setArea(capitalizeFirst(event.target.value))}
                 className={inputClass}
-                onInput={(event) => {
-                  event.currentTarget.value = capitalizeFirst(
-                    event.currentTarget.value,
-                  );
-                }}
+                placeholder="e.g. Guwahati East"
               />
             </Field>
             <Field label="Zone">
               <input
-                name="zone"
-                placeholder="Zone"
+                value={zone}
+                onChange={(event) => setZone(capitalizeFirst(event.target.value))}
                 className={inputClass}
-                onInput={(event) => {
-                  event.currentTarget.value = capitalizeFirst(
-                    event.currentTarget.value,
-                  );
-                }}
+                placeholder="e.g. North-East"
               />
             </Field>
-            <div className="md:col-span-2">
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[14px] font-semibold">Manager and approver</div>
+              <div className="text-[13px] text-muted-foreground">
+                {policy.mode === "unset" ? "Not set yet. You can set it later." : "Set."}
+              </div>
+            </div>
+            {!showReporting && (
+              <SecondaryButton className="h-9" onClick={() => setShowReporting(true)}>
+                Set manager
+              </SecondaryButton>
+            )}
+          </div>
+          {showReporting && (
+            <>
+              <ReportingPolicyEditor value={policy} onChange={setPolicy} employees={employees} roles={roles} />
+              {fieldErrors.policy && <p className="text-[12.5px] text-[#B42318]">{fieldErrors.policy}</p>}
+            </>
+          )}
+        </section>
+
+        <button type="submit" className="hidden" aria-hidden tabIndex={-1} />
+      </form>
+    </Modal>
+  );
+}
+
+function ManageEmployeeDialog({
+  employeeId,
+  employees,
+  roles,
+  departmentOptions,
+  designationOptions,
+  companyCode,
+  isMe = false,
+  onClose,
+  onChanged,
+}: {
+  employeeId: number;
+  employees: Employee[];
+  roles: Role[];
+  departmentOptions: Option[];
+  designationOptions: Option[];
+  companyCode: string | null;
+  isMe?: boolean;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [detail, setDetail] = useState<EmployeeDetail | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [departmentsPicked, setDepartmentsPicked] = useState<string[]>([]);
+  const [designation, setDesignation] = useState("");
+  const [area, setArea] = useState("");
+  const [zone, setZone] = useState("");
+  const [policy, setPolicy] = useState<ReportingPolicy>(UNSET);
+  const [snapshot, setSnapshot] = useState<ReportingSnapshot | null>(null);
+  const [roleIds, setRoleIds] = useState<number[]>([]);
+
+  const [busy, setBusy] = useState<null | "profile" | "roles" | "status" | "password">(null);
+  const [error, setError] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState<Credentials | null>(null);
+
+  const loadDetail = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const body = await apiJson<EmployeeDetail>(`/api/appliance/employees/${employeeId}`);
+      setDetail(body);
+      const employee = body.employee;
+      setName(employee.name ?? employee.username ?? "");
+      setPhone(employee.phoneNumber ?? "");
+      setEmail(employee.email ?? "");
+      setDepartmentsPicked(splitList(employee.department));
+      setDesignation(employee.designation ?? "");
+      setArea(employee.area === "area" ? "" : employee.area ?? "");
+      setZone(employee.zone === "zone" ? "" : employee.zone ?? "");
+      setPolicy(
+        body.reporting?.policy ??
+          (employee.reportsToId
+            ? { version: 1, mode: "specific_user", userId: employee.reportsToId }
+            : UNSET),
+      );
+      setSnapshot(body.reporting ?? null);
+      setRoleIds(body.directRoleIds ?? []);
+    } catch (failure) {
+      setLoadError(failure instanceof Error ? failure.message : "Could not open this employee.");
+    }
+  }, [employeeId]);
+
+  useEffect(() => {
+    void loadDetail();
+  }, [loadDetail]);
+
+  async function saveProfile(event?: FormEvent) {
+    event?.preventDefault();
+    if (!name.trim()) {
+      setError("Enter their name.");
+      return;
+    }
+    setBusy("profile");
+    setError(null);
+    try {
+      await apiJson(`/api/appliance/employees/${employeeId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: name.trim(),
+          phoneNumber: phone.trim() || null,
+          email: email.trim() || null,
+          department: departmentsPicked.length ? departmentsPicked.join(", ") : null,
+          designation: designation.trim() || null,
+          role: designation.trim() || null,
+          area: area.trim() || null,
+          zone: zone.trim() || null,
+          reportingPolicy: policy,
+        }),
+      });
+      toast.success("Changes saved.");
+      onChanged();
+      await loadDetail();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not save the changes.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function previewManager() {
+    try {
+      const body = await apiJson<ReportingSnapshot>(
+        `/api/appliance/employees/${employeeId}/reporting-policy/preview`,
+        { method: "POST", body: JSON.stringify({ reportingPolicy: policy }) },
+      );
+      setSnapshot(body);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not check this manager rule.");
+    }
+  }
+
+  async function saveRoles() {
+    setBusy("roles");
+    setError(null);
+    try {
+      await apiJson(`/api/appliance/employees/${employeeId}/roles`, {
+        method: "PUT",
+        body: JSON.stringify({ roleIds }),
+      });
+      toast.success("Roles saved.");
+      await loadDetail();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not save the roles.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function changeStatus(next: "active" | "suspended") {
+    if (next === "suspended" && !window.confirm("Suspend this employee? Their app stops working right away.")) return;
+    setBusy("status");
+    setError(null);
+    try {
+      await apiJson(`/api/appliance/employees/${employeeId}/status`, {
+        method: "POST",
+        body: JSON.stringify({ status: next }),
+      });
+      toast.success(next === "active" ? "Employee re-activated." : "Employee suspended.");
+      onChanged();
+      await loadDetail();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not change the status.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function resetPassword() {
+    if (!window.confirm("Make a new app password? The old one stops working.")) return;
+    const password = makePassword();
+    setBusy("password");
+    setError(null);
+    try {
+      await apiJson(`/api/appliance/employees/${employeeId}/reset-password`, {
+        method: "POST",
+        body: JSON.stringify({ password }),
+      });
+      setNewPassword({
+        name: name || "This employee",
+        employeeCode: detail?.employee.employeeCode ?? "",
+        password,
+      });
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not reset the password.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const employee = detail?.employee;
+  const active = employee?.status === "active";
+
+  return (
+    <Modal
+      open
+      size="lg"
+      title={employee ? name || nameOf(employee) : "Employee"}
+      description={
+        employee
+          ? [employee.employeeCode ? `ID ${employee.employeeCode}` : "No app login", employee.lastSeenAt ? `last seen ${formatWhen(employee.lastSeenAt).toLowerCase()}` : null]
+              .filter(Boolean)
+              .join(", ")
+          : undefined
+      }
+      onClose={onClose}
+      footer={
+        employee ? (
+          <>
+            <div className="mr-auto flex items-center gap-2">
+              <UserRound className="h-4 w-4 text-muted-foreground" />
+              <Pill tone={active ? "good" : employee.status === "suspended" ? "danger" : "neutral"}>
+                {active ? "Active" : employee.status === "suspended" ? "Suspended" : "Inactive"}
+              </Pill>
+            </div>
+            {active && isMe ? (
+              <span className="text-[13px] text-muted-foreground">This is you</span>
+            ) : active ? (
+              <DangerButton onClick={() => void changeStatus("suspended")} disabled={busy !== null}>
+                <ShieldOff className="h-4 w-4" />
+                Suspend
+              </DangerButton>
+            ) : (
+              <SecondaryButton onClick={() => void changeStatus("active")} disabled={busy !== null}>
+                Activate
+              </SecondaryButton>
+            )}
+            <PrimaryButton onClick={() => void saveProfile()} disabled={busy !== null}>
+              {busy === "profile" && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save changes
+            </PrimaryButton>
+          </>
+        ) : undefined
+      }
+    >
+      {loadError ? (
+        <Notice tone="danger">{loadError}</Notice>
+      ) : !detail ? (
+        <div className="flex h-48 items-center justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {error && (
+            <Notice tone="danger" onDismiss={() => setError(null)}>
+              {error}
+            </Notice>
+          )}
+
+          <form onSubmit={(event) => void saveProfile(event)} className="grid gap-4 sm:grid-cols-2">
+            <Field label="Full name" required className="sm:col-span-2">
+              <input value={name} onChange={(event) => setName(event.target.value)} className={inputClass} />
+            </Field>
+            <Field label="Phone">
+              <input value={phone} onChange={(event) => setPhone(event.target.value)} className={inputClass} inputMode="tel" />
+            </Field>
+            <Field label="Email">
+              <input value={email} onChange={(event) => setEmail(event.target.value)} className={inputClass} type="email" />
+            </Field>
+            <Field label="Department">
+              <MultiSelect
+                options={departmentOptions}
+                selectedValues={departmentsPicked}
+                onValueChange={setDepartmentsPicked}
+                placeholder="Choose departments"
+              />
+            </Field>
+            <Field label="Designation">
+              <SearchSelect
+                options={designationOptions}
+                value={designation}
+                onChange={(next) => setDesignation(String(next ?? ""))}
+                placeholder="Choose a designation"
+              />
+            </Field>
+            <Field label="Area">
+              <input value={area} onChange={(event) => setArea(capitalizeFirst(event.target.value))} className={inputClass} />
+            </Field>
+            <Field label="Zone">
+              <input value={zone} onChange={(event) => setZone(capitalizeFirst(event.target.value))} className={inputClass} />
+            </Field>
+            <div className="sm:col-span-2">
               <ReportingPolicyEditor
-                value={createReportingPolicy}
-                onChange={setCreateReportingPolicy}
+                value={policy}
+                onChange={(next) => {
+                  setPolicy(next);
+                  setSnapshot(null);
+                }}
                 employees={employees}
                 roles={roles}
+                subjectId={employeeId}
+                snapshot={snapshot}
+                onPreview={() => void previewManager()}
               />
             </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <SecondaryButton type="button" onClick={() => setShowCreate(false)}>
-              Cancel
-            </SecondaryButton>
-            <PrimaryButton type="submit" disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              Add employee
-            </PrimaryButton>
-          </div>
-        </form>
-      </Modal>
+            <button type="submit" className="hidden" aria-hidden tabIndex={-1} />
+          </form>
 
-      <Modal
-        open={Boolean(selectedId)}
-        title={detail?.employee.name ?? "Manage employee"}
-        description="Profile, Roles and account status. Use Assignments to change direct Responsibilities."
-        onClose={() => {
-          setSelectedId(null);
-          setDetail(null);
-          setReportingSnapshot(null);
-        }}
-        wide
-      >
-        {!detail ? (
-          <div className="flex h-48 items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <form onSubmit={updateProfile} className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <SectionHeading>Identity</SectionHeading>
-                </div>
-                <Field label="Name">
-                  <input name="name" defaultValue={detail.employee.name ?? ""} className={inputClass} />
-                </Field>
-                <Field label="Phone">
-                  <input name="phoneNumber" defaultValue={detail.employee.phoneNumber ?? ""} className={inputClass} />
-                </Field>
-                <Field label="Email">
-                  <input name="email" type="email" defaultValue={detail.employee.email ?? ""} className={inputClass} />
-                </Field>
-
-                <div className="md:col-span-2">
-                  <SectionHeading>Role</SectionHeading>
-                </div>
-                <Field label="Department" hint="Select one or more.">
-                  <MultiSelect
-                    options={jobRoleOptions}
-                    selectedValues={editDepartments}
-                    onValueChange={setEditDepartments}
-                    placeholder="Search departments..."
-                  />
-                </Field>
-                <Field label="Designation">
-                  <SearchSelect
-                    options={orgRoleOptions}
-                    value={editDesignation}
-                    onChange={(next) => setEditDesignation(next as string)}
-                    placeholder="Search designations..."
-                  />
-                </Field>
-
-                <div className="md:col-span-2">
-                  <SectionHeading>Location & reporting</SectionHeading>
-                </div>
-                <Field label="Area">
-                  <input
-                    name="area"
-                    defaultValue={detail.employee.area ?? ""}
-                    placeholder="Area"
-                    className={inputClass}
-                    onInput={(event) => {
-                      event.currentTarget.value = capitalizeFirst(
-                        event.currentTarget.value,
-                      );
-                    }}
-                  />
-                </Field>
-                <Field label="Zone">
-                  <input
-                    name="zone"
-                    defaultValue={detail.employee.zone ?? ""}
-                    placeholder="Zone"
-                    className={inputClass}
-                    onInput={(event) => {
-                      event.currentTarget.value = capitalizeFirst(
-                        event.currentTarget.value,
-                      );
-                    }}
-                  />
-                </Field>
-                <div className="md:col-span-2">
-                  <ReportingPolicyEditor
-                    value={editReportingPolicy}
-                    onChange={(next) => {
-                      setEditReportingPolicy(next);
-                      setReportingSnapshot(null);
-                    }}
-                    employees={employees}
-                    roles={roles}
-                    subjectId={selectedId}
-                    snapshot={reportingSnapshot}
-                    onPreview={() =>
-                      void previewReporting()
-                    }
-                  />
+          <section className="rounded-[12px] border p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-[14px] font-semibold">Field app login</div>
+                <div className="text-[13px] text-muted-foreground">
+                  {employee?.employeeCode
+                    ? `Signs in with ${employee.employeeCode}${employee.phoneNumber ? ` or ${employee.phoneNumber}` : ""}.`
+                    : "No app login yet."}
                 </div>
               </div>
-              <div className="flex justify-end">
-                <PrimaryButton type="submit" disabled={saving}>Save profile</PrimaryButton>
+              <SecondaryButton onClick={() => void resetPassword()} disabled={busy !== null}>
+                {busy === "password" ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                New password
+              </SecondaryButton>
+            </div>
+            {newPassword && (
+              <div className="mt-4">
+                <CredentialsCard credentials={newPassword} companyCode={companyCode} />
               </div>
-            </form>
+            )}
+          </section>
 
-            <Panel className="bg-muted/15">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="font-semibold">Responsibilities</div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    {detail.responsibilities.length} currently resolved for this employee.
-                  </div>
+          <section className="rounded-[12px] border p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-[14px] font-semibold">Responsibilities</div>
+                <div className="text-[13px] text-muted-foreground">
+                  {detail.responsibilities.length
+                    ? `${detail.responsibilities.length} in their app right now.`
+                    : "Nothing assigned yet."}
                 </div>
-                <Link
-                  href="/dashboard/workspace/assignments"
-                  className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted"
-                >
-                  Open Assignments
-                </Link>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <Link
+                href="/dashboard/workspace/assignments"
+                className="brixta-secondary-button inline-flex h-9 items-center px-3 text-[13px] font-medium"
+              >
+                Open assignments
+              </Link>
+            </div>
+            {detail.responsibilities.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
                 {detail.responsibilities.map((responsibility) => (
                   <Pill key={responsibility.id}>{responsibility.title}</Pill>
                 ))}
               </div>
-            </Panel>
+            )}
+          </section>
 
-            <Panel className="bg-muted/15">
-              <div className="font-semibold">Authority Roles</div>
-              <div className="mt-1 text-sm text-muted-foreground">
-                Workflow approval policies reference these stable Role IDs.
-              </div>
-              <div className="mt-4">
-                <MultiSelect
-                  options={roles.map((role) => ({
-                    label: role.label,
-                    value: String(role.id),
-                  }))}
-                  selectedValues={roleIds.map(String)}
-                  onValueChange={(values) =>
-                    setRoleIds(values.map(Number))
-                  }
-                  placeholder="Search roles..."
-                />
-              </div>
-              <div className="mt-4 flex justify-end">
-                <SecondaryButton type="button" onClick={() => void saveRoles()} disabled={saving}>
-                  Save Roles
-                </SecondaryButton>
-              </div>
-            </Panel>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-5">
-              <div className="flex items-center gap-2">
-                <UserRound className="h-4 w-4" />
-                <Pill tone={detail.employee.status === "active" ? "good" : "neutral"}>
-                  {detail.employee.status ?? "unknown"}
-                </Pill>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <SecondaryButton type="button" onClick={() => void resetPassword()} disabled={saving}>
-                  <KeyRound className="h-4 w-4" />
-                  Reset password
-                </SecondaryButton>
-                {detail.employee.status === "active" ? (
-                  <SecondaryButton type="button" onClick={() => void setStatus("suspended")} disabled={saving}>
-                    <ShieldOff className="h-4 w-4" />
-                    Suspend
-                  </SecondaryButton>
-                ) : (
-                  <PrimaryButton type="button" onClick={() => void setStatus("active")} disabled={saving}>
-                    Activate
-                  </PrimaryButton>
-                )}
-              </div>
+          <section className="rounded-[12px] border p-4">
+            <div className="text-[14px] font-semibold">Approval roles</div>
+            <div className="mb-3 text-[13px] text-muted-foreground">
+              Approval steps in workflows use these roles to find who decides.
             </div>
-          </div>
-        )}
-      </Modal>
-    </div>
+            <MultiSelect
+              options={roles.map((role) => ({ label: role.label, value: String(role.id) }))}
+              selectedValues={roleIds.map(String)}
+              onValueChange={(values) => setRoleIds(values.map(Number))}
+              placeholder="Choose roles"
+            />
+            <div className="mt-3 flex justify-end">
+              <SecondaryButton onClick={() => void saveRoles()} disabled={busy !== null}>
+                {busy === "roles" && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save roles
+              </SecondaryButton>
+            </div>
+          </section>
+        </div>
+      )}
+    </Modal>
   );
 }

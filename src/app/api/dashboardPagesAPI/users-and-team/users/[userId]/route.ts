@@ -1,9 +1,9 @@
 // src/app/api/dashboardPagesAPI/users-and-team/users/[userId]/route.ts
 import 'server-only';
 import { connection, NextRequest, NextResponse } from 'next/server';
-import { withTenantDb, hasPermission } from '@/lib/auth';
+import { withTenantDb, hasPermission, liveDashboardAccess, type AppDatabase } from '@/lib/auth';
 import { users, roles as rolesTable, userRoles } from '../../../../../../../drizzle/schema';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   generatePassword,
@@ -27,6 +27,25 @@ const updateUserSchema = z.object({
 }).strict();
 
 type RouteContext = { params: Promise<{ userId: string }> };
+
+/*
+ * BRIXTA_ADMIN_LOCKOUT_GUARD_V1
+ * Nobody can switch off their own dashboard access, and a company always
+ * keeps at least one active person with full access.
+ */
+async function activeAdminCount(db: AppDatabase) {
+  const result = await db.execute(sql`
+    SELECT count(DISTINCT u.id)::int AS count
+      FROM users u
+      JOIN user_roles ur ON ur.user_id = u.id
+      JOIN roles r ON r.id = ur.role_id
+     WHERE u.status = 'active'
+       AND u.is_dashboard_user = true
+       AND 'ALL_ACCESS' = ANY(r.granted_perms)
+  `);
+  const row = result.rows[0] as { count?: number | string } | undefined;
+  return Number(row?.count ?? 0);
+}
 
 export const PUT = withTenantDb<RouteContext>(async (request, db, session, context) => {
   try {
@@ -62,6 +81,20 @@ export const PUT = withTenantDb<RouteContext>(async (request, db, session, conte
     if (!targetUser) {
       return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
+
+    const isSelf = targetUserLocalId === session.userId;
+    if (isSelf && isDashboardUser === false) {
+      return NextResponse.json(
+        {
+          code: 'SELF_LOCKOUT',
+          error: "You can't remove your own dashboard access. Ask another admin to do it.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const adminsBefore = await activeAdminCount(db);
+    await db.execute(sql`SAVEPOINT brixta_user_update`);
 
     // No nested db.transaction(): db is already inside the transaction
     // withTenantDb opened, so everything below is already atomic within
@@ -173,6 +206,30 @@ export const PUT = withTenantDb<RouteContext>(async (request, db, session, conte
 
     const updated = await db.update(users).set(drizzleUpdateData).where(eq(users.id, targetUserLocalId)).returning();
     const updatedUser = updated[0];
+
+    if (adminsBefore > 0 && (await activeAdminCount(db)) === 0) {
+      await db.execute(sql`ROLLBACK TO SAVEPOINT brixta_user_update`);
+      return NextResponse.json(
+        {
+          code: 'LAST_ADMIN',
+          error: 'This is the last admin. Give someone else full access before changing this.',
+        },
+        { status: 400 },
+      );
+    }
+
+    if (isSelf && !(await liveDashboardAccess(db, session.userId)).ok) {
+      await db.execute(sql`ROLLBACK TO SAVEPOINT brixta_user_update`);
+      return NextResponse.json(
+        {
+          code: 'SELF_LOCKOUT',
+          error: 'This change would lock you out of the dashboard.',
+        },
+        { status: 400 },
+      );
+    }
+
+    await db.execute(sql`RELEASE SAVEPOINT brixta_user_update`);
 
     return NextResponse.json({
       message: 'User updated successfully',

@@ -24,6 +24,8 @@ import {
   EmptyState,
   Field,
   inputClass,
+  Notice,
+  PageIntro,
   Panel,
   Pill,
   PrimaryButton,
@@ -83,7 +85,12 @@ function lastImport(entity: PlatformEntityType) {
   return null;
 }
 
-export default function EntitiesClient() {
+export default function EntitiesClient({
+  standalone = false,
+}: {
+  /** true on /dashboard/lists, where this is the whole page */
+  standalone?: boolean;
+} = {}) {
   const [items, setItems] = useState<PlatformEntityType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -105,7 +112,7 @@ export default function EntitiesClient() {
       setItems(body.entityTypes ?? []);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Unable to load Entities.",
+        error instanceof Error ? error.message : "Could not load your lists.",
       );
     } finally {
       setLoading(false);
@@ -129,7 +136,7 @@ export default function EntitiesClient() {
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!validFields.length) {
-      setMessage("Add at least one field.");
+      setMessage("Add at least one column.");
       return;
     }
     setSaving(true);
@@ -157,10 +164,10 @@ export default function EntitiesClient() {
       setFields([
         { key: "name", label: "Name", dataType: "text", required: true },
       ]);
-      setMessage("Entity created. It is now available in Connections.");
+      setMessage(`"${title}" was created. Import rows into it or send it to the field app.`);
       await load();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to create Entity.");
+      setMessage(error instanceof Error ? error.message : "Could not create the list.");
     } finally {
       setSaving(false);
     }
@@ -174,70 +181,138 @@ export default function EntitiesClient() {
     );
   }
 
+  const listPanel = (
+    <Panel className="p-0 md:p-0">
+      <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
+        <div>
+          <div className="text-[15px] font-semibold">Your lists</div>
+          <div className="text-[13px] text-muted-foreground">
+            {items.length === 0 ? "Nothing here yet." : `${items.length} list${items.length === 1 ? "" : "s"}`}
+          </div>
+        </div>
+        <SecondaryButton type="button" className="h-9" onClick={() => void load()}>
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </SecondaryButton>
+      </div>
+      {loading ? (
+        <div className="flex h-40 items-center justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="p-5">
+          <EmptyState
+            title="No lists yet"
+            description="Import a spreadsheet below, or create a list by hand."
+          />
+        </div>
+      ) : (
+        <div className="divide-y">
+          {items.map((item) => {
+            const imported = lastImport(item);
+            const inApp = isInFieldApp(item);
+            const shown = item.fieldDefinitions.slice(0, 6);
+            const more = item.fieldDefinitions.length - shown.length;
+            return (
+              <div key={item.id} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[15px] font-semibold">{item.title}</span>
+                    {!item.isActive && <Pill>Disabled</Pill>}
+                    {inApp && <Pill tone="good">In field app</Pill>}
+                    {hasFieldAppDraft(item) && <Pill tone="warning">Unpublished changes</Pill>}
+                  </div>
+                  <div className="mt-1 text-[13px] text-muted-foreground">
+                    {item.fieldDefinitions.length} columns
+                    {imported
+                      ? ` · last import ${imported.when || ""} added ${imported.added.toLocaleString("en-IN")}`
+                      : ""}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {shown.map((field) => (
+                      <Pill key={field.key}>{field.label}</Pill>
+                    ))}
+                    {more > 0 && <Pill>+{more} more</Pill>}
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {inApp ? (
+                    <SecondaryButton type="button" onClick={() => setFieldEntity(item)}>
+                      <Smartphone className="h-4 w-4" />
+                      Field app settings
+                    </SecondaryButton>
+                  ) : (
+                    <PrimaryButton type="button" onClick={() => setFieldEntity(item)}>
+                      <Smartphone className="h-4 w-4" />
+                      Send to field app
+                    </PrimaryButton>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Panel>
+  );
+
   return (
     <div className="min-w-0 space-y-6">
-      <Panel>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl">
-            <div className="flex items-center gap-2 text-lg font-semibold">
-              <Boxes className="h-5 w-5" />
-              Entities
-            </div>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Entities are reusable business things: Sites, Dealers, Products,
-              Machines and Customers. Import a CSV, Excel or JSON file into a new
-              or existing list, or create one manually below.
-            </p>
-          </div>
-          <SecondaryButton type="button" onClick={() => void load()}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </SecondaryButton>
+      {standalone ? (
+        <PageIntro
+          title="Lists & imports"
+          description="A list is anything your team visits or tracks: sites, dealers, shops. Import a spreadsheet, then send the list to the field app."
+        />
+      ) : (
+        <div className="flex items-center gap-2 text-[15px] font-semibold">
+          <Boxes className="h-5 w-5" />
+          Lists
         </div>
-      </Panel>
+      )}
 
-      {message && <Panel className="py-3"><div className="text-sm">{message}</div></Panel>}
+      {message && (
+        <Notice tone="info" onDismiss={() => setMessage(null)}>
+          {message}
+        </Notice>
+      )}
+
+      {listPanel}
 
       <EntityImportWizard entities={items} onImported={load} />
 
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,.85fr)]">
-        <Panel>
+      <details className="group rounded-[14px] border bg-card">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-[15px] font-semibold">
+          Create a list by hand
+          <Plus className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-45" />
+        </summary>
+        <div className="border-t px-5 py-5">
           <form onSubmit={create} className="space-y-5">
-            <div>
-              <div className="text-base font-semibold">Create manually</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Define the Entity before records exist.
-              </div>
-            </div>
-
-            <Field label="What is the thing called?">
-              <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="Dealer, Work Site, Machine..." required />
+            <Field label="What is the list called?">
+              <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="Dealers, Work sites, Machines…" required />
             </Field>
 
-            <Field label="What is it for?">
+            <Field label="What is it for?" hint="Optional.">
               <textarea value={description} onChange={(e) => setDescription(e.target.value)} className={textareaClass} rows={2} />
             </Field>
 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-medium">What information does it contain?</div>
-                  <div className="text-xs text-muted-foreground">Add normal fields.</div>
-                </div>
-                <SecondaryButton type="button" onClick={() => setFields((current) => [...current, newField()])}>
-                  <Plus className="h-4 w-4" />Field
+                <div className="text-[13px] font-medium">Columns</div>
+                <SecondaryButton type="button" className="h-9" onClick={() => setFields((current) => [...current, newField()])}>
+                  <Plus className="h-4 w-4" />Add column
                 </SecondaryButton>
               </div>
 
               {fields.map((field, index) => (
-                <div key={index} className="grid gap-3 rounded-lg border p-3 md:grid-cols-[1.2fr_1fr_auto_auto]">
+                <div key={index} className="grid gap-3 rounded-[12px] border p-3 md:grid-cols-[1.2fr_1fr_auto_auto] md:items-center">
                   <input
                     value={field.label}
                     onChange={(e) => updateField(index, { label: e.target.value, key: normalizeKey(e.target.value) })}
                     className={inputClass}
-                    placeholder="Field name"
+                    placeholder="Column name"
+                    aria-label="Column name"
                   />
-                  <select value={field.dataType} onChange={(e) => updateField(index, { dataType: e.target.value })} className={inputClass}>
+                  <select value={field.dataType} onChange={(e) => updateField(index, { dataType: e.target.value })} className={inputClass} aria-label="Column type">
                     {FIELD_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                   </select>
                   <label className="flex items-center gap-2 text-sm">
@@ -248,7 +323,7 @@ export default function EntitiesClient() {
                     type="button"
                     onClick={() => setFields((current) => current.filter((_, i) => i !== index))}
                     className="rounded-md p-2 text-muted-foreground hover:text-destructive"
-                    aria-label="Remove field"
+                    aria-label="Remove column"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -258,54 +333,11 @@ export default function EntitiesClient() {
 
             <PrimaryButton type="submit" disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Create Entity
+              Create list
             </PrimaryButton>
           </form>
-        </Panel>
-
-        <Panel>
-          <div className="text-base font-semibold">Available Entities</div>
-          <div className="mt-1 text-xs text-muted-foreground">These become candidates inside Connections.</div>
-          {loading ? (
-            <div className="flex h-48 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div>
-          ) : items.length === 0 ? (
-            <div className="mt-4"><EmptyState title="No Entities yet" description="Upload a file or create one manually." /></div>
-          ) : (
-            <div className="mt-4 space-y-2">
-              {items.map((item) => {
-                const imported = lastImport(item);
-                return (
-                  <div key={item.id} className="rounded-lg border p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="font-medium">{item.title}</div>
-                      <Pill tone={item.isActive ? "good" : "neutral"}>{item.isActive ? "Ready" : "Disabled"}</Pill>
-                      {isInFieldApp(item) && <Pill tone="info">In field app</Pill>}
-                      {hasFieldAppDraft(item) && <Pill tone="warning">Unpublished changes</Pill>}
-                      <SecondaryButton
-                        type="button"
-                        className="ml-auto h-8 px-3 text-[12px]"
-                        onClick={() => setFieldEntity(item)}
-                      >
-                        <Smartphone className="h-3.5 w-3.5" />
-                        {isInFieldApp(item) ? "Field app settings" : "Send to field app"}
-                      </SecondaryButton>
-                      <Pill tone="info">{item.fieldDefinitions.length} fields</Pill>
-                      {imported && (
-                        <Pill>
-                          Last import{imported.when ? ` ${imported.when}` : ""} · {imported.added.toLocaleString("en-IN")} added
-                        </Pill>
-                      )}
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {item.fieldDefinitions.map((field) => <Pill key={field.key}>{field.label}</Pill>)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Panel>
-      </div>
+        </div>
+      </details>
 
       {fieldEntity && (
         <FieldAppSettings

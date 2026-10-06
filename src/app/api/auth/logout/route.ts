@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
     // companies this browser may switch into without a password.
     await forgetCompanyLinks();
 
-    // Redirect the user back to the signed out home page
-    return NextResponse.redirect(new URL('/', request.url));
+    // Back to the sign-in page. 303 makes the browser follow with a GET
+    // (a 307 would re-POST the form to "/").
+    return NextResponse.redirect(new URL('/login', request.url), 303);
 }

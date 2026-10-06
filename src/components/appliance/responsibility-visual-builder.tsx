@@ -2086,8 +2086,8 @@ export function VisualPhoneCanvas({
             {kernel.metadata.ui?.title ?? "Employee app"}
           </div>
 
-          <div className="mt-0.5 text-[10px] text-muted-foreground">
-            Visual UI · live builder
+          <div className="mt-0.5 text-[11px] text-muted-foreground">
+            Draft · tap a part to edit it
           </div>
         </div>
 
@@ -2118,12 +2118,11 @@ export function VisualPhoneCanvas({
                   <Sparkles className="h-8 w-8 text-muted-foreground" />
 
                   <div className="mt-4 text-sm font-semibold">
-                    Drop visual blocks here
+                    This screen is empty
                   </div>
 
                   <div className="mt-1 max-w-56 text-xs leading-relaxed text-muted-foreground">
-                    Build a real application surface — text, counters, buttons,
-                    metrics, layouts, banners and animation.
+                    Add a field or button from the left, or start from a template above.
                   </div>
                 </div>
               )}

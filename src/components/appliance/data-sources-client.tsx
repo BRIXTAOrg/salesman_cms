@@ -36,10 +36,10 @@ import {
   EmptyState,
   Field,
   inputClass,
+  Notice,
   Panel,
   Pill,
   PrimaryButton,
-  SecondaryButton,
 } from "./primitives";
 
 // BRIXTA_SMART_CONNECTIONS_V1
@@ -528,7 +528,7 @@ export default function DataSourcesClient() {
       );
 
     if (!possibility || possibility.type !== "capture") {
-      setMessage("The selected App Builder field no longer exists. Reload Connections.");
+      setMessage("That app field no longer exists. Reload and try again.");
       return;
     }
 
@@ -573,7 +573,7 @@ export default function DataSourcesClient() {
         [...connections, nextConnection],
         `Connected "${selectedSource.title}" to "${possibility.capture.label}". `
           + "The same capture ID and visual placement were preserved. "
-          + "This is saved in the Responsibility draft; Publish from Studio when ready.",
+          + "Saved to the draft. Publish from the Builder tab when ready.",
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to save connection.");
@@ -640,48 +640,43 @@ export default function DataSourcesClient() {
 
   return (
     <div className="min-w-0 space-y-6">
-      <Panel>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <div className="flex items-center gap-2 text-lg font-semibold">
-              <Link2 className="h-5 w-5" />
-              Connections
-            </div>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Choose a Responsibility, choose an Entity, and BRIXTA inspects
-              the actual App Builder fields to recommend where the records
-              belong. A connection changes the existing capture instead of
-              creating a second field, so its ID, visual position and action
-              wiring survive.
-            </p>
-          </div>
+      {/* BRIXTA_UI_V2: one slim toolbar instead of a header card. */}
+      <div className="flex flex-wrap items-center gap-2 rounded-[14px] border border-[#E1E4E0] bg-white px-4 py-3">
+        <Link2 className="h-4 w-4 text-[#5F6964]" />
+        <span className="text-[13.5px] font-medium">Connect lists to</span>
+        <select
+          aria-label="Responsibility"
+          className={`${inputClass} w-full sm:w-[260px]`}
+          value={responsibilityId ?? ""}
+          onChange={(event) =>
+            setResponsibilityId(Number(event.target.value) || null)
+          }
+        >
+          {responsibilities.map((responsibility) => (
+            <option key={responsibility.id} value={responsibility.id}>
+              {responsibility.title}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          title="Reload"
+          aria-label="Reload"
+          onClick={() => void loadBase()}
+          className="ml-auto flex h-10 w-10 items-center justify-center rounded-[10px] text-[#5F6964] transition-colors hover:bg-[#F1F3F0]"
+        >
+          <RefreshCw className="h-4 w-4" />
+        </button>
+      </div>
 
-          <div className="flex w-full min-w-0 max-w-full flex-wrap items-end gap-2 sm:w-auto sm:min-w-[280px]">
-            <Field label="Responsibility">
-              <select
-                className={inputClass}
-                value={responsibilityId ?? ""}
-                onChange={(event) =>
-                  setResponsibilityId(Number(event.target.value) || null)
-                }
-              >
-                {responsibilities.map((responsibility) => (
-                  <option key={responsibility.id} value={responsibility.id}>
-                    {responsibility.title}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <SecondaryButton type="button" onClick={() => void loadBase()}>
-              <RefreshCw className="h-4 w-4" />
-              Reload
-            </SecondaryButton>
-          </div>
-        </div>
-      </Panel>
-
-      {message && <Panel className="py-3"><div className="text-sm">{message}</div></Panel>}
+      {message && (
+        <Notice
+          tone={/unable|no longer|error|failed|could not/i.test(message) ? "danger" : "good"}
+          onDismiss={() => setMessage(null)}
+        >
+          {message}
+        </Notice>
+      )}
 
       {detailLoading ? (
         <div className="flex h-48 items-center justify-center rounded-lg border">
@@ -693,10 +688,10 @@ export default function DataSourcesClient() {
             <Panel>
               <div className="flex items-center gap-2 text-base font-semibold">
                 <Boxes className="h-4 w-4" />
-                Available Entities
+                Your lists
               </div>
               <div className="mt-1 text-xs text-muted-foreground">
-                Only reusable Entity data is shown. Internal platform tables are hidden.
+                Pick a list, then choose which app field should use it.
               </div>
 
               <div className="relative mt-4">
@@ -712,8 +707,8 @@ export default function DataSourcesClient() {
               {filteredSources.length === 0 ? (
                 <div className="mt-4">
                   <EmptyState
-                    title="No Entities available"
-                    description="Create or import an Entity in the Entities tab first."
+                    title="No lists yet"
+                    description="Import a spreadsheet in Lists & imports first."
                   />
                 </div>
               ) : (
@@ -760,8 +755,8 @@ export default function DataSourcesClient() {
             <Panel>
               {!selectedSource ? (
                 <EmptyState
-                  title="Choose an Entity"
-                  description="BRIXTA will inspect this Responsibility's App Builder and rank compatible fields."
+                  title="Pick a list on the left"
+                  description="BRIXTA suggests the best app field for it. Nothing changes until you confirm."
                 />
               ) : (
                 <div className="space-y-5">
@@ -776,9 +771,8 @@ export default function DataSourcesClient() {
 
                   {candidateCaptures.length === 0 ? (
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
-                      No safe App Builder field exists yet. Add a Text, Choice
-                      or Business Record field in Studio first, then return
-                      here. BRIXTA will not invent a visual field in an unknown position.
+                      This app has no field that can use a list yet. Add a Text,
+                      Choice or Record field in the Builder tab, then come back.
                     </div>
                   ) : (
                     <>
@@ -798,7 +792,7 @@ export default function DataSourcesClient() {
                         </div>
                       )}
 
-                      <Field label="Where should this Entity be used?">
+                      <Field label="Which app field should use this list?">
                         <select
                           className={inputClass}
                           value={targetCaptureId}
@@ -886,15 +880,14 @@ export default function DataSourcesClient() {
               Connected to {selectedResponsibility?.title ?? "Responsibility"}
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              These are draft App Builder bindings. Publish from Studio when
-              you want employee devices to receive the change.
+              Saved to the draft. Publish from the Builder tab to send them to phones.
             </div>
 
             {connections.length === 0 ? (
               <div className="mt-4">
                 <EmptyState
                   title="Nothing connected yet"
-                  description="Choose an Entity above and let BRIXTA map it to an existing App Builder field."
+                  description="Pick a list above and connect it to a field in this app."
                 />
               </div>
             ) : (

@@ -2437,7 +2437,6 @@ export default function ResponsibilitiesClient() {
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
       <PageIntro
-        eyebrow="Workspace"
         title="Responsibilities"
         description="Build employee apps visually. Drag inputs and buttons onto a canvas, assign the Responsibility, then connect it to a Workflow."
         action={

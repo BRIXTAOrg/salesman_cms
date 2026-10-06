@@ -74,7 +74,7 @@ function navGroups(
     }
   >,
 ): WorkspaceNavGroup[] {
-  const preferred = ["Management", "QR Rewards", "Field App Control"];
+  const preferred = ["Overview", "People", "Field work", "QR rewards", "App builder"];
 
   return [...map.entries()]
     .map(([key, group]) => ({
@@ -200,53 +200,65 @@ export function buildWorkspaceManifest({
     }
   >();
 
-  // ---- Management -----------------------------------------------------
-  addNav(nav, "Management", {
+  // BRIXTA_CLEAN_UI_V1 — five plain groups, named by what people do:
+  // Overview, People, Field work, QR rewards, App builder.
+
+  // ---- Overview --------------------------------------------------------
+  addNav(nav, "Overview", {
     key: "control_center",
-    label: "Control Center",
+    label: "Home",
     href: "/dashboard",
     icon: "gauge",
+    description: "What needs attention today.",
   });
 
+  // ---- People ----------------------------------------------------------
   if (canManage) {
-    addNav(nav, "Management", {
+    addNav(nav, "People", {
       key: "employees",
       label: "Employees",
       href: "/dashboard/workforce/employees",
       icon: "users",
+      description: "Add people, set their app login, manager and status.",
     });
-
-    addNav(nav, "Management", {
+    addNav(nav, "People", {
       key: "organization",
       label: "Organization",
       href: "/dashboard/workforce/organization",
       icon: "network",
+      description: "Who reports to whom, and your other companies.",
     });
-
-    addNav(nav, "Management", {
+    addNav(nav, "People", {
       key: "departments",
       label: "Departments",
       href: "/dashboard/workforce/departments",
-      icon: "network",
+      icon: "building",
+      description: "Departments and designations.",
     });
-
-    addNav(nav, "Management", {
+    addNav(nav, "People", {
       key: "dashboard_access",
-      label: "Dashboard Access",
+      label: "Dashboard access",
       href: "/dashboard/usersAndTeam",
       icon: "user-cog",
+      description: "Who can sign in to this dashboard.",
     });
   }
 
-  // ---- Field Work (BRIXTA_FIELD_APP_V1) -----------------------------
-  // Imported lists sent to the field app: progress, assignment, history.
+  // ---- Field work (BRIXTA_FIELD_APP_V1) --------------------------------
   if (canManage) {
-    addNav(nav, "Field Work", {
+    addNav(nav, "Field work", {
       key: "field_work",
       label: "Field work",
       href: "/dashboard/field",
       icon: "map-pin",
       description: "Track, assign and review the lists your field team works on.",
+    });
+    addNav(nav, "Field work", {
+      key: "lists",
+      label: "Lists & imports",
+      href: "/dashboard/lists",
+      icon: "file-chart",
+      description: "Import a spreadsheet and send a list to the field app.",
     });
   }
 
@@ -256,48 +268,41 @@ export function buildWorkspaceManifest({
   // the specialized QR Voucher Rewards edition.
   //
   if (canManage && isQrRewardsEdition()) {
-    addNav(nav, "QR Rewards", {
+    addNav(nav, "QR rewards", {
       key: "qr_rewards_campaigns",
       label: "Campaigns",
       href: "/dashboard/qr-rewards/campaigns",
       icon: "qr-code",
     });
-
-    addNav(nav, "QR Rewards", {
+    addNav(nav, "QR rewards", {
       key: "qr_rewards_claims",
       label: "Claims",
       href: "/dashboard/qr-rewards/claims",
       icon: "badge-check",
     });
-
-    addNav(nav, "QR Rewards", {
+    addNav(nav, "QR rewards", {
       key: "qr_rewards_generate",
-      label: "Generate Batch",
+      label: "Generate batch",
       href: "/dashboard/qr-rewards/generate",
       icon: "qr-code",
     });
-
   }
 
-  // ---- Field App Control -------------------------------------------
-  // Two sub-sections within the same group: "App Setup" (the builder
-  // surfaces an admin uses to define how the field app behaves) and
-  // "Responsibilities Created" (the actual Responsibilities/fields created via the
-  // builder, i.e. what shows up as work in the app).
+  // ---- App builder -------------------------------------------------
   if (canManage) {
-    addNav(nav, "Field App Control", {
+    addNav(nav, "App builder", {
       key: "responsibilities",
       label: "Responsibilities",
       href: "/dashboard/workspace/responsibilities",
       icon: "blocks",
-      section: "App Setup",
+      description: "Build the screens and forms your team uses in the app.",
     });
-    addNav(nav, "Field App Control", {
+    addNav(nav, "App builder", {
       key: "assignments",
       label: "Assignments",
       href: "/dashboard/workspace/assignments",
       icon: "clipboard-list",
-      section: "App Setup",
+      description: "Choose who gets which responsibility.",
     });
   }
 
@@ -310,27 +315,26 @@ export function buildWorkspaceManifest({
     workflowHasApproval ||
     pendingApprovals > 0
   ) {
-    addNav(nav, "Field App Control", {
+    addNav(nav, "App builder", {
       key: "approvals",
-      label: "Approvals",
+      label: pendingApprovals > 0 ? `Approvals (${pendingApprovals})` : "Approvals",
       href: "/dashboard/workspace/approvals",
       icon: "badge-check",
-      section: "App Setup",
+      description: "Requests waiting for a decision.",
     });
   }
 
-  addNav(nav, "Field App Control", {
+  addNav(nav, "App builder", {
     key: "all_responsibilities",
-    label: "All Responsibilities",
+    label: "All responsibilities",
     href: "/dashboard/workspace/all-responsibilities",
     icon: "list",
     description:
       "See and manage every Responsibility created for this company.",
-    section: "Responsibilities Created",
   });
 
   for (const responsibility of activeResponsibilities) {
-    addNav(nav, "Field App Control", {
+    addNav(nav, "App builder", {
       key: `responsibility:${responsibility.key}`,
       label: responsibility.title,
       href: `/dashboard/work/${encodeURIComponent(responsibility.key)}`,
@@ -347,7 +351,7 @@ export function buildWorkspaceManifest({
    * active work and are never included in employee runtime delivery.
    */
   for (const responsibility of archivedResponsibilities) {
-    addNav(nav, "Field App Control", {
+    addNav(nav, "App builder", {
       key: `archived:${responsibility.key}`,
 
       label: responsibility.title,
