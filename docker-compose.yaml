@@ -1,3 +1,4 @@
+
 services:
   salesappdashboard:
     # Use your Docker image name here
@@ -5,17 +6,24 @@ services:
     container_name: salesappdashboard
     restart: unless-stopped
     ports:
-      - "55010:3000"
+      - "55007:3000"
     # This is the key line that tells Docker to read the variables from the .env file
     env_file:
       - .env.production
 
     environment:
       - DATABASE_URL=${DATABASE_URL}
-      - DB_SCHEMA=${DB_SCHEMA}
+      #- DB_SCHEMA=${DB_SCHEMA}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
       - NODE_OPTIONS=--max-old-space-size=1536
       - JWT_SECRET=${JWT_SECRET}
       - SALESAPP_BACKEND_URL=${SALESAPP_BACKEND_URL}
-      - FLOW1_ADMIN_SECRET=${FLOW1_ADMIN_SECRET}
+      #- FLOW1_ADMIN_SECRET=${FLOW1_ADMIN_SECRET}
       - ADMIN_SERVICE_SECRET=${ADMIN_SERVICE_SECRET}
+
+    networks:
+      - brixta_dashboard_net
+
+networks:
+  brixta_dashboard_net:
+    name: brixta_dashboard_net
