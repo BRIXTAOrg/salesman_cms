@@ -169,9 +169,6 @@ export default function EmployeesClient() {
 
   const [query, setQuery] = useState("");
   const [department, setDepartment] = useState("all");
-  const [departmentDirectory, setDepartmentDirectory] = useState<
-    Array<{ id: number | string; name: string }>
-  >([]);
   const [status, setStatus] = useState<"active" | "all" | "inactive">("active");
 
   const load = useCallback(async () => {
@@ -201,59 +198,13 @@ export default function EmployeesClient() {
       .catch(() => setCompanyCode(null));
   }, [load]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadDepartmentDirectory() {
-      try {
-        const body = await apiJson<{
-          departments?: Array<{ id: number | string; name: string }>;
-        }>("/api/appliance/departments");
-
-        if (!cancelled) {
-          setDepartmentDirectory(
-            Array.isArray(body.departments) ? body.departments : [],
-          );
-        }
-      } catch (failure) {
-        console.error("Could not load Department directory.", failure);
-
-        // Do not break Employees. Legacy values from employee records
-        // remain available through the fallback in departmentOptions.
-        if (!cancelled) setDepartmentDirectory([]);
-      }
-    }
-
-    void loadDepartmentDirectory();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const departmentOptions = useMemo(() => {
-    const names = new Set<string>();
-
-    // Canonical Organization → Departments directory.
-    for (const item of departmentDirectory) {
-      const name = String(item?.name ?? "").trim();
-      if (name) names.add(name);
-    }
-
-    // Preserve legacy/free-text department values already stored on employees.
-    for (const employee of employees) {
-      for (const name of splitList(employee.department)) {
-        if (name) names.add(name);
-      }
-    }
-
-    return [...names]
-      .sort((a, b) => a.localeCompare(b))
-      .map((name) => ({
-        value: name,
-        label: name,
-      }));
-  }, [departmentDirectory, employees]);
+  const departmentOptions = useMemo(
+    () =>
+      [...new Set(roles.map((role) => role.jobRole).filter((value): value is string => Boolean(value)))]
+        .sort()
+        .map((value) => ({ label: value, value })),
+    [roles],
+  );
 
   const designationOptions = useMemo(
     () =>
@@ -264,16 +215,8 @@ export default function EmployeesClient() {
   );
 
   const departments = useMemo(
-    () =>
-      [
-        ...new Set([
-          ...departmentDirectory
-            .map((item) => String(item?.name ?? "").trim())
-            .filter(Boolean),
-          ...employees.flatMap((employee) => splitList(employee.department)),
-        ]),
-      ].sort((a, b) => a.localeCompare(b)),
-    [departmentDirectory, employees],
+    () => [...new Set(employees.flatMap((employee) => splitList(employee.department)))].sort(),
+    [employees],
   );
 
   const counts = useMemo(() => {

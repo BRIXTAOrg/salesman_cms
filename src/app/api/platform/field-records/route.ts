@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, asc, eq, sql } from "drizzle-orm";
 
 import { hasPermission, withTenantDb } from "@/lib/auth";
+import { matchesFieldLens } from "@/lib/field-app-contract";
 import {
   displayOf,
   fieldStateOf,
@@ -54,6 +55,9 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
         config.priorityField,
         config.locationField,
         ...config.tableFields.map((field) => field.key),
+        config.experience.list.badgeField,
+        ...config.experience.list.cardFields,
+        ...config.experience.list.lenses.map((lens) => lens.field),
         "__field",
       ].filter((value): value is string => Boolean(value)),
     ),
@@ -78,11 +82,17 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
     (params.get("stage") ?? "").split(",").map((value) => value.trim()).filter(Boolean),
   );
   const assignee = (params.get("assignee") ?? "").trim();
+  const lensKey = (params.get("lens") ?? "").trim();
+  const selectedLens =
+    config.experience.list.lenses.find((lens) => lens.key === lensKey) ?? null;
   const sort = params.get("sort") === "updated" ? "updated" : "priority";
   const pageSize = Math.min(Math.max(Number(params.get("pageSize")) || 50, 10), 100);
   const page = Math.max(Number(params.get("page")) || 1, 1);
 
   const stageCounts: Record<string, number> = {};
+  const lensCounts: Record<string, number> = Object.fromEntries(
+    config.experience.list.lenses.map((lens) => [lens.key, 0]),
+  );
   let unassigned = 0;
 
   const rows = [];
@@ -92,6 +102,19 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
     const stage = stageView(config, state.stage);
     stageCounts[stage.key] = (stageCounts[stage.key] ?? 0) + 1;
     if (!state.assignee) unassigned += 1;
+
+    for (const lens of config.experience.list.lenses) {
+      if (matchesFieldLens(config, lens, state, data, null)) {
+        lensCounts[lens.key] = (lensCounts[lens.key] ?? 0) + 1;
+      }
+    }
+
+    if (
+      selectedLens &&
+      !matchesFieldLens(config, selectedLens, state, data, null)
+    ) {
+      continue;
+    }
 
     if (stages.size && !stages.has(stage.key)) continue;
     if (assignee === "none" && state.assignee) continue;
@@ -153,6 +176,10 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
       tableFields: config.tableFields,
       hasLocation: Boolean(config.locationField),
       hasPriority: Boolean(config.priorityField),
+      summaryLenses: config.experience.management.summaryLensKeys
+        .map((key) => config.experience.list.lenses.find((lens) => lens.key === key))
+        .filter((lens): lens is NonNullable<typeof lens> => Boolean(lens))
+        .map((lens) => ({ key: lens.key, label: lens.label })),
     },
     rows: rows.slice((page - 1) * pageSize, page * pageSize),
     total: rows.length,
@@ -160,6 +187,7 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
     page,
     pageSize,
     stageCounts,
+    lensCounts,
     unassigned,
   });
 });

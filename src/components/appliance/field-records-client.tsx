@@ -62,6 +62,7 @@ type ListResponse = {
     tableFields: Array<{ key: string; label: string }>;
     hasLocation: boolean;
     hasPriority: boolean;
+    summaryLenses: Array<{ key: string; label: string }>;
   } | null;
   rows: Row[];
   total: number;
@@ -69,6 +70,7 @@ type ListResponse = {
   page?: number;
   pageSize?: number;
   stageCounts?: Record<string, number>;
+  lensCounts?: Record<string, number>;
   unassigned?: number;
 };
 
@@ -124,6 +126,7 @@ export default function FieldRecordsClient() {
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("");
+  const [lens, setLens] = useState("");
   const [assignee, setAssignee] = useState("");
   const [sort, setSort] = useState<"priority" | "updated">("priority");
   const [page, setPage] = useState(1);
@@ -152,6 +155,7 @@ export default function FieldRecordsClient() {
       if (listId) params.set("list", String(listId));
       if (search) params.set("q", search);
       if (stage) params.set("stage", stage);
+      if (lens) params.set("lens", lens);
       if (assignee) params.set("assignee", assignee);
       params.set("sort", sort);
       params.set("page", String(page));
@@ -163,7 +167,7 @@ export default function FieldRecordsClient() {
     } finally {
       setLoading(false);
     }
-  }, [listId, search, stage, assignee, sort, page]);
+  }, [listId, search, stage, lens, assignee, sort, page]);
 
   useEffect(() => {
     void load();
@@ -286,6 +290,7 @@ export default function FieldRecordsClient() {
               onClick={() => {
                 setListId(item.id);
                 setStage("");
+                setLens("");
                 setPage(1);
                 setSelected(new Set());
               }}
@@ -300,12 +305,41 @@ export default function FieldRecordsClient() {
         </div>
       )}
 
+      {list && list.summaryLenses.length > 0 && (
+        <div className="flex gap-3 overflow-x-auto pb-1">
+          {list.summaryLenses.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => {
+                setLens(lens === item.key ? "" : item.key);
+                setStage("");
+                setPage(1);
+              }}
+              className={cx(
+                "brixta-soft-card min-w-[140px] px-4 py-3 text-left transition",
+                lens === item.key && "ring-2 ring-primary",
+                (data?.lensCounts?.[item.key] ?? 0) === 0 && "opacity-60",
+              )}
+            >
+              <div className="text-2xl font-semibold tracking-[-0.02em]">
+                {(data?.lensCounts?.[item.key] ?? 0).toLocaleString("en-IN")}
+              </div>
+              <div className="mt-1 text-[12px] text-muted-foreground">
+                {item.label}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
       {list && (
         <div className="flex gap-3 overflow-x-auto pb-1">
           <button
             type="button"
             onClick={() => {
               setStage("");
+              setLens("");
               setPage(1);
             }}
             className={cx(
@@ -324,6 +358,7 @@ export default function FieldRecordsClient() {
               type="button"
               onClick={() => {
                 setStage(stage === item.key ? "" : item.key);
+                setLens("");
                 setPage(1);
               }}
               className={cx(

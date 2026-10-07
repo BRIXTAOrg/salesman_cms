@@ -10,6 +10,7 @@ import "server-only";
 import {
   inputSpec,
   readFieldAppConfig,
+  type FieldExperience,
   type FieldInput,
 } from "./field-app-contract";
 
@@ -18,6 +19,7 @@ export type FieldStageView = {
   label: string;
   tone: "neutral" | "info" | "good" | "warning" | "danger";
   closed: boolean;
+  terminal: boolean;
 };
 
 export type FieldInputView = Pick<FieldInput, "key" | "label" | "type" | "unit" | "max">;
@@ -36,6 +38,7 @@ export type FieldConfigView = {
   locationField: string | null;
   followUpField: string | null;
   tableFields: Array<{ key: string; label: string }>;
+  experience: FieldExperience;
   stages: FieldStageView[];
   sections: FieldSectionView[];
 };
@@ -97,11 +100,13 @@ export function readFieldConfig(entityConfig: unknown, entityTitle: string): Fie
     locationField: config.locationField,
     followUpField: config.followUpField,
     tableFields: fallbackKeys.slice(0, 4).map((fieldKey) => ({ key: fieldKey, label: labelOf(fieldKey) })),
+    experience: config.experience,
     stages: config.stages.map((stage) => ({
       key: stage.key,
       label: stage.label,
       tone: stage.tone,
       closed: stage.closed,
+      terminal: stage.terminal,
     })),
     sections,
   };

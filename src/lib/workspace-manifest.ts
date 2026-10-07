@@ -291,6 +291,15 @@ export function buildWorkspaceManifest({
   // ---- App builder -------------------------------------------------
   if (canManage) {
     addNav(nav, "App builder", {
+      key: "app_experiences",
+      label: "App experiences",
+      href: "/dashboard/workspace/app-experiences",
+      icon: "smartphone",
+      description:
+        "Build CRM list and record experiences with stages, operational steps and field captures.",
+    });
+
+    addNav(nav, "App builder", {
       key: "responsibilities",
       label: "Responsibilities",
       href: "/dashboard/workspace/responsibilities",
