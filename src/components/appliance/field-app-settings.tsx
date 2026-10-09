@@ -253,6 +253,9 @@ export default function FieldAppSettings({
 
   async function publish() {
     if (!working) return;
+    if (!window.confirm(
+      "Publish while preserving all CRM answers, steps, audit history and assignments?"
+    )) return;
     setBusy("publish");
     setError(null);
     setServerProblems([]);
@@ -263,7 +266,9 @@ export default function FieldAppSettings({
           method: "POST",
           body: JSON.stringify({
             action: "publish",
-            config: working,
+            progressPolicy: "preserve",
+             assignmentPolicy: "retain",
+             config: working,
             revision: store?.draft?.revision,
             note: note.trim() || undefined,
           }),

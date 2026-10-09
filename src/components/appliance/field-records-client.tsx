@@ -16,6 +16,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiJson, cx } from "./client";
+import FieldOperationsPanel from "./field-operations-panel";
 import {
   EmptyState,
   PageIntro,
@@ -80,6 +81,18 @@ type Detail = {
   id: string;
   key: string | null;
   listTitle: string;
+  fieldAppVersion: number;
+  completedStepKeys: string[];
+  entityTypeKey: string;
+  linkedResponsibilities: Array<{
+    id: string;
+    responsibilityKey: string;
+    recordId: string;
+    workItemId: string | null;
+    assigneeUserId: number | null;
+    status: string;
+    createdAt: string;
+  }>;
   title: string;
   subtitle: string[];
   stage: string;
@@ -139,6 +152,22 @@ export default function FieldRecordsClient() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [showAllInfo, setShowAllInfo] = useState(false);
+  // BRIXTA_FIELD_PROGRESS_MIGRATION_V1: only admins with ALL_ACCESS may restart.
+  const [mayRestart, setMayRestart] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  // BRIXTA_LINKED_RESPONSIBILITY_UI_V1
+  const [availableResponsibilities, setAvailableResponsibilities] = useState<
+    Array<{ id: number; key: string; title: string; isActive?: boolean }>
+  >([]);
+  const [responsibilityLoading, setResponsibilityLoading] = useState(false);
+  const [responsibilityKey, setResponsibilityKey] = useState("");
+  const [responsibilityEmployee, setResponsibilityEmployee] = useState("");
+  const [responsibilitySubmitting, setResponsibilitySubmitting] = useState(false);
+  const [responsibilityFeedback, setResponsibilityFeedback] = useState<string | null>(null);
+  // BRIXTA_HANDOVER_UI_V1
+  const [handoverTargets, setHandoverTargets] = useState<Record<string, string>>({});
+  const [handoverReasons, setHandoverReasons] = useState<Record<string, string>>({});
+  const [handoverSubmitting, setHandoverSubmitting] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -183,9 +212,31 @@ export default function FieldRecordsClient() {
     setOpenId(id);
     setDetailLoading(true);
     setShowAllInfo(false);
+    setMayRestart(false);
+    setResponsibilityFeedback(null);
+    setResponsibilityEmployee("");
+    setHandoverTargets({});
+    setHandoverReasons({});
     try {
       const body = await apiJson<{ record: Detail }>(`/api/platform/field-records/${id}`);
       setDetail(body.record);
+      void apiJson<{ canRestart: boolean }>(`/api/platform/field-records/${id}/restart`)
+        .then((access) => setMayRestart(access.canRestart === true))
+        .catch(() => setMayRestart(false));
+      setResponsibilityEmployee(body.record.assignee
+        ? String(body.record.assignee.userId)
+        : "");
+      try {
+        const viewed = await apiJson<{ event: Detail["timeline"][number] }>(
+          `/api/platform/field-records/${id}/view`,
+          { method: "POST", body: JSON.stringify({}) },
+        );
+        setDetail((current) => current?.id === id
+          ? { ...current, timeline: [viewed.event, ...current.timeline] }
+          : current);
+      } catch (auditError) {
+        console.error("BRIXTA record-view audit failed", auditError);
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not open the record.");
       setOpenId(null);
@@ -193,6 +244,174 @@ export default function FieldRecordsClient() {
       setDetailLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!openId) return;
+    let active = true;
+    setResponsibilityLoading(true);
+    void apiJson<{
+      responsibilities: Array<{
+        id: number;
+        key: string;
+        title: string;
+        isActive?: boolean;
+      }>;
+    }>("/api/appliance/responsibilities")
+      .then((body) => {
+        if (!active) return;
+        const options = (body.responsibilities ?? []).filter(
+          (item) => item.isActive !== false,
+        );
+        setAvailableResponsibilities(options);
+        setResponsibilityKey((current) =>
+          options.some((option) => option.key === current)
+            ? current
+            : (options[0]?.key ?? ""),
+        );
+      })
+      .catch((error) => {
+        if (active) setResponsibilityFeedback(
+          error instanceof Error ? error.message : "Could not load Responsibilities.",
+        );
+      })
+      .finally(() => {
+        if (active) setResponsibilityLoading(false);
+      });
+    return () => { active = false; };
+  }, [openId]);
+
+  async function startLinkedResponsibility() {
+    if (!detail || !responsibilityKey || !responsibilityEmployee || responsibilitySubmitting) return;
+    const employeeId = Number(responsibilityEmployee);
+    if (!Number.isInteger(employeeId) || employeeId <= 0) return;
+    const employee = people.find((person) => person.id === employeeId);
+    const responsibility = availableResponsibilities.find((item) => item.key === responsibilityKey);
+    if (!employee || !responsibility) return;
+    const recordId = detail.id;
+    if (!window.confirm(
+      `Start “${responsibility.title}” for ${employee.name} from this CRM record?\n\n` +
+      "The original CRM data, verification steps and existing assignments will be preserved. " +
+      "This creates a linked Responsibility record and employee Work item."
+    )) return;
+
+    setResponsibilitySubmitting(true);
+    setResponsibilityFeedback(null);
+    try {
+      const result = await apiJson<{
+        created?: Array<{ workItemId: string }>;
+        skipped?: Array<{ reason: string }>;
+      }>("/api/appliance/work-items", {
+        method: "POST",
+        body: JSON.stringify({
+          responsibilityKey,
+          sourceEntityTypeKey: detail.entityTypeKey,
+          sourceRecordIds: [recordId],
+          assigneeUserId: employeeId,
+          priority: "normal",
+        }),
+      });
+      if ((result.created?.length ?? 0) > 0) {
+        setResponsibilityFeedback(
+          `Assigned “${responsibility.title}” to ${employee.name}. The linked work is in their Work inbox.`,
+        );
+        // Refresh the linked records and timeline without logging a second dashboard view.
+        const latest = await apiJson<{ record: Detail }>(
+          `/api/platform/field-records/${recordId}`,
+        );
+        setDetail((current) => current?.id === recordId ? latest.record : current);
+      } else {
+        setResponsibilityFeedback(
+          result.skipped?.[0]?.reason ?? "No work was created; it may already be assigned.",
+        );
+      }
+    } catch (error) {
+      setResponsibilityFeedback(
+        error instanceof Error ? error.message : "Unable to assign linked Responsibility.",
+      );
+    } finally {
+      setResponsibilitySubmitting(false);
+    }
+  }
+
+  async function handoverLinkedResponsibility(link: Detail["linkedResponsibilities"][number]) {
+    const id = link.workItemId;
+    if (!detail || !id || handoverSubmitting) return;
+    const nextUserId = Number(handoverTargets[id] ?? "");
+    const reason = (handoverReasons[id] ?? "").trim();
+    if (!Number.isSafeInteger(nextUserId) || nextUserId <= 0 ||
+        !link.assigneeUserId || nextUserId === link.assigneeUserId ||
+        reason.length < 5 || reason.length > 300) return;
+    const employee = people.find((person) => person.id === nextUserId);
+    if (!employee) return;
+    if (!window.confirm(
+      `Transfer this existing Responsibility to ${employee.name}?\n\n` +
+      "The existing record ID, answers, progress and history will be preserved. " +
+      "It will disappear from the prior employee's active Work inbox."
+    )) return;
+
+    const sourceRecordId = detail.id;
+    setHandoverSubmitting(id);
+    setResponsibilityFeedback(null);
+    try {
+      await apiJson(`/api/appliance/work-items/${encodeURIComponent(id)}/handover`, {
+        method: "POST",
+        body: JSON.stringify({
+          newAssigneeUserId: nextUserId,
+          expectedAssigneeUserId: link.assigneeUserId,
+          reason,
+        }),
+      });
+      const latest = await apiJson<{ record: Detail }>(
+        `/api/platform/field-records/${sourceRecordId}`,
+      );
+      setDetail((current) => current?.id === sourceRecordId ? latest.record : current);
+      setHandoverTargets((prev) => ({ ...prev, [id]: "" }));
+      setHandoverReasons((prev) => ({ ...prev, [id]: "" }));
+      setResponsibilityFeedback(`Existing Responsibility transferred to ${employee.name}; progress preserved.`);
+    } catch (error) {
+      setResponsibilityFeedback(error instanceof Error ? error.message : "Handover failed.");
+    } finally {
+      setHandoverSubmitting(null);
+    }
+  }
+
+  async function restartFieldProgress() {
+    if (!detail || restarting || !mayRestart) return;
+    const id = detail.id;
+    const expectedCompletedKeys = detail.completedStepKeys;
+    if (expectedCompletedKeys.length === 0 && detail.stage === "new") return;
+    const reason = window.prompt(
+      "Reason for restarting completed verification steps (10–300 characters):"
+    )?.trim();
+    if (!reason || reason.length < 10 || reason.length > 300) return;
+    if (!window.confirm(
+      `Restart ${expectedCompletedKeys.length} completed step(s) for ${detail.title}?\n\n` +
+      "Completed flags and stage will reset to New. All recorded answers, photos, assignee, follow-up, " +
+      "audit history and linked Responsibilities are RETAINED.\n\n" +
+      "Ensure offline employee submissions are synchronized first. Existing captured answers may still appear in reopened steps."
+    )) return;
+    setRestarting(true);
+    setMessage(null);
+    try {
+      await apiJson(`/api/platform/field-records/${id}/restart`, {
+        method: "POST",
+        body: JSON.stringify({
+          confirmation: "RESTART",
+          expectedVersion: detail.fieldAppVersion,
+          expectedStage: detail.stage,
+          expectedCompletedKeys,
+          reason,
+        }),
+      });
+      await openDetail(id);
+      await load();
+      setMessage("Verification steps restarted. Answers, assignments and history retained.");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Progress restart failed.");
+    } finally {
+      setRestarting(false);
+    }
+  }
 
   async function assign(ids: string[], userId: number | null) {
     if (ids.length === 0) return;
@@ -414,6 +633,21 @@ export default function FieldRecordsClient() {
         </div>
       </Panel>
 
+      {/* BRIXTA_FIELD_OPS_V1: management tools; nothing writes until explicitly confirmed. */}
+      {list && (
+        <details className="rounded-xl border bg-card p-4">
+          <summary className="cursor-pointer text-sm font-semibold">Lead operations · live Pixel Logic · access activity · downloads · division</summary>
+          <div className="mt-4">
+            <FieldOperationsPanel
+              listId={list.id}
+              listName={list.title}
+              filters={{ q: search, stage, lens, sort, assignee }}
+              people={people}
+              onChanged={load}
+            />
+          </div>
+        </details>
+      )}
       {selected.size > 0 && (
         <div className="brixta-soft-card sticky top-2 z-20 flex flex-wrap items-center gap-3 px-4 py-3">
           <Users className="h-4 w-4 text-primary" />
@@ -633,6 +867,134 @@ export default function FieldRecordsClient() {
                   )}
                 </div>
 
+                <section className="brixta-soft-card space-y-3 p-4">
+                  <div className="text-[12px] font-semibold uppercase tracking-[0.02em]">
+                    Linked Responsibility work
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Start another workflow using this exact CRM record. Field answers,
+                    attachments, site stage and assignments remain unchanged.
+                  </p>
+                  {detail.linkedResponsibilities?.length ? (
+                    <div className="space-y-2">
+                      {detail.linkedResponsibilities.map((link) => (
+                        <div key={link.id} className="rounded-lg border px-3 py-2 text-xs">
+                          <div className="font-semibold">{link.responsibilityKey}</div>
+                          <div className="text-muted-foreground">
+                            {when(link.createdAt)}
+                            {link.assigneeUserId
+                              ? ` · ${people.find((p) => p.id === link.assigneeUserId)?.name ?? `Employee ${link.assigneeUserId}`}`
+                              : ""}
+                          </div>
+                          <div className="mt-1 text-muted-foreground">Status: {link.status}</div>
+                          <div className="mt-1 break-all font-mono text-[10px] text-muted-foreground">
+                            Work ID: {link.workItemId ?? "Not available"}
+                          </div>
+                          {link.workItemId && ["assigned", "in_progress"].includes(link.status) && (
+                            <div className="mt-3 space-y-2 border-t pt-3">
+                              <div className="text-xs font-semibold">Reassign existing work (preserve progress)</div>
+                              <select
+                                aria-label={`New assignee for ${link.responsibilityKey}`}
+                                className={inputClass}
+                                value={handoverTargets[link.workItemId] ?? ""}
+                                disabled={handoverSubmitting !== null}
+                                onChange={(event) => setHandoverTargets((prev) => ({
+                                  ...prev, [link.workItemId!]: event.target.value,
+                                }))}
+                              >
+                                <option value="">Choose new employee…</option>
+                                {people.filter((person) => person.id !== link.assigneeUserId).map((person) => (
+                                  <option key={person.id} value={person.id}>{person.name}</option>
+                                ))}
+                              </select>
+                              <input
+                                aria-label="Handover reason"
+                                className={inputClass}
+                                placeholder="Handover reason (required)"
+                                maxLength={300}
+                                value={handoverReasons[link.workItemId] ?? ""}
+                                disabled={handoverSubmitting !== null}
+                                onChange={(event) => setHandoverReasons((prev) => ({
+                                  ...prev, [link.workItemId!]: event.target.value,
+                                }))}
+                              />
+                              <button
+                                type="button"
+                                className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                                disabled={handoverSubmitting !== null || !handoverTargets[link.workItemId] ||
+                                  (handoverReasons[link.workItemId] ?? "").trim().length < 5}
+                                onClick={() => void handoverLinkedResponsibility(link)}
+                              >
+                                {handoverSubmitting === link.workItemId ? "Transferring…" : "Transfer existing Responsibility"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">
+                      No linked Responsibilities yet.
+                    </div>
+                  )}
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium">Responsibility</span>
+                    <select
+                      aria-label="Linked Responsibility"
+                      className={inputClass}
+                      value={responsibilityKey}
+                      disabled={responsibilitySubmitting || responsibilityLoading}
+                      onChange={(event) => setResponsibilityKey(event.target.value)}
+                    >
+                      {!availableResponsibilities.length && <option value="">No available Responsibilities</option>}
+                      {availableResponsibilities.map((item) => (
+                        <option key={item.id} value={item.key}>{item.title}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium">Assign Work to employee</span>
+                    <select
+                      aria-label="Linked Responsibility assignee"
+                      className={inputClass}
+                      value={responsibilityEmployee}
+                      disabled={responsibilitySubmitting}
+                      onChange={(event) => setResponsibilityEmployee(event.target.value)}
+                    >
+                      <option value="">Choose employee…</option>
+                      {people.map((person) => (
+                        <option key={person.id} value={String(person.id)}>{person.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                    disabled={!responsibilityKey || !responsibilityEmployee || responsibilitySubmitting || responsibilityLoading}
+                    onClick={() => void startLinkedResponsibility()}
+                  >
+                    {responsibilitySubmitting ? "Starting…" : "Start linked Responsibility"}
+                  </button>
+                  {responsibilityFeedback && (
+                    <div role="status" className="rounded-lg border p-3 text-xs">
+                      {responsibilityFeedback}
+                    </div>
+                  )}
+                </section>
+
+                {mayRestart && (detail.completedStepKeys.length > 0 || detail.stage !== "new") && (
+                  <section className="brixta-soft-card space-y-2 p-4">
+                    <div className="text-sm font-semibold">Restart verification progress</div>
+                    <p className="text-xs text-muted-foreground">
+                      Reset only this site's completed step markers and stage. Answers, media, assignments,
+                      linked work and historical audit entries are preserved. Requires ALL_ACCESS.
+                    </p>
+                    <button type="button" disabled={restarting} onClick={() => void restartFieldProgress()}
+                      className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50">
+                      {restarting ? "Restarting…" : "Restart this site's steps"}
+                    </button>
+                  </section>
+                )}
                 <section className="space-y-3">
                   <div className="text-[12px] font-medium uppercase tracking-[0.02em]">Steps</div>
                   {detail.steps.map((step, index) => (

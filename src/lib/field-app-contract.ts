@@ -18,7 +18,10 @@
  *   fieldAppHistory  last published versions, newest first
  */
 
-export const FIELD_APP_CONTRACT_VERSION = 3;
+import { normalizePixelLogicProgram, type PixelLogicProgram } from "./pixel-logic-types";
+import { validateFieldPixelLogic } from "./field-pixel-logic";
+
+export const FIELD_APP_CONTRACT_VERSION = 4;
 
 /* ------------------------------------------------------------------ */
 /* Inputs                                                              */
@@ -250,6 +253,8 @@ export type FieldAppConfig = {
   experience: FieldExperience;
   stages: FieldStage[];
   sections: FieldSection[];
+  /** Versioned, server-executed Field App Pixel Logic (restricted effects). */
+  pixelLogic?: PixelLogicProgram | null;
   /** set when published */
   version: number;
   publishedAt: string | null;
@@ -698,6 +703,9 @@ export function normalizeFieldApp(raw: unknown, entityTitle: string): FieldAppCo
     experience: normalizeFieldExperience(config.experience),
     stages,
     sections,
+    pixelLogic: config.pixelLogic && typeof config.pixelLogic === "object" && !Array.isArray(config.pixelLogic)
+      ? normalizePixelLogicProgram(config.pixelLogic, `${entityTitle} Field Pixel Logic`)
+      : null,
     version: clampInt(config.version, 0, 1_000_000, 0),
     publishedAt: text(config.publishedAt, 40) || null,
     publishedBy: text(config.publishedBy, 120) || null,
@@ -853,6 +861,10 @@ export function checkFieldApp(config: FieldAppConfig): ConfigProblem[] {
 
   if (config.followUpField && !seenFields.has(config.followUpField)) {
     add("followUpField", "The follow-up date points at a question that doesn't exist.");
+  }
+
+  for (const message of validateFieldPixelLogic(config.pixelLogic ?? null, config.stages)) {
+    add("pixelLogic", message);
   }
 
   return problems;

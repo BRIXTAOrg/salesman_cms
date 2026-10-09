@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 
-import { hasPermission, withTenantDb } from "@/lib/auth";
+import { withTenantDb } from "@/lib/auth";
+import { canOperation } from "@/lib/operations-permissions";
 import { ensureTenantPlatformVNext } from "@/lib/platform-vnext-db";
 import { users } from "../../../../../../drizzle/schema";
 import { platformAuditEvents } from "../../../../../../drizzle/platformVNextSchema";
@@ -17,7 +18,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_IDS = 1_000;
 
 export const POST = withTenantDb(async (request: NextRequest, db, session) => {
-  if (!hasPermission(session.permissions, ["WRITE", "UPDATE", "ALL_ACCESS"])) {
+  if (!canOperation(session.permissions, "OPS_FIELD_ASSIGN")) {
     return NextResponse.json({ success: false, error: "Permission denied." }, { status: 403 });
   }
   await ensureTenantPlatformVNext(db);
@@ -36,6 +37,17 @@ export const POST = withTenantDb(async (request: NextRequest, db, session) => {
     );
   }
 
+  // BRIXTA_FIELD_OPS_V1: multi-employee distribution is opt-in and
+  // privilege-scoped. Existing single/bulk assignment callers are unchanged.
+  const onlyIfUnassigned = body?.onlyIfUnassigned === true;
+  const expectedTypeId = Number(body?.expectedTypeId);
+  if (onlyIfUnassigned && (
+    !session.permissions.includes("ALL_ACCESS") ||
+    !Number.isSafeInteger(expectedTypeId) || expectedTypeId < 1 ||
+    body?.userId === null || body?.userId === undefined
+  )) {
+    return NextResponse.json({ success: false, error: "Safe distribution requires ALL_ACCESS, an entity list, and an employee." }, { status: 403 });
+  }
   const userId = body?.userId === null || body?.userId === undefined ? null : Number(body.userId);
   let assignee: { userId: number; name: string; at: string; byName: string | null } | null = null;
 
@@ -72,6 +84,10 @@ export const POST = withTenantDb(async (request: NextRequest, db, session) => {
     ? sql`coalesce(data -> '__field', '{}'::jsonb) || jsonb_build_object('assignee', ${JSON.stringify(assignee)}::jsonb)`
     : sql`coalesce(data -> '__field', '{}'::jsonb) - 'assignee'`;
 
+  const safeDistribution = onlyIfUnassigned
+    ? sql`AND entity_type_id = ${expectedTypeId}
+      AND (data -> '__field' -> 'assignee' IS NULL OR data -> '__field' -> 'assignee' = 'null'::jsonb)`
+    : sql``;
   const updated = await db.execute<{ id: string }>(sql`
     UPDATE entity_records
        SET data = jsonb_set(coalesce(data, '{}'::jsonb), '{__field}', ${fieldExpr}, true),
@@ -79,6 +95,7 @@ export const POST = withTenantDb(async (request: NextRequest, db, session) => {
            updated_by_user_id = ${session.userId}
      WHERE id = ANY(${ids}::uuid[])
        AND status = 'active'
+       ${safeDistribution}
     RETURNING id
   `);
 

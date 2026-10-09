@@ -35,6 +35,8 @@ import {
 } from "@/lib/field-app-templates";
 
 import AppExperienceControls from "./app-experience-controls";
+import FieldPixelLogicEditor from "./field-pixel-logic-editor";
+import FieldPublishedPixelLogic from "./field-published-pixel-logic";
 
 import type {
   PlatformEntityField,
@@ -89,6 +91,12 @@ type StoreView = {
     conditional: number;
   } | null;
   draft: Draft | null;
+  history: Array<{
+    version: number;
+    publishedAt: string | null;
+    publishedBy: string | null;
+    note: string | null;
+  }>;
   problems: ConfigProblem[];
 };
 
@@ -430,6 +438,23 @@ export default function AppExperienceBuilder() {
     useState<string | null>(
       null,
     );
+
+  // BRIXTA_FIELD_PROGRESS_MIGRATION_V1
+  const [migrationReport, setMigrationReport] = useState<{
+    entityTypeId: number;
+    publishedVersion: number;
+    candidateVersion: string | number;
+    records: number;
+    recordsWithProgress: number;
+    assignedRecords: number;
+    removedSteps: string[];
+    removedQuestions: string[];
+    note: string;
+  } | null>(null);
+  const [migrationLoading, setMigrationLoading] = useState(false);
+  useEffect(() => {
+    setMigrationReport(null);
+  }, [entityId, config]);
 
   const [
     error,
@@ -1467,6 +1492,43 @@ export default function AppExperienceBuilder() {
     }
   }
 
+  async function restoreExperienceVersion(version: number) {
+    if (!entity || busy !== null) return;
+    if (!window.confirm(
+      `Restore v${version} as an unpublished draft? The live app and all employee answers remain unchanged.`
+    )) return;
+    setError(null);
+    setBusy("save");
+    try {
+      const next = await call<StoreView>(`/api/platform/field-apps/${entity.id}`, {
+        method: "POST",
+        body: JSON.stringify({ action: "restore", version }),
+      });
+      adoptStore(next, entity);
+      setMessage(`Version ${version} restored to draft. Publish separately to activate it. Progress is intact.`);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Restore failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function reviewMigrationImpact() {
+    if (!entity) return;
+    setMigrationLoading(true);
+    setError(null);
+    setMigrationReport(null);
+    try {
+      const report = await call<NonNullable<typeof migrationReport>>(
+        `/api/platform/field-apps/${entity.id}/migration`,
+      );
+      if (report.entityTypeId === entity.id) setMigrationReport(report);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not review migration impact.");
+    } finally {
+      setMigrationLoading(false);
+    }
+  }
 
   async function saveDraft() {
     if (
@@ -1563,6 +1625,28 @@ export default function AppExperienceBuilder() {
       return;
     }
 
+    const oldApp = store?.published;
+    const droppedSteps = oldApp?.sections.filter(
+      (oldSection) => !cleaned.sections.some((next) => next.key === oldSection.key)
+    ) ?? [];
+    const droppedFields = oldApp?.sections.flatMap((section) => section.fields).filter(
+      (oldField) => !cleaned.sections.some(
+        (section) => section.fields.some((field) => field.key === oldField.key)
+      )
+    ) ?? [];
+    const impact = [
+      droppedSteps.length ? `${droppedSteps.length} previous steps will be hidden by this layout.` : "",
+      droppedFields.length ? `${droppedFields.length} captured fields will no longer appear in the edited steps.` : "",
+    ].filter(Boolean).join("\n");
+    if (!window.confirm(
+      "Publish this App Experience?\n\n" +
+      "All previous CRM records, entered answers, evidence, timeline and assignments are KEPT.\n" +
+      "Existing steps and fields removed from the new layout may be hidden until restored.\n" +
+      "Reassignment is managed separately in Data input.\n\n" +
+      impact + "\nContinue?"
+    )) return;
+
+
     setBusy(
       "publish",
     );
@@ -1587,6 +1671,8 @@ export default function AppExperienceBuilder() {
               JSON.stringify({
                 action:
                   "publish",
+                progressPolicy: "preserve",
+                assignmentPolicy: "retain",
                 config:
                   cleaned,
                 revision:
@@ -2711,6 +2797,76 @@ export default function AppExperienceBuilder() {
               </div>
             </Panel>
 
+
+            <Panel>
+              <div className="text-sm font-semibold">Migration impact review</div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Save your draft, then review the impact of the last saved draft before publishing.
+                Unsaved edits are not included. Publishing preserves existing answers and assignments.
+                Any later step restart
+                is deliberate, scoped to one record in Data Input, and audited.
+              </p>
+              <div className="mt-3">
+                <SecondaryButton type="button" disabled={migrationLoading || busy !== null}
+                  onClick={() => void reviewMigrationImpact()}>
+                  {migrationLoading ? "Reviewing…" : "Preview migration impact"}
+                </SecondaryButton>
+              </div>
+              {migrationReport?.entityTypeId === entity.id && (
+                <div className="mt-4 space-y-2 text-xs">
+                  <div>Live version: <b>v{migrationReport.publishedVersion}</b></div>
+                  <div>Records in CRM list: <b>{migrationReport.records.toLocaleString("en-IN")}</b></div>
+                  <div>Records with existing verification progress: <b>{migrationReport.recordsWithProgress.toLocaleString("en-IN")}</b></div>
+                  <div>Assigned records: <b>{migrationReport.assignedRecords.toLocaleString("en-IN")}</b></div>
+                  <div>Steps removed from draft: <b>{migrationReport.removedSteps.join(", ") || "None"}</b></div>
+                  <div>Question keys removed from draft: <b>{migrationReport.removedQuestions.join(", ") || "None"}</b></div>
+                  <p className="text-muted-foreground">{migrationReport.note}</p>
+                </div>
+              )}
+            </Panel>
+
+            {/* BRIXTA_EXPERIENCE_GOVERNANCE_V1 */}
+            <Panel>
+              <div className="text-sm font-semibold">Version history & rollback</div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Restoring a version changes only the draft configuration, not CRM data or employee progress.
+                The last 10 published versions are available for restoration.
+              </p>
+              <div className="mt-4 space-y-2">
+                {store?.history?.length ? store.history.map((entry) => (
+                  <div key={entry.version} className="flex items-center justify-between gap-3 rounded-xl border p-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">
+                        Version {entry.version}{store.published?.version === entry.version ? " · Live" : ""}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {entry.publishedBy ?? "Unknown editor"}
+                        {entry.publishedAt ? ` · ${new Date(entry.publishedAt).toLocaleString()}` : ""}
+                      </div>
+                      {entry.note ? <div className="text-xs text-muted-foreground">{entry.note}</div> : null}
+                    </div>
+                    <SecondaryButton type="button" disabled={busy !== null}
+                      onClick={() => void restoreExperienceVersion(entry.version)}>
+                      Restore as draft
+                    </SecondaryButton>
+                  </div>
+                )) : <p className="text-xs text-muted-foreground">No previous versions yet.</p>}
+              </div>
+            </Panel>
+
+            {/* BRIXTA_FIELD_OPS_V1: actual published config, NOT draft. */}
+            <FieldPublishedPixelLogic
+              value={store?.published?.pixelLogic ?? null}
+              version={store?.published?.version ?? 0}
+            />
+            <FieldPixelLogicEditor
+              value={config.pixelLogic ?? null}
+              stages={config.stages.map((stage) => ({ key: stage.key, label: stage.label }))}
+              fields={config.sections.flatMap((section) => section.fields
+                .filter((field) => field.type !== "note" && field.type !== "calculated")
+                .map((field) => ({ key: field.key, label: field.label })))}
+              onChange={(pixelLogic) => setConfig((current) => current ? { ...current, pixelLogic } : current)}
+            />
 
             {/* =====================================================
                 VALIDATION + PUBLISH

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
-import { hasPermission, withTenantDb, type AppDatabase, type Session } from "@/lib/auth";
+import { withTenantDb, type AppDatabase, type Session } from "@/lib/auth";
+import { canOperation } from "@/lib/operations-permissions";
 import {
   FIELD_APP_CONTRACT_VERSION,
   checkFieldApp,
@@ -40,8 +41,7 @@ import {
 type Context = { params: Promise<{ id: string }> };
 type EntityRow = typeof entityTypes.$inferSelect;
 
-const READ = ["READ", "WRITE", "UPDATE", "ALL_ACCESS"];
-const WRITE = ["WRITE", "UPDATE", "ALL_ACCESS"];
+/* Operation permissions are enforced via canOperation with live tenant grants. */
 
 function fail(status: number, error: string, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ success: false, error, ...extra }, { status });
@@ -121,7 +121,7 @@ function withoutDraft(config: Record<string, unknown>) {
 }
 
 export const GET = withTenantDb<Context>(async (_request: NextRequest, db, session, context) => {
-  if (!hasPermission(session.permissions, READ)) return fail(403, "Permission denied.");
+  if (!canOperation(session.permissions, "OPS_EXPERIENCE_VIEW")) return fail(403, "Permission denied.");
   await ensureTenantPlatformVNext(db);
   const id = entityId((await context.params).id);
   if (!id) return fail(400, "Invalid list id.");
@@ -131,7 +131,7 @@ export const GET = withTenantDb<Context>(async (_request: NextRequest, db, sessi
 });
 
 export const PUT = withTenantDb<Context>(async (request: NextRequest, db, session, context) => {
-  if (!hasPermission(session.permissions, WRITE)) return fail(403, "Permission denied.");
+  if (!canOperation(session.permissions, "OPS_EXPERIENCE_EDIT")) return fail(403, "Permission denied.");
   await ensureTenantPlatformVNext(db);
   const id = entityId((await context.params).id);
   if (!id) return fail(400, "Invalid list id.");
@@ -173,13 +173,13 @@ export const PUT = withTenantDb<Context>(async (request: NextRequest, db, sessio
 });
 
 export const POST = withTenantDb<Context>(async (request: NextRequest, db, session, context) => {
-  if (!hasPermission(session.permissions, WRITE)) return fail(403, "Permission denied.");
+  const body = await request.json().catch(() => null);
+  const action = String(body?.action ?? "");
+  const requiredOperation = action === "publish" ? "OPS_EXPERIENCE_PUBLISH" : "OPS_EXPERIENCE_EDIT";
+  if (!canOperation(session.permissions, requiredOperation)) return fail(403, "Permission denied for this App Experience action.");
   await ensureTenantPlatformVNext(db);
   const id = entityId((await context.params).id);
   if (!id) return fail(400, "Invalid list id.");
-
-  const body = await request.json().catch(() => null);
-  const action = String(body?.action ?? "");
 
   const row = await loadRow(db, id, true);
   if (!row) return fail(404, "List not found.");
@@ -207,10 +207,30 @@ export const POST = withTenantDb<Context>(async (request: NextRequest, db, sessi
       .set({ config: { ...stored, fieldAppDraft: draft }, updatedAt: now })
       .where(eq(entityTypes.id, id))
       .returning();
+    await db.insert(platformAuditEvents).values({
+      actorUserId: session.userId,
+      eventType: "field_app.restored_as_draft",
+      subjectType: "entity_type",
+      subjectId: String(id),
+      payload: {
+        title: `Version ${version} restored as draft`,
+        version,
+        liveVersion: store.published?.version ?? null,
+        byName: actorOf(session),
+        progressPolicy: "preserve",
+      },
+    });
     return NextResponse.json(view(updated ?? row));
   }
 
   if (action !== "publish") return fail(400, "Unknown action.");
+
+  // BRIXTA_EXPERIENCE_GOVERNANCE_V1: no silent progress or assignment reset.
+  if (body?.progressPolicy !== "preserve" || body?.assignmentPolicy !== "retain") {
+    return fail(422,
+      "Confirm preserving existing employee progress and assignments before publishing.",
+      { code: "EXPERIENCE_PRESERVATION_REQUIRED" });
+  }
 
   // Publish either the stored draft or a config sent with the request.
   let source: FieldAppConfig | null = null;
@@ -297,6 +317,9 @@ export const POST = withTenantDb<Context>(async (request: NextRequest, db, sessi
         ? `Field app v${version} published`
         : `Field app v${version} published (hidden from phones)`,
       version,
+      previousVersion: store.published?.version ?? null,
+      progressPolicy: "preserve",
+      assignmentPolicy: "retain",
       note,
       enabled: published.enabled,
       steps: summary?.steps ?? 0,

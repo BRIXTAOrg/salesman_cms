@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, asc, eq, sql } from "drizzle-orm";
 
-import { hasPermission, withTenantDb } from "@/lib/auth";
+import { withTenantDb } from "@/lib/auth";
+import { canOperation } from "@/lib/operations-permissions";
 import { matchesFieldLens } from "@/lib/field-app-contract";
 import {
   displayOf,
@@ -21,12 +22,17 @@ import {
 const MAX_ROWS = 20_000;
 
 export const GET = withTenantDb(async (request: NextRequest, db, session) => {
-  if (!hasPermission(session.permissions, ["READ", "WRITE", "UPDATE", "ALL_ACCESS"])) {
+  if (!canOperation(session.permissions, "OPS_FIELD_VIEW")) {
     return NextResponse.json({ success: false, error: "Permission denied." }, { status: 403 });
   }
 
   await ensureTenantPlatformVNext(db);
   const params = request.nextUrl.searchParams;
+  // BRIXTA_FIELD_OPS_V1: exporting all filtered rows is privileged.
+  const exportMode = params.get("export") === "1";
+  if (exportMode && !session.permissions.includes("ALL_ACCESS")) {
+    return NextResponse.json({ success: false, error: "Export requires ALL_ACCESS." }, { status: 403 });
+  }
 
   const types = await db
     .select()
@@ -77,6 +83,10 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
     .where(and(eq(entityRecords.entityTypeId, type.id), eq(entityRecords.status, "active")))
     .limit(MAX_ROWS);
 
+  // Never silently download incomplete exports at the server's row cap.
+  if (exportMode && records.length >= MAX_ROWS) {
+    return NextResponse.json({ success: false, error: "Export exceeds the 20,000-row safety limit. Narrow your filters or contact support." }, { status: 413 });
+  }
   const q = (params.get("q") ?? "").trim().toLowerCase().slice(0, 80);
   const stages = new Set(
     (params.get("stage") ?? "").split(",").map((value) => value.trim()).filter(Boolean),
@@ -181,7 +191,7 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
         .filter((lens): lens is NonNullable<typeof lens> => Boolean(lens))
         .map((lens) => ({ key: lens.key, label: lens.label })),
     },
-    rows: rows.slice((page - 1) * pageSize, page * pageSize),
+    rows: exportMode ? rows : rows.slice((page - 1) * pageSize, page * pageSize),
     total: rows.length,
     listTotal: records.length,
     page,

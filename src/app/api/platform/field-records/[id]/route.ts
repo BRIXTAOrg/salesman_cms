@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
-import { hasPermission, withTenantDb } from "@/lib/auth";
-import { answerText } from "@/lib/field-app-contract";
+import { withTenantDb } from "@/lib/auth";
+import { canOperation } from "@/lib/operations-permissions";
+import { answerText, readFieldAppConfig } from "@/lib/field-app-contract";
 import {
   displayOf,
   fieldStateOf,
@@ -12,10 +13,12 @@ import {
 } from "@/lib/field-records";
 import { ensureTenantPlatformVNext } from "@/lib/platform-vnext-db";
 import { users } from "../../../../../../drizzle/schema";
+import { workItems } from "../../../../../../drizzle/applianceSchema";
 import {
   entityRecords,
   entityTypes,
   platformAuditEvents,
+  recordLinks,
 } from "../../../../../../drizzle/platformVNextSchema";
 
 /* BRIXTA_FIELD_APP_V1 — one field record: answers, import data, history. */
@@ -25,7 +28,7 @@ type Context = { params: Promise<{ id: string }> };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const GET = withTenantDb<Context>(async (_request: NextRequest, db, session, context) => {
-  if (!hasPermission(session.permissions, ["READ", "WRITE", "UPDATE", "ALL_ACCESS"])) {
+  if (!canOperation(session.permissions, "OPS_FIELD_VIEW")) {
     return NextResponse.json({ success: false, error: "Permission denied." }, { status: 403 });
   }
   await ensureTenantPlatformVNext(db);
@@ -112,6 +115,9 @@ export const GET = withTenantDb<Context>(async (_request: NextRequest, db, sessi
           : String(payload.title ?? event.eventType),
       detail: [
         stageChanged ? `Now: ${String(payload.stageLabel)}` : "",
+        event.eventType === "field.responsibility_handed_over"
+          ? `From employee ${String(payload.previousAssigneeUserId ?? "?")} to ${String(payload.assigneeName ?? payload.assigneeUserId ?? "?")}. Reason: ${String(payload.reason ?? "not supplied")}`
+          : "",
         ...changes.slice(0, 4).map((change) => `${String(change.label)}: ${String(change.to || "cleared")}`),
       ]
         .filter(Boolean)
@@ -135,6 +141,49 @@ export const GET = withTenantDb<Context>(async (_request: NextRequest, db, sessi
     }
   }
 
+  // BRIXTA_LINKED_RESPONSIBILITY_DETAIL_V1
+  // Record links reference the original CRM record, not a duplicate copy.
+  const linkedRows = await db
+    .select()
+    .from(recordLinks)
+    .where(and(
+      eq(recordLinks.fromRecordId, record.id),
+      eq(recordLinks.relationKey, "responsibility_record"),
+    ))
+    .orderBy(desc(recordLinks.createdAt))
+    .limit(50);
+
+  const linkedWorkItemIds = linkedRows
+    .map((link) => (link.metadata as Record<string, unknown> | null)?.workItemId)
+    .filter((id): id is string => typeof id === "string" && UUID.test(id));
+  const currentWorkItems = linkedWorkItemIds.length
+    ? await db.select({
+        id: workItems.id,
+        status: workItems.status,
+        assigneeUserId: workItems.assigneeUserId,
+      }).from(workItems).where(inArray(workItems.id, linkedWorkItemIds))
+    : [];
+  const workById = new Map(currentWorkItems.map((work) => [work.id, work]));
+
+  const linkedResponsibilities = linkedRows.map((link) => {
+    const metadata = (link.metadata ?? {}) as Record<string, unknown>;
+    return {
+      id: link.id,
+      responsibilityKey: link.targetSourceKey.startsWith("responsibility:")
+        ? link.targetSourceKey.slice("responsibility:".length)
+        : link.targetSourceKey,
+      recordId: link.targetRecordId,
+      workItemId: typeof metadata.workItemId === "string" ? metadata.workItemId : null,
+      assigneeUserId: typeof metadata.workItemId === "string"
+        ? workById.get(metadata.workItemId)?.assigneeUserId ?? null
+        : null,
+      status: typeof metadata.workItemId === "string"
+        ? workById.get(metadata.workItemId)?.status ?? "unavailable"
+        : "unavailable",
+      createdAt: new Date(link.createdAt).toISOString(),
+    };
+  });
+
   const location = config.locationField ? pointOf(data[config.locationField]) : null;
 
   return NextResponse.json({
@@ -143,6 +192,9 @@ export const GET = withTenantDb<Context>(async (_request: NextRequest, db, sessi
       id: record.id,
       key: record.externalKey,
       listTitle: config.title,
+      fieldAppVersion: readFieldAppConfig(type.config, type.title)?.version ?? 0,
+      completedStepKeys: Object.keys(state.sections).sort(),
+      entityTypeKey: type.key,
       title: (config.titleField ? displayOf(data[config.titleField]) : "") || record.externalKey || "Untitled",
       subtitle: config.subtitleFields.map((field) => displayOf(data[field])).filter(Boolean),
       stage: stage.key,
@@ -157,6 +209,7 @@ export const GET = withTenantDb<Context>(async (_request: NextRequest, db, sessi
       steps,
       info,
       timeline,
+      linkedResponsibilities,
     },
   });
 });

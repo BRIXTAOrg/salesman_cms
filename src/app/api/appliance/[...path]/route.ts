@@ -5,6 +5,7 @@ import {
   NextResponse,
 } from "next/server";
 
+import { canOperation, type OperationKey } from "@/lib/operations-permissions";
 import {
   applianceBackendFetch,
   forwardBackendJson,
@@ -102,6 +103,24 @@ async function proxy(
   }
 
   const { path } = await context.params;
+
+  // BRIXTA_OPERATION_PERMISSIONS_V1. Gate the trusted backend proxy BEFORE
+  // it receives the service token; callers cannot bypass this with UI state.
+  const operation: OperationKey | null =
+    request.method === "POST" && path[0] === "work-items" &&
+    path.length === 3 && path[2] === "handover"
+      ? "OPS_WORK_HANDOVER"
+      : request.method === "POST" && path[0] === "work-items" && path.length === 1
+        ? "OPS_WORK_CREATE"
+        : request.method === "PATCH" && path[0] === "records" && path.length === 2
+          ? "OPS_RESPONSIBILITY_EDIT"
+          : null;
+  if (operation && !canOperation(auth.session.permissions, operation)) {
+    return NextResponse.json(
+      { success: false, code: "OPERATION_PERMISSION_REQUIRED", error: "Your role does not allow this operation." },
+      { status: 403 },
+    );
+  }
 
   const blocked = await entitlementGuard(
     auth.session.schemaName,

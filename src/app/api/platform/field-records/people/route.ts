@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, asc, eq } from "drizzle-orm";
 
-import { hasPermission, withTenantDb } from "@/lib/auth";
+import { withTenantDb } from "@/lib/auth";
+import { canOperation } from "@/lib/operations-permissions";
 import { users } from "../../../../../../drizzle/schema";
 
 /* BRIXTA_FIELD_APP_V1 — field executives who can receive assignments. */
 
 export const GET = withTenantDb(async (_request: NextRequest, db, session) => {
-  if (!hasPermission(session.permissions, ["READ", "WRITE", "UPDATE", "ALL_ACCESS"])) {
+  if (!canOperation(session.permissions, "OPS_FIELD_VIEW")) {
     return NextResponse.json({ success: false, error: "Permission denied." }, { status: 403 });
   }
 

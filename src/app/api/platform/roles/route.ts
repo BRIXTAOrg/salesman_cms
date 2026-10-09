@@ -24,6 +24,11 @@ export const POST = withTenantDb(async (request: NextRequest, db, session) => {
   }
 
   const body = await request.json().catch(() => null);
+  const requested = Array.isArray(body?.grantedPerms) ? body.grantedPerms.map(String) : [];
+  if (!session.permissions.includes("ALL_ACCESS") &&
+      requested.some((token: string) => token === "ALL_ACCESS" || token.startsWith("OPS_"))) {
+    return NextResponse.json({ success: false, error: "Only an ALL_ACCESS administrator can grant operational or full-access privileges." }, { status: 403 });
+  }
   const name = String(body?.name ?? "").trim();
 
   if (!name) {

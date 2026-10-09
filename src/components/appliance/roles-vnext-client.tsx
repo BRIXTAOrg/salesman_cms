@@ -25,6 +25,7 @@ import type {
 import { BASE_ROLE_CAPABILITIES } from "@/lib/roles/role-context-types";
 import { BUILDER_CAPABILITY_CATALOG } from "@/lib/roles/builder-capability-catalog";
 
+import { OPERATION_PERMISSION_CATALOG, OPS_GRANULAR } from "@/lib/operations-permissions";
 import { apiJson, cx } from "./client";
 import {
   EmptyState,
@@ -59,11 +60,20 @@ export default function RolesVNextClient() {
   const [contextLoading, setContextLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  // BRIXTA_ROLE_OPERATIONS_UI_V1: grants are stored in roles.grantedPerms.
+  const [granularOn, setGranularOn] = useState(false);
+  const [operationalGrants, setOperationalGrants] = useState<string[]>([]);
 
   const selectedRole = useMemo(
     () => roles.find((item) => item.id === selectedRoleId) ?? null,
     [roles, selectedRoleId],
   );
+
+  useEffect(() => {
+    const perms = selectedRole?.grantedPerms ?? [];
+    setGranularOn(perms.includes(OPS_GRANULAR));
+    setOperationalGrants(perms.filter((key) => key.startsWith("OPS_") && key !== OPS_GRANULAR));
+  }, [selectedRole]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -151,6 +161,33 @@ export default function RolesVNextClient() {
       setMessage(
         error instanceof Error ? error.message : "Unable to save Role Context.",
       );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveOperationalAccess() {
+    if (!selectedRole) return;
+    const original = selectedRole.grantedPerms ?? [];
+    const other = original.filter((token) => !token.startsWith("OPS_"));
+    const next = [...other, ...(granularOn ? [OPS_GRANULAR, ...operationalGrants] : [])];
+    if (!window.confirm(
+      `Update operational permissions for ${selectedRole.label}?\n\n` +
+      (granularOn
+        ? "The selected actions will be enforced on the next server request."
+        : "Legacy READ/WRITE/UPDATE permissions will remain in effect.")
+    )) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      await apiJson(`/api/platform/roles/${selectedRole.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ grantedPerms: [...new Set(next)] }),
+      });
+      await load();
+      setMessage("Operational permissions saved. Server enforcement is active for the selected Role.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save operational permissions.");
     } finally {
       setSaving(false);
     }
@@ -392,6 +429,56 @@ export default function RolesVNextClient() {
                       </div>
                     </div>
                   </div>
+                </Panel>
+              )}
+
+              {tab === "basics" && (
+                <Panel>
+                  <div className="font-semibold">Operational permissions</div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Opt in to enforce separate access for CRM, publishing and Responsibility work.
+                    Until enabled, this Role retains its existing READ/WRITE/UPDATE behavior.
+                    Users with ALL_ACCESS always retain full access.
+                  </p>
+                  <label className="mt-4 flex items-center gap-2 rounded-lg border p-3 text-sm font-medium">
+                    <input
+                      type="checkbox"
+                      checked={granularOn}
+                      disabled={saving}
+                      onChange={(event) => setGranularOn(event.target.checked)}
+                    />
+                    Enforce granular operations for this Role
+                  </label>
+                  {granularOn && (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {OPERATION_PERMISSION_CATALOG.map(({ key, label, description }) => (
+                        <label key={key} className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={operationalGrants.includes(key)}
+                            disabled={saving}
+                            onChange={(event) => setOperationalGrants((current) =>
+                              event.target.checked
+                                ? [...new Set([...current, key])]
+                                : current.filter((entry) => entry !== key))}
+                          />
+                          <span>
+                            <span className="block font-medium">{label}</span>
+                            <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="mt-4 rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+                    disabled={saving}
+                    onClick={() => void saveOperationalAccess()}
+                  >
+                    Save operational permissions
+                  </button>
                 </Panel>
               )}
 
