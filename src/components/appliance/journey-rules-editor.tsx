@@ -49,6 +49,37 @@ export default function JourneyRulesEditor({ value, stages, onChange }: Props) {
           <input className={input} type="number" min="1" max="100" value={rules.radiusKm} onChange={e => change({ radiusKm: Math.max(1, Math.min(100, Number(e.target.value) || 1)) })} />
         </label>
       </div>
+      {/* BRIXTA_PJP_EXPERIENCE_V5: versioned Home art direction. */}
+      <div className="space-y-4 rounded-xl border bg-muted/20 p-4">
+        <div>
+          <div className="text-sm font-semibold">Mobile Home · visual identity</div>
+          <p className="mt-1 text-xs text-muted-foreground">These are real configuration fields. Save and publish this App Experience, then publish a NEW PJP to copy the design into its employee-specific plan. Earlier plans remain unchanged.</p>
+        </div>
+        <label className="block space-y-1 text-xs">Home hero style
+          <select className={input} value={rules.homeHeroStyle} onChange={e => change({ homeHeroStyle: e.target.value === "ink" ? "ink" : e.target.value === "minimal" ? "minimal" : "aurora" })}>
+            <option value="aurora">Aurora · blue / ember / dark ink</option>
+            <option value="ink">Ink · architectural charcoal</option>
+            <option value="minimal">Editorial · clean white</option>
+          </select>
+        </label>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="space-y-1 text-xs">Hero eyebrow
+            <input className={input} maxLength={45} value={rules.homeHeroEyebrow} onChange={e => change({ homeHeroEyebrow: e.target.value })} />
+          </label>
+          <label className="space-y-1 text-xs">Hero supporting line
+            <input className={input} maxLength={110} value={rules.homeHeroSubline} onChange={e => change({ homeHeroSubline: e.target.value })} />
+          </label>
+        </div>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={rules.homeShowNextStop} onChange={e => change({ homeShowNextStop: e.target.checked })} />Feature the next incomplete PJP stop in the Home hero</label>
+        <div aria-label="Home appearance preview" className={`relative overflow-hidden rounded-[26px] border p-6 ${rules.homeHeroStyle === "minimal" ? "bg-white text-[#202624]" : "text-white"}`}
+          style={rules.homeHeroStyle === "aurora" ? { background: "radial-gradient(ellipse at 65% 48%, #f1ab6d 0%, #e57f53 28%, transparent 62%), linear-gradient(155deg, #a6cce2 0%, #8097a8 45%, #20272b 100%)" } : rules.homeHeroStyle === "ink" ? { background: "linear-gradient(135deg, #374e4a, #172523 80%)" } : undefined}>
+          <div className="text-[10px] font-semibold uppercase tracking-[.25em]">{rules.homeHeroEyebrow || "YOUR DAY, YOUR ROUTE"}</div>
+          <div className="mt-14 text-[11px] uppercase tracking-[.12em]">{rules.homeGreetingStyle === "hello" ? "Hello" : "Good morning"}</div>
+          <div className="mt-2 text-3xl font-bold tracking-tight">Employee name.</div>
+          <div className="mt-2 text-sm opacity-90">{rules.homeHeroSubline}</div>
+          {rules.homeShowNextStop && <div className="mt-9 rounded-xl border border-current/20 bg-black/15 px-4 py-3 text-sm">Next stop · CRM site / scheduled task</div>}
+        </div>
+      </div>
       <fieldset className="space-y-2 rounded-lg border p-3">
         <legend className="px-2 text-sm font-semibold">Eligible CRM stages</legend>
         <p className="text-xs text-muted-foreground">Select none to allow any current stage. A published stage rule is enforced by the server when dispatching new plans.</p>

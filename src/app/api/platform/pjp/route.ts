@@ -119,6 +119,10 @@ export const POST = withTenantDb(async (request: NextRequest, db, session) => {
     homeGreetingStyle: journeyRules?.homeGreetingStyle ?? "time_of_day",
     workTasksEnabled: journeyRules?.workTasksEnabled ?? true,
     workTasksTitle: journeyRules?.workTasksTitle ?? "Your scheduled tasks",
+    homeHeroStyle: journeyRules?.homeHeroStyle ?? "aurora",
+    homeHeroEyebrow: journeyRules?.homeHeroEyebrow ?? "YOUR DAY, YOUR ROUTE",
+    homeHeroSubline: journeyRules?.homeHeroSubline ?? "A good day starts with a clear plan.",
+    homeShowNextStop: journeyRules?.homeShowNextStop ?? true,
     publishedAt: now.toISOString(), publishedBy: session.userId };
   await db.update(platformMeta).set({ value: plan, updatedAt: now }).where(eq(platformMeta.key, key));
   await db.insert(platformAuditEvents).values({
