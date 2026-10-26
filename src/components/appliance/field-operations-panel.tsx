@@ -12,7 +12,7 @@ type Lead = { id: string; key: string | null; title: string; subtitle: string[];
 type Person = { id: number; name: string; area: string | null };
 type Presence = { cmsViewers: number; cmsWorking: number; mobileRecentlyConnectedTenantWide: number;
   scope: string; people: Array<{ name: string; mode: string }> };
-type Props = { listId: number; listName: string; filters: { q: string; stage: string; lens: string; sort: string; assignee: string };
+type Props = { listId: number; listName: string; filters: { q: string; stage: string; lens: string; sort: string; assignee: string; verified: boolean; worked: boolean; recent: boolean };
   people: Person[]; onChanged: () => Promise<void> };
 
 function csvEscape(value: unknown) {
@@ -52,6 +52,7 @@ export default function FieldOperationsPanel({ listId, listName, filters, people
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [ruleMessage, setRuleMessage] = useState("");
+  const [logicRefreshing, setLogicRefreshing] = useState(false);
   const tab = useRef("");
   const [working, setWorking] = useState(false);
   if (!tab.current && typeof window !== "undefined") tab.current = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2,16)}`;
@@ -88,14 +89,50 @@ export default function FieldOperationsPanel({ listId, listName, filters, people
     if (filters.stage) params.set("stage", filters.stage);
     if (filters.lens) params.set("lens", filters.lens);
     if (filters.assignee) params.set("assignee", filters.assignee);
+    if (filters.verified) params.set("verified", "1");
+    if (filters.worked) params.set("worked", "1");
+    if (filters.recent) params.set("recent", "7");
     return params.toString();
-  }, [listId, filters.q, filters.stage, filters.lens, filters.sort, filters.assignee]);
+  }, [listId, filters.q, filters.stage, filters.lens, filters.sort, filters.assignee, filters.verified, filters.worked, filters.recent]);
 
   const fetchRows = useCallback(async (unassignedOnly: boolean): Promise<{ rows: Lead[]; total: number; list: { tableFields: Array<{ key: string; label: string }> } }> => {
     const qs = new URLSearchParams(queryString);
     if (unassignedOnly) qs.set("assignee", "none");
     return apiJson(`/api/platform/field-records?${qs.toString()}`);
   }, [queryString]);
+
+  // BRIXTA_DATA_INPUT_REFUEL_20261025 — server XLSX embeds approved stored media.
+  async function exportXlsx() {
+    setBusy(true); setStatus(""); setWorking(true);
+    try {
+      const qs = new URLSearchParams(queryString);
+      const response = await fetch(`/api/platform/field-records/xlsx?${qs.toString()}`, { credentials: "same-origin" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? `XLSX export failed (${response.status}).`);
+      }
+      const blob = await response.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = `brixta-${listName.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0,35)}-${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(href), 2500);
+      setStatus("XLSX exported with current CRM fields, exact saved state, photo links and embedded eligible images. Nothing changed in the database.");
+    } catch (error) { setStatus(error instanceof Error ? error.message : "Could not export XLSX."); }
+    finally { setBusy(false); setWorking(false); }
+  }
+
+  async function refreshLogic() {
+    setLogicRefreshing(true);
+    try {
+      const result = await apiJson<{ published: { version: number; pixelLogic?: PixelLogicProgram | null } | null }>(`/api/platform/field-apps/${listId}`);
+      setPublished(result.published?.pixelLogic ?? null);
+      setPublishedVersion(result.published?.version ?? 0);
+      setRuleMessage("");
+    } catch (error) { setRuleMessage(error instanceof Error ? error.message : "Could not refresh live logic."); }
+    finally { setLogicRefreshing(false); }
+  }
 
   async function exportLeads() {
     setBusy(true); setStatus(""); setWorking(true);
@@ -168,17 +205,27 @@ export default function FieldOperationsPanel({ listId, listName, filters, people
 
   return (
     <div className="space-y-4">
-      <FieldPublishedPixelLogic value={published} version={publishedVersion} title="Current live Pixel Logic for this CRM list" />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold">Live Pixel Logic</h3>
+          <p className="text-xs text-muted-foreground">Published App Experience is authoritative. Draft rules never run until published.</p>
+        </div>
+        <div className="flex gap-3 text-xs">
+          <button type="button" onClick={() => void refreshLogic()} disabled={logicRefreshing} className="rounded-lg border px-3 py-2 disabled:opacity-50">{logicRefreshing ? "Loading…" : "Refresh live graph"}</button>
+          <a href="/dashboard/workspace/app-experiences" className="rounded-lg border px-3 py-2 font-medium text-primary">Edit in App experiences</a>
+        </div>
+      </div>
+      <FieldPublishedPixelLogic value={published} version={publishedVersion} title="Current published graph" />
       {ruleMessage && <p role="alert" className="text-xs text-red-700">{ruleMessage}</p>}
       <section className="rounded-xl border bg-card p-4 space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-semibold text-sm">Who is here right now?</h3>
-          <span className="text-xs text-muted-foreground">Refreshes every 30 seconds</span>
+          <h3 className="font-semibold text-sm">Access activity · currently connected</h3>
+          <span className="text-xs text-muted-foreground">Best-effort presence · refreshes every 30 seconds</span>
         </div>
         <div className="grid gap-2 sm:grid-cols-3 text-sm">
-          <div className="rounded-lg border p-3"><strong>{presence?.cmsViewers ?? "—"}</strong><p className="text-xs text-muted-foreground">CMS viewers · this list</p></div>
-          <div className="rounded-lg border p-3"><strong>{presence?.cmsWorking ?? "—"}</strong><p className="text-xs text-muted-foreground">CMS users allocating/exporting</p></div>
-          <div className="rounded-lg border p-3"><strong>{presence?.mobileRecentlyConnectedTenantWide ?? "—"}</strong><p className="text-xs text-muted-foreground">Mobile employees active in last 10 min · entire tenant</p></div>
+          <div className="rounded-lg border bg-muted/10 p-3"><strong className="text-2xl">{presence?.cmsViewers ?? "—"}</strong><p className="text-xs text-muted-foreground">CMS viewers · this list, this server</p></div>
+          <div className="rounded-lg border bg-muted/10 p-3"><strong className="text-2xl">{presence?.cmsWorking ?? "—"}</strong><p className="text-xs text-muted-foreground">CMS users allocating/exporting</p></div>
+          <div className="rounded-lg border bg-muted/10 p-3"><strong className="text-2xl">{presence?.mobileRecentlyConnectedTenantWide ?? "—"}</strong><p className="text-xs text-muted-foreground">Recent mobile activity · entire tenant, not this list</p></div>
         </div>
         <p className="text-xs text-muted-foreground">CMS presence covers this server process only (90-second timeout); other servers are not included. Mobile count comes from existing device activity and does not mean phones are viewing this specific list.</p>
         {!!presence?.people.length && <p className="text-xs text-muted-foreground">CMS: {presence.people.map(p => `${p.name} (${p.mode})`).join(", ")}</p>}
@@ -188,7 +235,17 @@ export default function FieldOperationsPanel({ listId, listName, filters, people
           <h3 className="font-semibold text-sm">Export & divide CRM leads</h3>
           <p className="text-xs text-muted-foreground mt-1">The current search, stage, lens and assignee filters apply to downloads. Distribution always targets unassigned leads within the other filters. Export and distribution require ALL_ACCESS.</p>
         </div>
-        <button type="button" disabled={busy} className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50" onClick={() => void exportLeads()}>Download filtered leads (.csv)</button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={busy} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50" onClick={() => void exportXlsx()}>Download XLSX + photo evidence</button>
+          <button type="button" disabled={busy} className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50" onClick={() => void exportLeads()}>Summary CSV</button>
+          <button type="button" disabled={busy} className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50" onClick={async () => {
+            setBusy(true);
+            try { await onChanged(); setStatus("Refueled the list from the latest saved CRM data. Assignments and progress unchanged."); }
+            catch (error) { setStatus(error instanceof Error ? error.message : "Could not reload CRM data."); }
+            finally { setBusy(false); }
+          }}>Refuel saved CRM data</button>
+        </div>
+        <p className="text-xs text-muted-foreground">XLSX includes a Saved state sheet preserving current database answers, field progress and assignments. Missing/ineligible images remain accessible as hyperlinks and are counted in Export notes.</p>
         <div className="border-t pt-3 space-y-3">
           <h4 className="text-sm font-medium">Allocate a segment of unassigned leads</h4>
           <div className="grid gap-3 sm:grid-cols-2">

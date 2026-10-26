@@ -36,6 +36,7 @@ import {
 
 import AppExperienceControls from "./app-experience-controls";
 import FieldPixelLogicEditor from "./field-pixel-logic-editor";
+import JourneyRulesEditor from "./journey-rules-editor";
 import FieldPublishedPixelLogic from "./field-published-pixel-logic";
 
 import type {
@@ -1318,10 +1319,19 @@ export default function AppExperienceBuilder() {
       "- Keep stages generic and operational.",
       "- Do not put Responsibility records into this module; this module stores field answers on the linked CRM entity record.",
       "- Return ONE JSON object only. No markdown fences and no prose.",
+      "- FIELD APP PIXEL LOGIC: You MAY create/modify the top-level pixelLogic graph when the brief requests operational automation.",
+      "- This is Field App Pixel Logic, NOT a Responsibility extension. It runs when a CRM section is saved.",
+      "- Keep existing pixelLogic unchanged when not asked to alter it. Never replace unrelated graph nodes.",
+      "- pixelLogic shape: {version:1,enabled:true,name,metadata:{description},variables:[],nodes:[],edges:[]}.",
+      "- Nodes use {id,type,position:{x,y},config:{...}}; edges use {id,kind,fromNodeId,fromPort,toNodeId,toPort}.",
+      "- Allowed field effects: effect.change_state, effect.append_history, optional effect.trigger_responsibility.",
+      "- Common nodes: event.record.updated, value.ref, value.literal, logic.compare and control.if.",
+      "- change_state config.state must be a published stage key. Never mutate captured history, photos or assignment.",
+      "- Do not trigger legacy Responsibilities unless explicitly requested.",
       "",
       "OUTPUT:",
       "Return a complete FieldAppConfig-shaped object with these top-level keys:",
-      "enabled, template, title, titleField, subtitleFields, priorityField, locationField, followUpField, tableFields, experience, stages, sections.",
+      "enabled, template, title, titleField, subtitleFields, priorityField, locationField, followUpField, tableFields, experience, stages, sections, pixelLogic.",
       "",
       "EXPERIENCE controls the surrounding app UI:",
       "- experience.list.recordScope: all | assigned_to_me",
@@ -2866,6 +2876,13 @@ export default function AppExperienceBuilder() {
                 .filter((field) => field.type !== "note" && field.type !== "calculated")
                 .map((field) => ({ key: field.key, label: field.label })))}
               onChange={(pixelLogic) => setConfig((current) => current ? { ...current, pixelLogic } : current)}
+            />
+
+            {/* BRIXTA_JOURNEY_RULES_V1: inside the same versioned App Experience. */}
+            <JourneyRulesEditor
+              value={config.journeyRules}
+              stages={config.stages.map(s => ({ key: s.key, label: s.label }))}
+              onChange={(journeyRules) => setConfig(current => current ? { ...current, journeyRules } : current)}
             />
 
             {/* =====================================================

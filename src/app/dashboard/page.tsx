@@ -1,6 +1,5 @@
-
-import ControlCenterClient from "@/components/appliance/control-center-client";
+import PjpPlanner from "@/components/appliance/pjp-planner";
 
 export default function DashboardPage() {
-  return <ControlCenterClient />;
+  return <PjpPlanner home />;
 }

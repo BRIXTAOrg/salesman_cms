@@ -74,7 +74,7 @@ function navGroups(
     }
   >,
 ): WorkspaceNavGroup[] {
-  const preferred = ["Overview", "People", "Data input", "QR rewards", "App builder"];
+  const preferred = ["Overview", "Planning", "People", "Data input", "QR rewards", "App builder", "Legacy"];
 
   return [...map.entries()]
     .map(([key, group]) => ({
@@ -299,19 +299,37 @@ export function buildWorkspaceManifest({
         "Build CRM list and record experiences with stages, operational steps and field captures.",
     });
 
-    addNav(nav, "App builder", {
+    addNav(nav, "Legacy", {
       key: "responsibilities",
       label: "Responsibilities",
       href: "/dashboard/workspace/responsibilities",
       icon: "blocks",
       description: "Build the screens and forms your team uses in the app.",
     });
-    addNav(nav, "App builder", {
+    addNav(nav, "Planning", {
       key: "assignments",
-      label: "Assignments",
+      label: "PJP & tasks",
       href: "/dashboard/workspace/assignments",
       icon: "clipboard-list",
-      description: "Choose who gets which responsibility.",
+      description: "Plan site visits and task stops from published CRM data.",
+    });
+  }
+
+
+  if (canManage) {
+    addNav(nav, "Legacy", {
+      key: "legacy_assignment_controls",
+      label: "Legacy assignments",
+      href: "/dashboard/workspace/legacy/assignments",
+      icon: "clipboard-list",
+      description: "Legacy Responsibility and Pixel Logic assignment controls.",
+    });
+    addNav(nav, "Legacy", {
+      key: "legacy_home",
+      label: "Legacy control center",
+      href: "/dashboard/workspace/legacy/overview",
+      icon: "gauge",
+      description: "Original Responsibility-driven dashboard.",
     });
   }
 
@@ -324,7 +342,7 @@ export function buildWorkspaceManifest({
     workflowHasApproval ||
     pendingApprovals > 0
   ) {
-    addNav(nav, "App builder", {
+    addNav(nav, "Legacy", {
       key: "approvals",
       label: pendingApprovals > 0 ? `Approvals (${pendingApprovals})` : "Approvals",
       href: "/dashboard/workspace/approvals",
@@ -333,7 +351,7 @@ export function buildWorkspaceManifest({
     });
   }
 
-  addNav(nav, "App builder", {
+  addNav(nav, "Legacy", {
     key: "all_responsibilities",
     label: "All responsibilities",
     href: "/dashboard/workspace/all-responsibilities",

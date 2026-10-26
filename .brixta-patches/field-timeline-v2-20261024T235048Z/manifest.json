@@ -1,0 +1,14 @@
+{
+  "version": "V2",
+  "timestamp_utc": "20261024T235048Z",
+  "previous_patch": true,
+  "backed_up": [
+    "src/app/api/platform/field-records/route.ts",
+    "src/app/api/platform/field-records/[id]/route.ts",
+    "src/components/appliance/field-records-client.tsx",
+    "src/components/appliance/field-operations-panel.tsx",
+    "src/app/api/platform/field-records/xlsx/route.ts"
+  ],
+  "created": [],
+  "data_safety": "Source changes only; no database reads, writes, imports or migrations."
+}

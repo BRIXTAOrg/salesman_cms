@@ -1,3 +1,5 @@
+import { readFieldAppConfig } from "@/lib/field-app-contract";
+// BRIXTA_SITE_ADMIN_V5
 import { NextRequest, NextResponse } from "next/server";
 import { and, asc, eq, sql } from "drizzle-orm";
 
@@ -28,6 +30,11 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
 
   await ensureTenantPlatformVNext(db);
   const params = request.nextUrl.searchParams;
+  // BRIXTA_FIELD_TIMELINE_FILTER_V2: filter from durable field progress, never inferred from mere imports.
+  const verifiedOnly = params.get("verified") === "1";
+  const workedOnly = params.get("worked") === "1";
+  const recentOnly = params.get("recent") === "7";
+  const recentSince = Date.now() - 7 * 24 * 60 * 60 * 1000;
   // BRIXTA_FIELD_OPS_V1: exporting all filtered rows is privileged.
   const exportMode = params.get("export") === "1";
   if (exportMode && !session.permissions.includes("ALL_ACCESS")) {
@@ -104,12 +111,34 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
     config.experience.list.lenses.map((lens) => [lens.key, 0]),
   );
   let unassigned = 0;
+  let verifiedCount = 0;
+  let workedCount = 0;
+  let recentlyWorkedCount = 0;
+  const verificationSection = config.sections.find(section =>
+    /^(verify|verification)(_|$)/i.test(section.key) || /^verify\b/i.test(section.title));
 
   const rows = [];
   for (const record of records) {
     const data = (record.data ?? {}) as Record<string, unknown>;
     const state = fieldStateOf(data);
+    const rawMeta = data.__field && typeof data.__field === "object" && !Array.isArray(data.__field)
+      ? data.__field as Record<string,unknown> : {};
+    const siteName = typeof rawMeta.siteName === "string" ? rawMeta.siteName : "";
     const stage = stageView(config, state.stage);
+    // Verification is a completed Verify step, NOT any arbitrary change/import.
+    const verifyStep = verificationSection ? state.sections[verificationSection.key] : undefined;
+    const verifiedAt = verifyStep?.completedAt ?? null;
+    const verified = Boolean(verifiedAt);
+    // A worked-on lead has actual field activity, assignment, or progress.
+    // Imported-but-untouched records must never be reported as recent edits.
+    const workedOn = Boolean(state.lastVisitAt || state.assignee ||
+      Object.values(state.sections).some(step => Boolean(step?.completedAt)));
+    const lastSavedAt = record.updatedAt ? new Date(record.updatedAt).toISOString() : null;
+    const recentlyWorked = workedOn && Boolean(lastSavedAt &&
+      Date.parse(lastSavedAt) >= recentSince);
+    if (verified) verifiedCount++;
+    if (workedOn) workedCount++;
+    if (recentlyWorked) recentlyWorkedCount++;
     stageCounts[stage.key] = (stageCounts[stage.key] ?? 0) + 1;
     if (!state.assignee) unassigned += 1;
 
@@ -127,10 +156,13 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
     }
 
     if (stages.size && !stages.has(stage.key)) continue;
+    if (verifiedOnly && !verified) continue;
+    if (workedOnly && !workedOn) continue;
+    if (recentOnly && !recentlyWorked) continue;
     if (assignee === "none" && state.assignee) continue;
     if (assignee && assignee !== "none" && String(state.assignee?.userId ?? "") !== assignee) continue;
 
-    const title =
+    const title = siteName ||
       (config.titleField ? displayOf(data[config.titleField]) : "") || record.externalKey || "Untitled";
     const subtitle = config.subtitleFields.map((field) => displayOf(data[field])).filter(Boolean);
     if (q) {
@@ -158,6 +190,11 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
       ),
       lastVisitAt: state.lastVisitAt,
       lastVisitBy: state.lastVisitBy,
+      verified,
+      verifiedAt,
+      verifiedBy: verifyStep?.byName ?? null,
+      workedOn,
+      recentlyWorked,
       followUpAt: state.followUpAt,
       updatedAt: record.updatedAt ? new Date(record.updatedAt).toISOString() : null,
     });
@@ -185,6 +222,8 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
       stages: config.stages,
       tableFields: config.tableFields,
       hasLocation: Boolean(config.locationField),
+      appVersion: (readFieldAppConfig(type.config, type.title)?.version ?? 0),
+      journeyRules: (readFieldAppConfig(type.config, type.title)?.journeyRules ?? null),
       hasPriority: Boolean(config.priorityField),
       summaryLenses: config.experience.management.summaryLensKeys
         .map((key) => config.experience.list.lenses.find((lens) => lens.key === key))
@@ -198,6 +237,10 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
     pageSize,
     stageCounts,
     lensCounts,
+    verifiedCount,
+    workedCount,
+    recentlyWorkedCount,
+    activityFilter: { verifiedOnly, workedOnly, recentOnly },
     unassigned,
   });
 });

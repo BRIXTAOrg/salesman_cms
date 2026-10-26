@@ -1,0 +1,16 @@
+{
+  "patch": "BRIXTA_DATA_INPUT_REFUEL_20261025",
+  "backup_utc": "20261024T232716Z",
+  "modified_files": [
+    "src/components/appliance/field-records-client.tsx",
+    "src/components/appliance/field-operations-panel.tsx",
+    "src/components/appliance/field-published-pixel-logic.tsx",
+    "src/components/appliance/app-experience-builder.tsx",
+    "src/app/api/platform/field-records/[id]/route.ts"
+  ],
+  "created_files": [
+    "src/app/api/platform/field-records/xlsx/route.ts",
+    "src/app/api/platform/field-records/[id]/media/route.ts"
+  ],
+  "warning": "This backup covers source files only, not the live database. No database was touched."
+}

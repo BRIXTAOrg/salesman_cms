@@ -1,6 +1,5 @@
-
-import AssignmentsClient from "@/components/appliance/assignments-client";
+import PjpPlanner from "@/components/appliance/pjp-planner";
 
 export default function AssignmentsPage() {
-  return <AssignmentsClient />;
+  return <PjpPlanner />;
 }

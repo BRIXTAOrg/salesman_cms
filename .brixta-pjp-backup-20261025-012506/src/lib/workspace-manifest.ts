@@ -1,0 +1,532 @@
+import "server-only";
+
+import type {
+  PlatformRuntime,
+  Responsibility,
+  WorkflowRuntime,
+} from "@/lib/appliance-types";
+import type {
+  WorkspaceFlow,
+  WorkspaceManifest,
+  WorkspaceNavGroup,
+  WorkspaceNavItem,
+} from "@/lib/workspace-types";
+
+import {
+  isQrRewardsEdition,
+} from "@/lib/qr-rewards-edition";
+
+export type WorkspaceIdentity = {
+  userId: number;
+  companyName: string;
+  username: string;
+  email?: string;
+  orgRole?: string;
+  jobRoles?: string[];
+  permissions?: string[];
+};
+
+type BuildWorkspaceInput = {
+  identity: WorkspaceIdentity;
+  responsibilities: Responsibility[];
+  archivedResponsibilities?: Responsibility[];
+  runtime: PlatformRuntime;
+  pendingApprovals?: number;
+};
+
+function keyForGroup(label: string) {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function addNav(
+  map: Map<
+    string,
+    {
+      label: string;
+      items: Map<string, WorkspaceNavItem>;
+    }
+  >,
+  label: string,
+  item: WorkspaceNavItem,
+) {
+  const key = keyForGroup(label);
+  const group = map.get(key) ?? {
+    label,
+    items: new Map<string, WorkspaceNavItem>(),
+  };
+
+  if (!group.items.has(item.key)) {
+    group.items.set(item.key, item);
+  }
+
+  map.set(key, group);
+}
+
+function navGroups(
+  map: Map<
+    string,
+    {
+      label: string;
+      items: Map<string, WorkspaceNavItem>;
+    }
+  >,
+): WorkspaceNavGroup[] {
+  const preferred = ["Overview", "People", "Data input", "QR rewards", "App builder"];
+
+  return [...map.entries()]
+    .map(([key, group]) => ({
+      key,
+      label: group.label,
+      items: [...group.items.values()],
+    }))
+    .sort((a, b) => {
+      const ai = preferred.indexOf(a.label);
+      const bi = preferred.indexOf(b.label);
+
+      if (ai === -1 && bi === -1) {
+        return a.label.localeCompare(b.label);
+      }
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+}
+
+function countState(
+  rows: Array<{
+    status: string;
+    count: number;
+  }>,
+  status: string,
+) {
+  return rows
+    .filter((row) => row.status === status)
+    .reduce((sum, row) => sum + Number(row.count ?? 0), 0);
+}
+
+function emptyStepRuntime() {
+  return {
+    blocked: 0,
+    ready: 0,
+    inProgress: 0,
+    pendingApproval: 0,
+    approved: 0,
+    rejected: 0,
+    completed: 0,
+  };
+}
+
+function mapWorkflow(workflow: WorkflowRuntime): WorkspaceFlow | null {
+  if (!workflow.version) {
+    return null;
+  }
+
+  return {
+    id: workflow.id,
+    key: workflow.key,
+    name: workflow.name,
+    description: workflow.description,
+    versionId: workflow.version.id,
+    version: workflow.version.number,
+    status: "published",
+    runtime: {
+      active: countState(workflow.instances, "active"),
+      completed: countState(workflow.instances, "completed"),
+      rejected: countState(workflow.instances, "rejected"),
+      cancelled: countState(workflow.instances, "cancelled"),
+    },
+    steps: workflow.steps.map((step) => {
+      const runtime = emptyStepRuntime();
+
+      runtime.blocked = countState(step.states, "blocked");
+      runtime.ready = countState(step.states, "ready");
+      runtime.inProgress = countState(step.states, "in_progress");
+      runtime.pendingApproval = countState(step.states, "pending_approval");
+      runtime.approved = countState(step.states, "approved");
+      runtime.rejected = countState(step.states, "rejected");
+      runtime.completed = countState(step.states, "completed");
+
+      return {
+        id: step.id,
+        key: step.stepKey,
+        title: step.title,
+        type: step.stepType,
+        actionKey: step.actionKey,
+        sortOrder: step.sortOrder,
+        prerequisite: null,
+        runtime,
+      };
+    }),
+  };
+}
+
+/**
+ * Convert the backend's canonical Platform Core runtime into the single UI
+ * projection consumed by Sidebar + Control Center.
+ *
+ * There are deliberately no Journey Plan / Dealer / TA-DA / Attendance
+ * branches here. An active Responsibility always resolves to the same generic
+ * work route: /dashboard/work/<responsibility-key>.
+ */
+export function buildWorkspaceManifest({
+  identity,
+  responsibilities,
+  archivedResponsibilities = [],
+  runtime,
+  pendingApprovals = 0,
+}: BuildWorkspaceInput): WorkspaceManifest {
+  const permissions = identity.permissions ?? [];
+  const canManage =
+    permissions.includes("ALL_ACCESS") ||
+    permissions.includes("WRITE") ||
+    permissions.includes("UPDATE");
+
+  const activeResponsibilities = responsibilities.filter(
+    (item) => item.isActive !== false,
+  );
+
+  const workflows = runtime.workflows
+    .map(mapWorkflow)
+    .filter((item): item is WorkspaceFlow => Boolean(item));
+
+  const nav = new Map<
+    string,
+    {
+      label: string;
+      items: Map<string, WorkspaceNavItem>;
+    }
+  >();
+
+  // BRIXTA_CLEAN_UI_V1 — five plain groups, named by what people do:
+  // Overview, People, Data input, QR rewards, App builder.
+
+  // ---- Overview --------------------------------------------------------
+  addNav(nav, "Overview", {
+    key: "control_center",
+    label: "Home",
+    href: "/dashboard",
+    icon: "gauge",
+    description: "What needs attention today.",
+  });
+
+  // ---- People ----------------------------------------------------------
+  if (canManage) {
+    addNav(nav, "People", {
+      key: "employees",
+      label: "Employees",
+      href: "/dashboard/workforce/employees",
+      icon: "users",
+      description: "Add people, set their app login, manager and status.",
+    });
+    addNav(nav, "People", {
+      key: "organization",
+      label: "Organization",
+      href: "/dashboard/workforce/organization",
+      icon: "network",
+      description: "Who reports to whom, and your other companies.",
+    });
+    addNav(nav, "People", {
+      key: "departments",
+      label: "Departments",
+      href: "/dashboard/workforce/departments",
+      icon: "building",
+      description: "Departments and designations.",
+    });
+    addNav(nav, "People", {
+      key: "dashboard_access",
+      label: "Dashboard access",
+      href: "/dashboard/usersAndTeam",
+      icon: "user-cog",
+      description: "Who can sign in to this dashboard.",
+    });
+  }
+
+  // ---- Data input --------------------------------------------------------
+  if (canManage) {
+    addNav(nav, "Data input", {
+      key: "field_work",
+      label: "Data input",
+      href: "/dashboard/field",
+      icon: "map-pin",
+      description: "Assign CRM records and review the data collected by field users.",
+    });
+    addNav(nav, "Data input", {
+      key: "lists",
+      label: "CRM & inputs",
+      href: "/dashboard/lists",
+      icon: "file-chart",
+      description: "Import CRM lists, expose them as searchable form data, and configure extra employee input.",
+    });
+  }
+
+  // ---- QR Rewards Edition ------------------------------------------
+  //
+  // This navigation exists only when this deployment identifies itself as
+  // the specialized QR Voucher Rewards edition.
+  //
+  if (canManage && isQrRewardsEdition()) {
+    addNav(nav, "QR rewards", {
+      key: "qr_rewards_campaigns",
+      label: "Campaigns",
+      href: "/dashboard/qr-rewards/campaigns",
+      icon: "qr-code",
+    });
+    addNav(nav, "QR rewards", {
+      key: "qr_rewards_claims",
+      label: "Claims",
+      href: "/dashboard/qr-rewards/claims",
+      icon: "badge-check",
+    });
+    addNav(nav, "QR rewards", {
+      key: "qr_rewards_generate",
+      label: "Generate batch",
+      href: "/dashboard/qr-rewards/generate",
+      icon: "qr-code",
+    });
+  }
+
+  // ---- App builder -------------------------------------------------
+  if (canManage) {
+    addNav(nav, "App builder", {
+      key: "app_experiences",
+      label: "App experiences",
+      href: "/dashboard/workspace/app-experiences",
+      icon: "smartphone",
+      description:
+        "Build CRM list and record experiences with stages, operational steps and field captures.",
+    });
+
+    addNav(nav, "App builder", {
+      key: "responsibilities",
+      label: "Responsibilities",
+      href: "/dashboard/workspace/responsibilities",
+      icon: "blocks",
+      description: "Build the screens and forms your team uses in the app.",
+    });
+    addNav(nav, "App builder", {
+      key: "assignments",
+      label: "Assignments",
+      href: "/dashboard/workspace/assignments",
+      icon: "clipboard-list",
+      description: "Choose who gets which responsibility.",
+    });
+  }
+
+  const workflowHasApproval = workflows.some((workflow) =>
+    workflow.steps.some((step) => step.type === "approval"),
+  );
+
+  if (
+    canManage ||
+    workflowHasApproval ||
+    pendingApprovals > 0
+  ) {
+    addNav(nav, "App builder", {
+      key: "approvals",
+      label: pendingApprovals > 0 ? `Approvals (${pendingApprovals})` : "Approvals",
+      href: "/dashboard/workspace/approvals",
+      icon: "badge-check",
+      description: "Requests waiting for a decision.",
+    });
+  }
+
+  addNav(nav, "App builder", {
+    key: "all_responsibilities",
+    label: "All responsibilities",
+    href: "/dashboard/workspace/all-responsibilities",
+    icon: "list",
+    description:
+      "See and manage every Responsibility created for this company.",
+  });
+
+  for (const responsibility of activeResponsibilities) {
+    addNav(nav, "App builder", {
+      key: `responsibility:${responsibility.key}`,
+      label: responsibility.title,
+      href: `/dashboard/work/${encodeURIComponent(responsibility.key)}`,
+      icon: responsibility.icon || "blocks",
+      description: responsibility.description,
+      section: "Responsibilities Created",
+    });
+  }
+
+  /*
+   * ARCHIVED RESPONSIBILITIES
+   *
+   * These remain dashboard-visible for historical data access but are not
+   * active work and are never included in employee runtime delivery.
+   */
+  for (const responsibility of archivedResponsibilities) {
+    addNav(nav, "App builder", {
+      key: `archived:${responsibility.key}`,
+
+      label: responsibility.title,
+
+      href: `/dashboard/archive/${encodeURIComponent(responsibility.key)}`,
+
+      icon: "archive",
+
+      description: "Archived Responsibility — historical records only.",
+
+      section: "Archived Responsibilities",
+    });
+  }
+
+  const navigation = navGroups(nav);
+
+  const recordCountByKey = new Map(
+    runtime.responsibilities.map((item) => [
+      item.responsibilityKey,
+      Number(item.count ?? 0),
+    ]),
+  );
+
+  const stats: WorkspaceManifest["controlCenter"]["stats"] = [];
+
+  for (const workflow of workflows) {
+    if (workflow.runtime.active > 0) {
+      stats.push({
+        key: `${workflow.key}:active`,
+        label: `${workflow.name} active`,
+        value: workflow.runtime.active,
+        hint: `${workflow.steps.length} step${workflow.steps.length === 1 ? "" : "s"}`,
+        href: "/dashboard",
+      });
+    }
+
+    const waiting = workflow.steps.reduce(
+      (sum, step) => sum + step.runtime.pendingApproval,
+      0,
+    );
+
+    if (waiting > 0) {
+      stats.push({
+        key: `${workflow.key}:approval`,
+        label: `${workflow.name} awaiting approval`,
+        value: waiting,
+        href: "/dashboard/workspace/approvals",
+      });
+    }
+
+    if (workflow.runtime.completed > 0) {
+      stats.push({
+        key: `${workflow.key}:completed`,
+        label: `${workflow.name} completed`,
+        value: workflow.runtime.completed,
+        href: "/dashboard",
+      });
+    }
+  }
+
+  // Record counts are useful only when something actually exists; zero-value
+  // cards are omitted so the Control Center does not become an empty catalog.
+  for (const responsibility of activeResponsibilities) {
+    const count = recordCountByKey.get(responsibility.key) ?? 0;
+    if (count <= 0) continue;
+
+    stats.push({
+      key: `records:${responsibility.key}`,
+      label: responsibility.title,
+      value: count,
+      hint: "records",
+      href: `/dashboard/work/${encodeURIComponent(responsibility.key)}`,
+    });
+  }
+
+  if (stats.length === 0) {
+    stats.push({
+      key: "active_responsibilities",
+      label: "Active responsibilities",
+      value: activeResponsibilities.length,
+      hint: workflows.length
+        ? `${workflows.length} published workflow${workflows.length === 1 ? "" : "s"}`
+        : "No published workflow yet",
+      href: canManage ? "/dashboard/workspace/responsibilities" : "/dashboard",
+    });
+  }
+
+  const attention: WorkspaceManifest["controlCenter"]["attention"] = [];
+
+  if (pendingApprovals > 0) {
+    attention.push({
+      key: "pending_approvals",
+      severity: "warning",
+      title: `${pendingApprovals} approval${pendingApprovals === 1 ? "" : "s"} waiting for you`,
+      body: "A workflow is waiting for a decision before downstream work can continue.",
+      href: "/dashboard/workspace/approvals",
+    });
+  }
+
+  for (const workflow of workflows) {
+    const blocked = workflow.steps.reduce(
+      (sum, step) => sum + step.runtime.blocked,
+      0,
+    );
+
+    if (blocked > 0) {
+      attention.push({
+        key: `blocked:${workflow.key}`,
+        severity: "warning",
+        title: `${blocked} ${workflow.name} step${blocked === 1 ? "" : "s"} blocked`,
+        body: "A prerequisite or approval is preventing progress.",
+        href: "/dashboard",
+      });
+    }
+  }
+
+  const fieldAppControlItems =
+    navigation.find((group) => group.key === "field_app_control")?.items ?? [];
+
+  const workItems = fieldAppControlItems.filter(
+    (item) => item.section === "Responsibilities Created",
+  );
+
+  const workspaceItems = fieldAppControlItems.filter(
+    (item) => item.key === "approvals",
+  );
+
+  return {
+    generatedAt: new Date().toISOString(),
+    identity: {
+      userId: identity.userId,
+      companyName: identity.companyName,
+      username: identity.username || identity.email || "User",
+      roles: [identity.orgRole, ...(identity.jobRoles ?? [])].filter(
+        (value): value is string => Boolean(value),
+      ),
+      permissions,
+    },
+    navigation,
+    responsibilities: activeResponsibilities.map((responsibility) => ({
+      id: responsibility.id,
+      key: responsibility.key,
+      title: responsibility.title,
+      type: "record" as const,
+      route: `/dashboard/work/${encodeURIComponent(responsibility.key)}`,
+      dependencies: [],
+      definition: responsibility.definition,
+    })),
+    workflows,
+    resources: [],
+    controlCenter: {
+      title:
+        workflows.length === 1
+          ? workflows[0].name
+          : workflows.length > 1
+            ? "Operations"
+            : "Control Center",
+      subtitle:
+        workflows.length > 0
+          ? "Live work and decisions derived from active Responsibilities, employee hierarchy and Kernel logic."
+          : activeResponsibilities.length > 0
+            ? "Active Responsibilities are ready. Use Kernel states, actors and Pixel Logic for new sequencing and approval behavior."
+            : "Create a Responsibility to define the first piece of work in this company.",
+      stats: stats.slice(0, 8),
+      attention,
+      quickActions: [...workItems, ...workspaceItems].slice(0, 6),
+    },
+  };
+}

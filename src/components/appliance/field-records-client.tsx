@@ -1,3 +1,4 @@
+// BRIXTA_SITE_ADMIN_V5
 "use client";
 
 import {
@@ -8,6 +9,7 @@ import {
   ExternalLink,
   Loader2,
   MapPin,
+  Download,
   RefreshCw,
   Search,
   Users,
@@ -17,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiJson, cx } from "./client";
 import FieldOperationsPanel from "./field-operations-panel";
+import FieldAdminCorrection from "./field-admin-correction";
 import {
   EmptyState,
   PageIntro,
@@ -49,6 +52,11 @@ type Row = {
   values: Record<string, string>;
   lastVisitAt: string | null;
   lastVisitBy: string | null;
+  verified: boolean;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+  workedOn: boolean;
+  recentlyWorked: boolean;
   followUpAt: string | null;
   updatedAt: string | null;
 };
@@ -72,6 +80,9 @@ type ListResponse = {
   pageSize?: number;
   stageCounts?: Record<string, number>;
   lensCounts?: Record<string, number>;
+  verifiedCount?: number;
+  workedCount?: number;
+  recentlyWorkedCount?: number;
   unassigned?: number;
 };
 
@@ -84,6 +95,11 @@ type Detail = {
   fieldAppVersion: number;
   completedStepKeys: string[];
   entityTypeKey: string;
+  siteName: string;
+  originalKey: string | null;
+  canEditRecord: boolean;
+  editVersion: string | null;
+  editableFields: Array<{key:string;label:string;type:"text"|"number"|"date"|"boolean";value:string|number|boolean|null}>;
   linkedResponsibilities: Array<{
     id: string;
     responsibilityKey: string;
@@ -100,6 +116,9 @@ type Detail = {
   stageTone: Tone;
   assignee: { userId: number; name: string; at: string; byName: string | null } | null;
   followUpAt: string | null;
+  verification: { verified: boolean; verifiedAt: string | null; verifiedBy: string | null; stepKey: string | null };
+  lastSavedAt: string | null;
+  lastWorkedAt: string | null;
   mapUrl: string | null;
   steps: Array<{
     key: string;
@@ -109,6 +128,9 @@ type Detail = {
   }>;
   info: Array<{ label: string; value: string }>;
   timeline: Array<{ id: string; at: string; kind: string; title: string; detail: string; by: string | null }>;
+  // BRIXTA_DATA_INPUT_REFUEL_20261025 — persisted server snapshot; read-only.
+  savedState: { updatedAt: string | null; data: Record<string, unknown> };
+  savedPhotos: Array<{ key: string; url: string }>;
 };
 
 function when(value: string | null | undefined) {
@@ -134,6 +156,7 @@ export default function FieldRecordsClient() {
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const [exportingComplete, setExportingComplete] = useState(false);
 
   const [listId, setListId] = useState<number | null>(null);
   const [query, setQuery] = useState("");
@@ -142,6 +165,10 @@ export default function FieldRecordsClient() {
   const [lens, setLens] = useState("");
   const [assignee, setAssignee] = useState("");
   const [sort, setSort] = useState<"priority" | "updated">("priority");
+  // BRIXTA_FIELD_TIMELINE_FILTER_V2 — independent, combinable review toggles.
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [workedOnly, setWorkedOnly] = useState(false);
+  const [recentOnly, setRecentOnly] = useState(false);
   const [page, setPage] = useState(1);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -152,6 +179,9 @@ export default function FieldRecordsClient() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [showAllInfo, setShowAllInfo] = useState(false);
+  const [showSavedState, setShowSavedState] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<{ url: string; label: string } | null>(null);
+  const [refueling, setRefueling] = useState(false);
   // BRIXTA_FIELD_PROGRESS_MIGRATION_V1: only admins with ALL_ACCESS may restart.
   const [mayRestart, setMayRestart] = useState(false);
   const [restarting, setRestarting] = useState(false);
@@ -177,6 +207,33 @@ export default function FieldRecordsClient() {
     return () => window.clearTimeout(timer);
   }, [query]);
 
+  // BRIXTA_COMPLETE_EXPORT_V1: whole active list, original JSON and media files.
+  async function downloadComplete() {
+    if (!data?.list?.id || exportingComplete) return;
+    setExportingComplete(true);
+    setMessage(null);
+    try {
+      const response = await fetch(`/api/platform/field-records/complete-export?list=${data.list.id}`, { cache: "no-store" });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || `Download failed (HTTP ${response.status})`);
+      }
+      const blob = await response.blob();
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = href;
+      link.download = `brixta-complete-${data.list.id}-${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(href), 10000);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Complete export failed.");
+    } finally {
+      setExportingComplete(false);
+    }
+  }
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -186,6 +243,9 @@ export default function FieldRecordsClient() {
       if (stage) params.set("stage", stage);
       if (lens) params.set("lens", lens);
       if (assignee) params.set("assignee", assignee);
+      if (verifiedOnly) params.set("verified", "1");
+      if (workedOnly) params.set("worked", "1");
+      if (recentOnly) params.set("recent", "7");
       params.set("sort", sort);
       params.set("page", String(page));
       params.set("pageSize", "50");
@@ -196,7 +256,7 @@ export default function FieldRecordsClient() {
     } finally {
       setLoading(false);
     }
-  }, [listId, search, stage, lens, assignee, sort, page]);
+  }, [listId, search, stage, lens, assignee, verifiedOnly, workedOnly, recentOnly, sort, page]);
 
   useEffect(() => {
     void load();
@@ -212,6 +272,8 @@ export default function FieldRecordsClient() {
     setOpenId(id);
     setDetailLoading(true);
     setShowAllInfo(false);
+    setShowSavedState(false);
+    setPhotoPreview(null);
     setMayRestart(false);
     setResponsibilityFeedback(null);
     setResponsibilityEmployee("");
@@ -484,10 +546,16 @@ export default function FieldRecordsClient() {
         title={list?.title ?? "Data input"}
         description="Assign CRM records and review exactly what field users entered. Existing CRM data stays separate from collected answers."
         action={
-          <SecondaryButton type="button" onClick={() => void load()}>
-            <RefreshCw className={cx("h-4 w-4", loading && "animate-spin")} />
-            Refresh
-          </SecondaryButton>
+          <div className="flex flex-wrap items-center gap-2">
+            <SecondaryButton type="button" disabled={exportingComplete || !list} onClick={() => void downloadComplete()}>
+              <Download className="h-4 w-4" />
+              {exportingComplete ? "Preparing ZIP…" : "Download all data + photos"}
+            </SecondaryButton>
+            <SecondaryButton type="button" onClick={() => void load()}>
+              <RefreshCw className={cx("h-4 w-4", loading && "animate-spin")} />
+              Refresh
+            </SecondaryButton>
+          </div>
         }
       />
 
@@ -632,21 +700,55 @@ export default function FieldRecordsClient() {
           {(data?.total ?? 0).toLocaleString("en-IN")} shown
         </div>
       </Panel>
+      <section className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-3 text-xs" aria-label="CRM verification and activity filters">
+        <span className="font-semibold">Review filters</span>
+        <label className="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2">
+          <input type="checkbox" checked={verifiedOnly} onChange={event => { setVerifiedOnly(event.target.checked); setPage(1); }} />
+          Verification completed <span className="text-muted-foreground">({data?.verifiedCount ?? 0})</span>
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2">
+          <input type="checkbox" checked={workedOnly} onChange={event => { setWorkedOnly(event.target.checked); setPage(1); }} />
+          Worked on <span className="text-muted-foreground">({data?.workedCount ?? 0})</span>
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2">
+          <input type="checkbox" checked={recentOnly} onChange={event => { setRecentOnly(event.target.checked); setPage(1); }} />
+          Worked on · last 7 days <span className="text-muted-foreground">({data?.recentlyWorkedCount ?? 0})</span>
+        </label>
+        <span className="text-muted-foreground">Stage cards = current workflow stage; Verification completed = durable Verify step, even if the stage later changed. Counts can differ. All selected filters are combined and applied to downloads.</span>
+        {(stage || lens || verifiedOnly || workedOnly || recentOnly || assignee || search) &&
+          <div className="flex w-full flex-wrap items-center gap-3 border-t pt-3">
+            <strong className="text-sm">{(data?.total ?? 0).toLocaleString("en-IN")} matching sites</strong>
+            <span className="text-xs text-muted-foreground">{[
+              stage ? `Stage: ${list?.stages.find(s => s.key === stage)?.label ?? stage}` : "",
+              lens ? `Lens: ${list?.summaryLenses.find(s => s.key === lens)?.label ?? lens}` : "",
+              verifiedOnly ? "Verify step completed" : "", workedOnly ? "Field activity" : "",
+              recentOnly ? "Active in last 7 days" : "", assignee ? "Assignee selected" : "",
+              search ? `Search: ${search}` : ""].filter(Boolean).join(" + ")}</span>
+            <button type="button" className="ml-auto rounded-lg border px-3 py-2 text-xs font-semibold"
+              onClick={() => {setStage("");setLens("");setVerifiedOnly(false);setWorkedOnly(false);
+                setRecentOnly(false);setAssignee("");setQuery("");setSearch("");setPage(1);}}>
+              Clear all filters
+            </button>
+          </div>}
+      </section>
 
-      {/* BRIXTA_FIELD_OPS_V1: management tools; nothing writes until explicitly confirmed. */}
+      {/* BRIXTA_DATA_INPUT_REFUEL_20261025 — operations and live graph are always discoverable. */}
       {list && (
-        <details className="rounded-xl border bg-card p-4">
-          <summary className="cursor-pointer text-sm font-semibold">Lead operations · live Pixel Logic · access activity · downloads · division</summary>
+        <section className="rounded-xl border bg-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-semibold">Live logic, activity &amp; exports</h2>
+            <span className="text-xs text-muted-foreground">Current CRM list · {list.title}</span>
+          </div>
           <div className="mt-4">
             <FieldOperationsPanel
               listId={list.id}
               listName={list.title}
-              filters={{ q: search, stage, lens, sort, assignee }}
+              filters={{ q: search, stage, lens, sort, assignee, verified: verifiedOnly, worked: workedOnly, recent: recentOnly }}
               people={people}
               onChanged={load}
             />
           </div>
-        </details>
+        </section>
       )}
       {selected.size > 0 && (
         <div className="brixta-soft-card sticky top-2 z-20 flex flex-wrap items-center gap-3 px-4 py-3">
@@ -702,7 +804,8 @@ export default function FieldRecordsClient() {
                 {list?.tableFields.map((field) => (
                   <th key={field.key} className="px-3 py-3 font-medium">{field.label}</th>
                 ))}
-                <th className="px-3 py-3 font-medium">Last update</th>
+                <th className="px-3 py-3 font-medium">Verification</th>
+                <th className="px-3 py-3 font-medium">Last saved</th>
               </tr>
             </thead>
             <tbody>
@@ -758,8 +861,14 @@ export default function FieldRecordsClient() {
                           : row.values[field.key] || <span className="text-muted-foreground">—</span>}
                       </td>
                     ))}
-                    <td className="whitespace-nowrap px-3 py-3 text-muted-foreground">
-                      {row.lastVisitAt ? `${when(row.lastVisitAt)}${row.lastVisitBy ? ` · ${row.lastVisitBy}` : ""}` : "—"}
+                    <td className="whitespace-nowrap px-3 py-3">
+                      {row.verified ? <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800" title={row.verifiedAt ?? "Verified"}>Verified</span> :
+                        <span className="text-xs text-muted-foreground">Not verified</span>}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 text-muted-foreground" title={row.updatedAt ?? undefined}>
+                      <div>{row.updatedAt ? when(row.updatedAt) : "—"}</div>
+                      {row.lastVisitAt && <div className="text-[11px]">Field: {when(row.lastVisitAt)}</div>}
+                      {row.recentlyWorked && <span className="text-[11px] font-medium text-primary">Recently worked on</span>}
                     </td>
                   </tr>
                 ))
@@ -805,11 +914,14 @@ export default function FieldRecordsClient() {
                       {detail.listTitle}
                     </div>
                     <h2 className="mt-1 break-words text-2xl font-bold tracking-[-0.02em]">{detail.title}</h2>
+                    {detail.siteName && detail.originalKey &&
+                      <p className="mt-1 font-mono text-xs text-muted-foreground">Original ID · {detail.originalKey}</p>}
                     {detail.subtitle.length > 0 && (
                       <div className="mt-1 text-sm text-muted-foreground">{detail.subtitle.join(" · ")}</div>
                     )}
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <Pill tone={detail.stageTone}>{detail.stageLabel}</Pill>
+                      {detail.verification?.verified ? <Pill tone="good">Verified</Pill> : <Pill tone="neutral">Not verified</Pill>}
                       {detail.followUpAt && (
                         <Pill tone="warning">
                           <Clock className="mr-1 h-3 w-3" />Follow-up {day(detail.followUpAt)}
@@ -830,6 +942,18 @@ export default function FieldRecordsClient() {
                   </button>
                 </div>
 
+                <section className="rounded-xl border bg-muted/10 p-4 space-y-2 text-sm">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide">Record activity &amp; verification</h3>
+                  <div>Last saved: <strong>{detail.lastSavedAt ? new Date(detail.lastSavedAt).toLocaleString("en-IN") : "Unknown"}</strong></div>
+                  <div>Last field activity: <strong>{detail.lastWorkedAt ? new Date(detail.lastWorkedAt).toLocaleString("en-IN") : "Not recorded"}</strong></div>
+                  <div>Verification: <strong>{detail.verification?.verified ? "Verified" : "Pending / not verified"}</strong>
+                    {detail.verification?.verifiedAt ? ` · ${new Date(detail.verification.verifiedAt).toLocaleString("en-IN")}` : ""}
+                    {detail.verification?.verifiedBy ? ` · ${detail.verification.verifiedBy}` : ""}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Last saved is the database timestamp. The timeline shows captured changes and their recorded actors when audit events exist.</p>
+                </section>
+                {detail.canEditRecord && <FieldAdminCorrection key={`${detail.id}:${detail.editVersion ?? ""}`} record={detail}
+                  onSaved={async () => { await openDetail(detail.id); await load(); }} />}
                 <div className="brixta-soft-card space-y-3 p-4">
                   <div className="text-[12px] font-medium uppercase tracking-[0.02em]">Assigned to</div>
                   <div className="flex gap-2">
@@ -867,7 +991,9 @@ export default function FieldRecordsClient() {
                   )}
                 </div>
 
-                <section className="brixta-soft-card space-y-3 p-4">
+                <details className="rounded-xl border p-3">
+                  <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">Advanced · linked Responsibility workflows (legacy)</summary>
+                <section className="brixta-soft-card mt-3 space-y-3 p-4">
                   <div className="text-[12px] font-semibold uppercase tracking-[0.02em]">
                     Linked Responsibility work
                   </div>
@@ -981,6 +1107,7 @@ export default function FieldRecordsClient() {
                     </div>
                   )}
                 </section>
+                </details>
 
                 {mayRestart && (detail.completedStepKeys.length > 0 || detail.stage !== "new") && (
                   <section className="brixta-soft-card space-y-2 p-4">
@@ -993,6 +1120,68 @@ export default function FieldRecordsClient() {
                       className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50">
                       {restarting ? "Restarting…" : "Restart this site's steps"}
                     </button>
+                  </section>
+                )}
+                <section className="rounded-xl border bg-muted/10 p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-semibold">Last saved CRM state</div>
+                      <div className="text-xs text-muted-foreground">
+                        {detail.savedState?.updatedAt ? `Last updated ${when(detail.savedState.updatedAt)}` : "Saved state"}
+                        {" · "}Reload original answers, stage, progress and assignment from the CRM without rewriting anything.
+                      </div>
+                    </div>
+                    <button type="button" disabled={refueling} className="rounded-lg border bg-card px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                      onClick={async () => {
+                        setRefueling(true);
+                        try {
+                          await load();
+                          const fresh = await apiJson<{ record: Detail }>(`/api/platform/field-records/${detail.id}`);
+                          setDetail(fresh.record);
+                          setShowSavedState(true);
+                          setMessage("Refueled from the latest persisted CRM state. No records were changed.");
+                        } catch (error) {
+                          setMessage(error instanceof Error ? error.message : "Could not reload saved state.");
+                        } finally { setRefueling(false); }
+                      }}>
+                      {refueling ? "Reloading…" : "Refuel saved data"}
+                    </button>
+                  </div>
+                  <button type="button" className="text-xs font-medium text-primary underline" onClick={() => setShowSavedState(v => !v)}>
+                    {showSavedState ? "Hide complete saved snapshot" : "Inspect all stored fields & progress (including hidden fields)"}
+                  </button>
+                  {showSavedState && <>
+                    <p className="text-xs text-muted-foreground">Read-only database snapshot including __field progress and previously captured values. To recover an earlier overwritten state, a historical backup is required.</p>
+                    <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-lg border bg-card p-3 text-[11px]">{JSON.stringify(detail.savedState?.data ?? {}, null, 2)}</pre>
+                    <button type="button" className="rounded-lg border bg-card px-3 py-2 text-xs" onClick={() => {
+                      const blob = new Blob([JSON.stringify(detail.savedState, null, 2)], { type: "application/json" });
+                      const href = URL.createObjectURL(blob);
+                      const a = document.createElement("a"); a.href = href;
+                      a.download = `brixta-record-${detail.id}-saved-state.json`;
+                      document.body.appendChild(a); a.click(); a.remove();
+                      window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+                    }}>Download exact saved JSON</button>
+                  </>}
+                </section>
+                {detail.savedPhotos.length > 0 && (
+                  <section className="space-y-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Saved photo evidence · including previous layouts</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {detail.savedPhotos.map((photo, index) => (
+                        <div key={`${photo.key}:${index}`} className="overflow-hidden rounded-xl border bg-card">
+                          <button type="button" className="block w-full" onClick={() => setPhotoPreview({ url: photo.url, label: photo.key })}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={photo.url} alt={photo.key} className="h-28 w-full object-contain bg-muted/20" />
+                          </button>
+                          <div className="flex flex-wrap items-center justify-between gap-2 p-2 text-xs">
+                            <span className="max-w-[145px] truncate" title={photo.key}>{photo.key}</span>
+                            <span className="flex gap-2"><a href={photo.url} target="_blank" rel="noreferrer" className="text-primary">Open</a>
+                            <a href={`/api/platform/field-records/${encodeURIComponent(detail.id)}/media?url=${encodeURIComponent(photo.url)}`}
+                              className="font-medium text-primary" download>Download</a></span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </section>
                 )}
                 <section className="space-y-3">
@@ -1024,10 +1213,14 @@ export default function FieldRecordsClient() {
                                 {answer.photos.length > 0 ? (
                                   <div className="flex flex-wrap gap-2">
                                     {answer.photos.map((url) => (
-                                      <a key={url} href={url} target="_blank" rel="noreferrer">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={url} alt={answer.label} className="h-16 w-16 rounded-lg object-cover" />
-                                      </a>
+                                      <div key={url} className="space-y-1">
+                                        <button type="button" onClick={() => setPhotoPreview({ url, label: answer.label })}>
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img src={url} alt={answer.label} className="h-16 w-16 rounded-lg object-cover" />
+                                        </button>
+                                        <a href={`/api/platform/field-records/${encodeURIComponent(detail.id)}/media?url=${encodeURIComponent(url)}`}
+                                          download className="block text-[11px] text-primary underline">Download</a>
+                                      </div>
                                     ))}
                                   </div>
                                 ) : answer.type === "date" ? day(answer.value) : answer.value}
@@ -1064,7 +1257,10 @@ export default function FieldRecordsClient() {
                 )}
 
                 <section className="space-y-3">
-                  <div className="text-[12px] font-medium uppercase tracking-[0.02em]">Timeline</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-[12px] font-semibold uppercase tracking-[0.02em]">Timeline · recorded changes</div>
+                    <span className="text-xs text-muted-foreground">Newest first · up to 200 audit events</span>
+                  </div>
                   {detail.timeline.length === 0 ? (
                     <div className="text-sm text-muted-foreground">Nothing has happened yet.</div>
                   ) : (
@@ -1080,7 +1276,7 @@ export default function FieldRecordsClient() {
                           <div className="text-sm font-medium">{item.title}</div>
                           {item.detail && <div className="text-xs text-muted-foreground">{item.detail}</div>}
                           <div className="mt-0.5 text-xs text-muted-foreground">
-                            {when(item.at)}{item.by ? ` · ${item.by}` : ""}
+                            {new Date(item.at).toLocaleString("en-IN")} ({when(item.at)}){item.by ? ` · ${item.by}` : ""}
                           </div>
                         </li>
                       ))}
@@ -1091,6 +1287,23 @@ export default function FieldRecordsClient() {
             ) : null}
           </aside>
         </div>
+        </Portal>
+      )}
+      {photoPreview && (
+        <Portal>
+          <div className="fixed inset-0 z-[120] flex flex-col bg-black/90 p-5" role="dialog" aria-modal="true" aria-label="Photograph preview">
+            <div className="flex justify-between gap-3 text-white">
+              <span className="truncate text-sm">{photoPreview.label}</span>
+              <div className="flex gap-4 text-sm">
+                <a href={photoPreview.url} target="_blank" rel="noreferrer" className="underline">Open original</a>
+                {detail && <a href={`/api/platform/field-records/${encodeURIComponent(detail.id)}/media?url=${encodeURIComponent(photoPreview.url)}`}
+                  download className="underline">Download original</a>}
+                <button type="button" className="underline" onClick={() => setPhotoPreview(null)}>Close</button>
+              </div>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photoPreview.url} alt={photoPreview.label} className="mt-5 min-h-0 flex-1 self-center object-contain" />
+          </div>
         </Portal>
       )}
     </div>
