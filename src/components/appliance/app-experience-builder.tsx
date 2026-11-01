@@ -1892,7 +1892,8 @@ export default function AppExperienceBuilder() {
 
 
       {/* Access belongs to this individual linked module, not the source dataset. */}
-      {entity && Boolean(entity.config?.["fieldSource"]) && (
+      {/* BRIXTA_MAIN_EXPERIENCE_EMPLOYEE_ACCESS_V1_20261102 — unified roster for Main and linked. */}
+      {entity && (
         <LinkedModuleAccessEditor key={entity.id} moduleId={entity.id} />
       )}
 

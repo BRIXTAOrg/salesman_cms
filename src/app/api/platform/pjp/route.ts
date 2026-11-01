@@ -75,10 +75,15 @@ export const POST = withTenantDb(async (request: NextRequest, db, session) => {
   const appConfig = list ? readFieldAppConfig(list.config, list.title) : null;
   if (!appConfig) return error(422, "CRM list is not published to the Field App.");
   // A PJP cannot be dispatched to an employee who cannot open its module.
+  // BRIXTA_MAIN_EXPERIENCE_EMPLOYEE_ACCESS_V1_20261102 — align PJP
+  // publishing with FIELD module visibility, without changing CRM assignments.
+  const moduleAccess = list?.config?.fieldModuleAccess as {mode?:string;employeeIds?:number[]} | undefined;
   if (list?.config?.fieldSource) {
-    const access = list.config.fieldModuleAccess as { employeeIds?:number[] } | undefined;
-    if (!Array.isArray(access?.employeeIds) || !access.employeeIds.includes(employeeId))
+    if (!Array.isArray(moduleAccess?.employeeIds) || !moduleAccess.employeeIds.includes(employeeId))
       return error(403,"Grant this employee access to the linked App Experience before publishing their PJP.");
+  } else if (moduleAccess?.mode === "selected") {
+    if (!Array.isArray(moduleAccess.employeeIds) || !moduleAccess.employeeIds.includes(employeeId))
+      return error(403,"Grant this employee access to the Main App Experience before publishing their PJP.");
   }
   if (Number(body.appVersion) !== appConfig.version) return error(409, "App Experience/Pixel Logic was republished. Refresh the PJP planner and review its current rules.");
   const journeyRules = appConfig.journeyRules;

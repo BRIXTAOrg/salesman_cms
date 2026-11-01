@@ -54,7 +54,7 @@ export const POST = withTenantDb(async (request: NextRequest, db, session) => {
   if (assigned && assigned !== "none" && !/^[1-9]\d*$/.test(assigned)) return err("Invalid assignee filter.");
   const verificationKeys = config.sections.filter(s =>
     /^(verify|verification)(_|$)/i.test(s.key) || /^verify\b/i.test(s.title)).map(s => s.key);
-  if (filters.verified && !verificationKeys.length) return err("No Verify site step is configured.");
+  // BRIXTA_VERIFIED_LENS_STAGE_MATCH_20261102 — stage-only historical verification is valid for a filter.
 
   const allTypes = await db.select({id:entityTypes.id,config:entityTypes.config,isActive:entityTypes.isActive})
     .from(entityTypes).where(eq(entityTypes.isActive,true));
@@ -75,7 +75,7 @@ export const POST = withTenantDb(async (request: NextRequest, db, session) => {
     const data = object(r.data), state = readFieldState(data);
     const worked = Boolean(state.lastVisitAt || state.assignee ||
       Object.values(state.sections).some(s => Boolean(s?.completedAt)));
-    if (filters.verified && !isVerified(data, verificationKeys)) return false;
+    if (filters.verified && !(isVerified(data, verificationKeys) || state.stage === "verified")) return false;
     if (filters.worked && !worked) return false;
     if (filters.recent && (!worked || !r.updatedAt || new Date(r.updatedAt).getTime() < since)) return false;
     if (stage && state.stage !== stage) return false;

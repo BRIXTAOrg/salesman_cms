@@ -224,49 +224,13 @@ export default function FieldOperationsPanel({ listId, listName, filters, people
         </div>
         <div className="grid gap-2 sm:grid-cols-3 text-sm">
           <div className="rounded-lg border bg-muted/10 p-3"><strong className="text-2xl">{presence?.cmsViewers ?? "—"}</strong><p className="text-xs text-muted-foreground">CMS viewers · this list, this server</p></div>
-          <div className="rounded-lg border bg-muted/10 p-3"><strong className="text-2xl">{presence?.cmsWorking ?? "—"}</strong><p className="text-xs text-muted-foreground">CMS users allocating/exporting</p></div>
+          <div className="rounded-lg border bg-muted/10 p-3"><strong className="text-2xl">{presence?.cmsWorking ?? "—"}</strong><p className="text-xs text-muted-foreground">CMS users performing operations</p></div>
           <div className="rounded-lg border bg-muted/10 p-3"><strong className="text-2xl">{presence?.mobileRecentlyConnectedTenantWide ?? "—"}</strong><p className="text-xs text-muted-foreground">Recent mobile activity · entire tenant, not this list</p></div>
         </div>
         <p className="text-xs text-muted-foreground">CMS presence covers this server process only (90-second timeout); other servers are not included. Mobile count comes from existing device activity and does not mean phones are viewing this specific list.</p>
         {!!presence?.people.length && <p className="text-xs text-muted-foreground">CMS: {presence.people.map(p => `${p.name} (${p.mode})`).join(", ")}</p>}
       </section>
-      <section className="rounded-xl border bg-card p-4 space-y-3">
-        <div>
-          <h3 className="font-semibold text-sm">Export & divide CRM leads</h3>
-          <p className="text-xs text-muted-foreground mt-1">The current search, stage, lens and assignee filters apply to downloads. Distribution always targets unassigned leads within the other filters. Export and distribution require ALL_ACCESS.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={busy} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50" onClick={() => void exportXlsx()}>Download XLSX + photo evidence</button>
-          <button type="button" disabled={busy} className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50" onClick={() => void exportLeads()}>Summary CSV</button>
-          <button type="button" disabled={busy} className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50" onClick={async () => {
-            setBusy(true);
-            try { await onChanged(); setStatus("Refueled the list from the latest saved CRM data. Assignments and progress unchanged."); }
-            catch (error) { setStatus(error instanceof Error ? error.message : "Could not reload CRM data."); }
-            finally { setBusy(false); }
-          }}>Refuel saved CRM data</button>
-        </div>
-        <p className="text-xs text-muted-foreground">XLSX includes a Saved state sheet preserving current database answers, field progress and assignments. Missing/ineligible images remain accessible as hyperlinks and are counted in Export notes.</p>
-        <div className="border-t pt-3 space-y-3">
-          <h4 className="text-sm font-medium">Allocate a segment of unassigned leads</h4>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-xs">From position (priority-sorted)<input className="mt-1 block w-full rounded-lg border bg-background p-2 text-sm" type="number" min={1} value={from} onChange={e => setFrom(e.target.value)} /></label>
-            <label className="text-xs">Number of leads<input className="mt-1 block w-full rounded-lg border bg-background p-2 text-sm" type="number" min={1} max={5000} value={count} onChange={e => setCount(e.target.value)} /></label>
-          </div>
-          <div className="grid max-h-44 gap-2 overflow-y-auto sm:grid-cols-2">
-            {people.map(p => <label className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs" key={p.id}>
-              <input type="checkbox" checked={selectedPeople.includes(p.id)} onChange={e => setSelectedPeople(v => e.target.checked ? [...v, p.id] : v.filter(id => id !== p.id))} />
-              <span>{p.name}{p.area ? ` · ${p.area}` : ""}</span>
-            </label>)}
-          </div>
-          <button disabled={busy || !selectedPeople.length} type="button" className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50" onClick={() => void planDistribution()}>Preview distribution — no changes</button>
-          {preview && <div className="rounded-lg border bg-muted/20 p-3 space-y-2 text-xs">
-            <strong>Proposed allocation, still uncommitted</strong>
-            {preview.map(g => <p key={g.person.id}>{g.person.name}: {g.ids.length} leads</p>)}
-            <button disabled={busy} type="button" className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50" onClick={() => void applyDistribution()}>Confirm & assign to employees</button>
-          </div>}
-        </div>
-        {status && <p role="status" className="rounded-lg border p-3 text-xs">{status}</p>}
-      </section>
+      {/* BRIXTA_LEGACY_LEAD_DIVIDE_UI_REMOVED_V1_20261102 — obsolete bulk allocation/export panel hidden; server APIs retained. */}
     </div>
   );
 }

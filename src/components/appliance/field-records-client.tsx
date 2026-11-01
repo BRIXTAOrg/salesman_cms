@@ -21,11 +21,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiJson, cx } from "./client";
 import FieldOperationsPanel from "./field-operations-panel";
+import LinkedModuleAccessEditor from "./linked-module-access-editor";
 import CreateLinkedExperience from "./create-linked-experience";
 import FieldAdminCorrection from "./field-admin-correction";
 import {
   EmptyState,
-  PageIntro,
   Panel,
   Pill,
   Portal,
@@ -65,11 +65,13 @@ type Row = {
 };
 
 type ListResponse = {
-  lists: Array<{ id: number; key: string; title: string }>;
+  lists: Array<{ id: number; key: string; title: string; sourceListId: number | null }>;
+  datasets: Array<{id:number;title:string;published:boolean}>;
   list: {
     id: number;
     key: string;
     title: string;
+    sourceListId: number | null;
     stages: Stage[];
     tableFields: Array<{ key: string; label: string }>;
     hasLocation: boolean;
@@ -162,6 +164,7 @@ export default function FieldRecordsClient() {
   const [exportingComplete, setExportingComplete] = useState(false);
 
   const [listId, setListId] = useState<number | null>(null);
+  const [datasetId, setDatasetId] = useState<number | null>(null); // BRIXTA_TWO_LEVEL_DATASET_V2_20261102
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("");
@@ -502,8 +505,48 @@ export default function FieldRecordsClient() {
     }
   }
 
-  const rows = data?.rows ?? [];
-  const list = data?.list ?? null;
+  // Dataset selection is independent from its published App Experience.
+  const selectedDatasetId = datasetId ??
+    (data?.list?.sourceListId ?? data?.list?.id ?? data?.datasets?.[0]?.id ?? null);
+  const selectedDataset = data?.datasets?.find((d) => d.id === selectedDatasetId) ?? null;
+  const experienceOptions = (data?.lists ?? []).filter((e) =>
+    e.id === selectedDatasetId || e.sourceListId === selectedDatasetId);
+  // Never show the previous dataset's records when an unpublished dataset is selected.
+  const list = data?.list && (data.list.sourceListId ?? data.list.id) === selectedDatasetId
+    ? data.list : null;
+  const rows = list ? (data?.rows ?? []) : [];
+  const resetDatasetFilters = () => {
+    setQuery(""); setSearch(""); setStage(""); setLens("");
+    setAssignee(""); setVerifiedOnly(false); setWorkedOnly(false);
+    setRecentOnly(false); setPage(1); setSelected(new Set());
+    setAssignTo(""); setOpenId(null); setDetail(null);
+  };
+  const chooseDataset = (nextId: number) => {
+    if (!Number.isSafeInteger(nextId) || nextId < 1) return;
+    const rootExperience = data?.lists.find((e) => e.id === nextId);
+    setDatasetId(nextId);
+    setListId(rootExperience?.id ?? null);
+    resetDatasetFilters();
+  };
+  const chooseExperience = (nextId: number) => {
+    if (!experienceOptions.some((e) => e.id === nextId)) return;
+    setListId(nextId);
+    resetDatasetFilters();
+  };
+  const datasetHeading = (
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">CRM dataset</span>
+      {data?.datasets?.length ? (
+        <select aria-label="Choose CRM dataset" value={selectedDatasetId ?? ""}
+          onChange={(e) => chooseDataset(Number(e.target.value))}
+          className="max-w-full rounded-lg border border-transparent bg-transparent px-1 py-1 text-3xl font-bold tracking-tight hover:border-border focus:border-border">
+          {data.datasets.map((d) => (
+            <option key={d.id} value={d.id}>{d.title}{d.published ? "" : " (setup needed)"}</option>
+          ))}
+        </select>
+      ) : <h1 className="text-3xl font-bold">Data input</h1>}
+    </div>
+  );
   const pageSize = data?.pageSize ?? 50;
   const pages = Math.max(1, Math.ceil((data?.total ?? 0) / pageSize));
   const allOnPage = rows.length > 0 && rows.every((row) => selected.has(row.id));
@@ -534,10 +577,12 @@ export default function FieldRecordsClient() {
   if (!loading && data && !list) {
     return (
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
-        <PageIntro title="Data input" />
+        {datasetHeading}
         <EmptyState
-          title="No CRM list is connected to Data input yet"
-          description="Open CRM & inputs, import or create a list, then choose “Use for data input” on that list."
+          title={selectedDataset ? "This CRM dataset needs a published App Experience" : "No CRM datasets found"}
+          description={selectedDataset
+            ? "The imported CRM dataset is preserved. Configure and publish its Main Experience in App experiences to manage its Field workflow here."
+            : "Create or import a new dataset under CRM & inputs to get started."}
         />
       </div>
     );
@@ -545,22 +590,25 @@ export default function FieldRecordsClient() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 md:p-6">
-      <PageIntro
-        title={list?.title ?? "Data input"}
-        description="Assign CRM records and review exactly what field users entered. Existing CRM data stays separate from collected answers."
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <SecondaryButton type="button" disabled={exportingComplete || !list} onClick={() => void downloadComplete()}>
-              <Download className="h-4 w-4" />
-              {exportingComplete ? "Preparing ZIP…" : "Download all data + photos"}
-            </SecondaryButton>
-            <SecondaryButton type="button" onClick={() => void load()}>
-              <RefreshCw className={cx("h-4 w-4", loading && "animate-spin")} />
-              Refresh
-            </SecondaryButton>
-          </div>
-        }
-      />
+      {/* Heading is the parent CRM dataset picker, not an App Experience picker. */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 space-y-2">
+          {datasetHeading}
+          <p className="text-sm text-muted-foreground">
+            Assign CRM records and review what field employees entered. Original data and history are retained.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <SecondaryButton type="button" disabled={exportingComplete || !list} onClick={() => void downloadComplete()}>
+            <Download className="h-4 w-4" />
+            {exportingComplete ? "Preparing ZIP…" : "Download all data + photos"}
+          </SecondaryButton>
+          <SecondaryButton type="button" onClick={() => void load()}>
+            <RefreshCw className={cx("h-4 w-4", loading && "animate-spin")} />
+            Refresh
+          </SecondaryButton>
+        </div>
+      </div>
 
       {message && (
         <Panel className="flex items-center justify-between gap-3 py-3">
@@ -571,28 +619,45 @@ export default function FieldRecordsClient() {
         </Panel>
       )}
 
-      {data && data.lists.length > 1 && (
-        <div className="flex flex-wrap gap-2">
-          {data.lists.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                setListId(item.id);
-                setStage("");
-                setLens("");
-                setPage(1);
-                setSelected(new Set());
-              }}
-              className={cx(
-                "h-10 rounded-full border px-4 text-sm font-medium transition",
-                item.id === list?.id ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-muted/60",
-              )}
-            >
-              {item.title}
-            </button>
-          ))}
-        </div>
+      {/* Parent selected in heading. Only its experiences are shown here. */}
+      {list && experienceOptions.length > 0 && (
+        <section className="rounded-xl border bg-card p-4">
+          <label htmlFor="data-input-experience-switcher" className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            App Experience within {selectedDataset?.title ?? "this dataset"}
+          </label>
+          <select id="data-input-experience-switcher" aria-label="Choose App Experience"
+            className="h-11 w-full rounded-lg border bg-background px-3 text-sm font-medium"
+            value={list.id} onChange={(e) => chooseExperience(Number(e.target.value))}>
+            {experienceOptions.map((experience) => (
+              <option key={experience.id} value={experience.id}>
+                {experience.id === selectedDatasetId ? "Main experience" : experience.title + " — Linked experience"}
+              </option>
+            ))}
+          </select>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Experiences reference this dataset; selecting one does not move or rewrite CRM records.
+          </p>
+        </section>
+      )}
+      {/* BRIXTA_DATA_INPUT_DIRECT_MODULE_ACCESS_V1_20261102
+          Same administrator-only endpoint/editor as App Experiences; no duplicate ACL. */}
+      {/* BRIXTA_MAIN_EXPERIENCE_EMPLOYEE_ACCESS_V1_20261102 — Main and linked access share one editor. */}
+      {list && (
+        <section className="rounded-xl border bg-card p-4">
+          <div className="mb-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Employee access · {list.title}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Control which FIELD employees can open this experience. This does not
+              reassign CRM records, modify answers, or change verification progress.
+            </p>
+          </div>
+          <LinkedModuleAccessEditor
+            key={`data-input-module-access-${list.id}`}
+            moduleId={list.id}
+          />
+        </section>
       )}
 
       {list && list.summaryLenses.length > 0 && (
@@ -707,7 +772,7 @@ export default function FieldRecordsClient() {
         <span className="font-semibold">Review filters</span>
         <label className="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2">
           <input type="checkbox" checked={verifiedOnly} onChange={event => { setVerifiedOnly(event.target.checked); setPage(1); }} />
-          Verification completed <span className="text-muted-foreground">({data?.verifiedCount ?? 0})</span>
+          Verified (stage or completed step) <span className="text-muted-foreground">({data?.verifiedCount ?? 0})</span>
         </label>
         <label className="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2">
           <input type="checkbox" checked={workedOnly} onChange={event => { setWorkedOnly(event.target.checked); setPage(1); }} />
@@ -724,7 +789,7 @@ export default function FieldRecordsClient() {
             <span className="text-xs text-muted-foreground">{[
               stage ? `Stage: ${list?.stages.find(s => s.key === stage)?.label ?? stage}` : "",
               lens ? `Lens: ${list?.summaryLenses.find(s => s.key === lens)?.label ?? lens}` : "",
-              verifiedOnly ? "Verify step completed" : "", workedOnly ? "Field activity" : "",
+              verifiedOnly ? "Verified stage or completed Verify step" : "", workedOnly ? "Field activity" : "",
               recentOnly ? "Active in last 7 days" : "", assignee ? "Assignee selected" : "",
               search ? `Search: ${search}` : ""].filter(Boolean).join(" + ")}</span>
             <button type="button" className="ml-auto rounded-lg border px-3 py-2 text-xs font-semibold"
@@ -736,7 +801,7 @@ export default function FieldRecordsClient() {
       </section>
 
       {/* Module creation belongs to DATA INPUT, never the App Experience editor. */}
-      {list && Boolean(stage || lens || verifiedOnly || workedOnly || recentOnly || assignee || search.trim()) && (
+      {list && list.sourceListId === null && Boolean(stage || lens || verifiedOnly || workedOnly || recentOnly || assignee || search.trim()) && (
         <CreateLinkedExperience
           key={`${list.id}:${stage}:${lens}:${assignee}:${verifiedOnly}:${workedOnly}:${recentOnly}:${search}`}
           sourceListId={list.id}
@@ -756,7 +821,7 @@ export default function FieldRecordsClient() {
       {list && (
         <section className="rounded-xl border bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-semibold">Live logic, activity &amp; exports</h2>
+            <h2 className="text-base font-semibold">Live logic &amp; activity</h2>
             <span className="text-xs text-muted-foreground">Current CRM list · {list.title}</span>
           </div>
           <div className="mt-4">

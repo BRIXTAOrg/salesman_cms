@@ -52,7 +52,10 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
     .filter((item) => item.config !== null);
 
   if (lists.length === 0) {
-    return NextResponse.json({ success: true, lists: [], list: null, rows: [], total: 0 });
+    return NextResponse.json({ success: true, lists: [],
+      datasets: types.filter((t) => !t.config?.fieldSource)
+        .map((t) => ({id:t.id,title:t.title,published:false})),
+      list: null, rows: [], total: 0 });
   }
 
   const requested = Number(params.get("list"));
@@ -137,7 +140,7 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
     // Verification is a completed Verify step, NOT any arbitrary change/import.
     const verifyStep = verificationSection ? state.sections[verificationSection.key] : undefined;
     const verifiedAt = verifyStep?.completedAt ?? null;
-    const verified = Boolean(verifiedAt);
+    const verified = Boolean(verifiedAt) || state.stage === "verified"; // Workflow stage OR durable Verify step
     // A worked-on lead has actual field activity, assignment, or progress.
     // Imported-but-untouched records must never be reported as recent edits.
     const workedOn = Boolean(state.lastVisitAt || state.assignee ||
@@ -223,11 +226,26 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
 
   return NextResponse.json({
     success: true,
-    lists: lists.map((item) => ({ id: item.type.id, key: item.type.key, title: item.config!.title })),
+    // BRIXTA_DATASET_SWITCHER_GROUPED_20261102 — metadata only; no record changes.
+    // BRIXTA_TWO_LEVEL_DATASET_V2_20261102 — discover all imported parent datasets,
+    // including those without a published experience. Metadata only.
+    datasets: types.filter((t) => !t.config?.fieldSource)
+      .map((t) => ({id:t.id,title:t.title,published:lists.some((l) => l.type.id === t.id)})),
+    lists: lists.map((item) => {
+      const linked = item.type.config?.fieldSource as { sourceListId?: number } | undefined;
+      return {
+        id: item.type.id,
+        key: item.type.key,
+        title: item.config!.title,
+        sourceListId: Number.isSafeInteger(linked?.sourceListId) &&
+          Number(linked?.sourceListId) > 0 ? Number(linked!.sourceListId) : null,
+      };
+    }),
     list: {
       id: type.id,
       key: type.key,
       title: config.title,
+      sourceListId: linked?.sourceListId ?? null,
       stages: config.stages,
       tableFields: config.tableFields,
       hasLocation: Boolean(config.locationField),
