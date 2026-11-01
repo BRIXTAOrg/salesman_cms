@@ -1,3 +1,4 @@
+// BRIXTA_CRM_ACCESS_UX_V1_20261101
 "use client";
 
 import {
@@ -1336,7 +1337,9 @@ export default function AppExperienceBuilder() {
       "EXPERIENCE controls the surrounding app UI:",
       "- experience.list.recordScope: all | assigned_to_me",
       "- experience.list.search: boolean",
-      "- experience.list.defaultLens: lens key",
+      "- experience.list.defaultLens: lens key (used when preferNotVisitedDefault is false)",
+      "- experience.list.preferNotVisitedDefault: boolean (true by default)",
+      "- experience.list.filterControl: dropdown | pills, supports any published CRM lenses",
       "- experience.list.lenses: list pills / filters",
       "- lens.kind: mine | todo | active | followups | closed | all | stages | field",
       "- field lenses use {field, values}; stage lenses use stageKeys",
@@ -1345,7 +1348,10 @@ export default function AppExperienceBuilder() {
       "- experience.list.badgeToneRules: [{value,tone}]",
       "- experience.list.showDistance/showAssignee/showFollowUp/showLastActivity",
       "- experience.list.sort: smart | distance | priority | updated | follow_up",
-      "- experience.detail.showMap/showNavigate/showCopyLink/showImportedInfo/showTimeline",
+      "- experience.detail.showMap/showNavigate/showCopyLink/showImportedInfo/showTimeline/showEvidenceGallery",
+      "- experience.detail.layoutStyle: standard | timeline_first",
+      "- These presentation settings are supported by the Flutter runtime and are editable by AI; do not invent unsupported Flutter widgets or CSS.",
+      "- Employee permissions are managed in Employees, never in visual experience JSON.",
       "- experience.management.summaryLensKeys: lens keys management should see as live count cards",
       "",
       "Each stage:",

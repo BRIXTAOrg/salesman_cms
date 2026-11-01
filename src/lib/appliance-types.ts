@@ -1,3 +1,4 @@
+// BRIXTA_COMPANY_ORG_UI_20261101
 export type CrudOperation =
   | "create"
   | "read"
@@ -248,6 +249,7 @@ export type Department = {
   key: string;
   name: string;
   defaultAuthority: DepartmentAuthority;
+  maxMembers?: number | null;
   memberCount?: number;
   resolvedUserIds?: number[];
   createdAt?: string;

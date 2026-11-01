@@ -7,6 +7,7 @@ import {
 } from "next/headers";
 import {
   eq,
+  sql,
 } from "drizzle-orm";
 
 import {
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
         name: organizations.name,
       })
       .from(organizations)
-      .where(eq(organizations.schemaName, companyCode))
+      .where(eq(sql<string>`lower(coalesce(to_jsonb(${organizations}) ->> 'login_code', ${organizations.schemaName}))`, companyCode))
       .limit(1);
 
     if (!org) {

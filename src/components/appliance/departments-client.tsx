@@ -156,6 +156,9 @@ export default function DepartmentsClient() {
   ] =
     useState("");
 
+  const [newMaxMembers, setNewMaxMembers] = useState("");
+  const [capacityDrafts, setCapacityDrafts] = useState<Record<string,string>>({});
+  const [memberDrafts, setMemberDrafts] = useState<Record<string,string>>({});
   const [
     newAuthority,
     setNewAuthority,
@@ -284,6 +287,7 @@ export default function DepartmentsClient() {
           body:
             JSON.stringify({
               name,
+              maxMembers: newMaxMembers.trim() ? Number(newMaxMembers) : null,
 
               defaultAuthority:
                 newAuthority,
@@ -292,6 +296,7 @@ export default function DepartmentsClient() {
       );
 
       setNewName("");
+      setNewMaxMembers("");
       setNewAuthority({
         kind:
           "none",
@@ -314,6 +319,38 @@ export default function DepartmentsClient() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function updateCapacity(department: Department) {
+    const raw = capacityDrafts[department.id] ?? String(department.maxMembers ?? "");
+    const capacity = raw.trim() ? Number(raw) : null;
+    if (capacity !== null && (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > 100000)) {
+      setMessage("Use a whole number between 1 and 100000, or leave blank for unlimited."); return;
+    }
+    setSaving(true);setMessage(null);
+    try {
+      await apiJson(`/api/appliance/departments/${encodeURIComponent(department.id)}`, {
+        method:"PATCH",body:JSON.stringify({maxMembers:capacity}),
+      });
+      await load(); setMessage(`${department.name} team size updated.`);
+    } catch(e) { setMessage(e instanceof Error?e.message:"Could not update capacity."); }
+    finally {setSaving(false);}
+  }
+
+  async function assignMember(department:Department) {
+    const id=Number(memberDrafts[department.id]);
+    if (!Number.isSafeInteger(id) || id <= 0) return;
+    if (department.maxMembers !== null && department.maxMembers !== undefined &&
+        (department.memberCount ?? 0) >= department.maxMembers) {
+      setMessage("This department is full. Increase the team size before adding another person.");return;
+    }
+    setSaving(true);setMessage(null);
+    try {
+      await apiJson(`/api/appliance/employees/${id}`,{method:"PATCH",body:JSON.stringify({department:department.name})});
+      setMemberDrafts(s=>({...s,[department.id]:""}));
+      await load();setMessage("Employee assigned to department. Their reporting manager was not changed.");
+    } catch(e) {setMessage(e instanceof Error?e.message:"Could not assign employee.");}
+    finally {setSaving(false);}
   }
 
   async function updateAuthority(
@@ -480,7 +517,7 @@ export default function DepartmentsClient() {
             />
           </Field>
 
-          <Field label="Default authority">
+          <Field label="Person responsible / workflow authority">
             <select
               className={inputClass}
               value={authorityValue(
@@ -532,6 +569,12 @@ export default function DepartmentsClient() {
           </Field>
         </div>
 
+        <div className="mt-4 max-w-xs">
+          <Field label="Planned team size / capacity (optional)">
+            <input className={inputClass} type="number" min={1} max={100000} placeholder="Unlimited"
+              value={newMaxMembers} onChange={e=>setNewMaxMembers(e.target.value)}/>
+          </Field>
+        </div>
         <div className="mt-4 flex justify-end">
           <PrimaryButton
             type="button"
@@ -570,13 +613,9 @@ export default function DepartmentsClient() {
                     </div>
 
                     <div className="mt-1 flex flex-wrap gap-2">
-                      <Pill>
-                        {
-                          department.memberCount ??
-                          0
-                        }{" "}
-                        member(s)
-                      </Pill>
+                                  <Pill>
+                         {department.memberCount ?? 0} / {department.maxMembers ?? "unlimited"} members
+                       </Pill>
 
                       {resolved.length >
                       0 ? (
@@ -611,8 +650,29 @@ export default function DepartmentsClient() {
                   </SecondaryButton>
                 </div>
 
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <Field label="Team size (blank = unlimited)">
+                    <div className="flex gap-2">
+                      <input className={inputClass} type="number" min={1} max={100000}
+                        value={capacityDrafts[department.id] ?? String(department.maxMembers ?? "")}
+                        onChange={e=>setCapacityDrafts(x=>({...x,[department.id]:e.target.value}))}/>
+                      <SecondaryButton type="button" disabled={saving} onClick={()=>void updateCapacity(department)}>Save</SecondaryButton>
+                    </div>
+                  </Field>
+                  <Field label="Assign an existing employee">
+                    <div className="flex gap-2">
+                      <select className={inputClass} value={memberDrafts[department.id] ?? ""}
+                        onChange={e=>setMemberDrafts(x=>({...x,[department.id]:e.target.value}))}>
+                        <option value="">Choose employee</option>
+                        {activeEmployees.filter(e=>!String(e.department??"").split(",").map(x=>x.trim()).includes(department.name))
+                          .map(e=><option key={e.id} value={e.id}>{employeeName(e)}</option>)}
+                      </select>
+                      <SecondaryButton type="button" disabled={saving} onClick={()=>void assignMember(department)}>Assign</SecondaryButton>
+                    </div>
+                  </Field>
+                </div>
                 <div className="mt-4">
-                  <Field label="Default authority">
+                  <Field label="Person responsible / workflow authority">
                     <select
                       className={inputClass}
                       value={authorityValue(

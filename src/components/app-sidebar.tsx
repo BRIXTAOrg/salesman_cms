@@ -90,6 +90,28 @@ function initials(name: string) {
 export function AppSidebar({ userRole }: Props) {
   const pathname = usePathname();
   const [manifest, setManifest] = useState<WorkspaceManifest | null>(null);
+  const [brand, setBrand] = useState<{ displayName: string; logoDataUrl: string | null } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const refreshBrand = async () => {
+      try {
+        const r = await fetch("/api/platform/company-profile", { cache: "no-store" });
+        if (r.ok) {
+          const data = await r.json();
+          if (active) setBrand(data.profile ?? null);
+        }
+      } catch { /* Preserve the manifest fallback. */ }
+    };
+    void refreshBrand();
+    window.addEventListener("brixta-company-brand-updated", refreshBrand);
+    const timer = window.setInterval(() => void refreshBrand(), 90000);
+    return () => {
+      active = false;
+      window.removeEventListener("brixta-company-brand-updated", refreshBrand);
+      window.clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,7 +158,7 @@ export function AppSidebar({ userRole }: Props) {
     );
   }, [groups, pathname]);
 
-  const companyName = manifest?.identity.companyName ?? "BRIXTA";
+  const companyName = brand?.displayName || manifest?.identity.companyName || "BRIXTA";
   const userName = manifest?.identity.username ?? "";
 
   return (
@@ -144,13 +166,12 @@ export function AppSidebar({ userRole }: Props) {
       <SidebarHeader>
         <Link href="/dashboard" className="flex items-center gap-3 rounded-[10px] px-1.5 py-1.5 hover:bg-[#F1F3F0]">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-primary text-[13px] font-semibold text-primary-foreground">
-            {initials(companyName)}
+            {brand?.logoDataUrl ? (
+              <img src={brand.logoDataUrl} alt="Company logo" className="h-full w-full rounded-[10px] object-contain" />
+            ) : initials(companyName)}
           </div>
           <div className="min-w-0">
             <div className="truncate text-[14px] font-semibold leading-5">{companyName}</div>
-            <div className="truncate text-[12px] leading-4 text-muted-foreground">
-              {manifest ? userName || "Signed in" : "Loading…"}
-            </div>
           </div>
         </Link>
       </SidebarHeader>

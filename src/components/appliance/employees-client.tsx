@@ -1,3 +1,5 @@
+// BRIXTA_COMPANY_ORG_UI_20261101
+// BRIXTA_CRM_ACCESS_UX_V1_20261101
 "use client";
 
 /*
@@ -44,6 +46,7 @@ import { SearchSelect } from "@/components/search-select";
 import { apiJson, cx, formatWhen } from "./client";
 import ReportingPolicyEditor from "./reporting-policy-editor";
 import RolesVNextClient from "./roles-vnext-client";
+import EmployeeFieldAccessPanel from "./employee-field-access-panel";
 import {
   DangerButton,
   EmptyState,
@@ -170,7 +173,7 @@ export default function EmployeesClient() {
   const [query, setQuery] = useState("");
   const [department, setDepartment] = useState("all");
   const [departmentDirectory, setDepartmentDirectory] = useState<
-    Array<{ id: number | string; name: string }>
+    Array<{ id: number | string; name: string; defaultAuthority?: {kind:string;userId?:number} }>
   >([]);
   const [status, setStatus] = useState<"active" | "all" | "inactive">("active");
 
@@ -193,12 +196,13 @@ export default function EmployeesClient() {
 
   useEffect(() => {
     void load();
-    apiJson<{ schemaName?: string; userId?: number }>("/api/me")
-      .then((me) => {
-        setCompanyCode(me.schemaName ?? null);
-        setMeId(typeof me.userId === "number" ? me.userId : null);
-      })
-      .catch(() => setCompanyCode(null));
+    Promise.all([
+      apiJson<{ schemaName?: string; userId?: number }>("/api/me"),
+      apiJson<{ profile?: { companyCode?: string } }>("/api/platform/company-profile"),
+    ]).then(([me, identity]) => {
+      setCompanyCode(identity.profile?.companyCode || me.schemaName || null);
+      setMeId(typeof me.userId === "number" ? me.userId : null);
+    }).catch(() => setCompanyCode(null));
   }, [load]);
 
   useEffect(() => {
@@ -207,7 +211,7 @@ export default function EmployeesClient() {
     async function loadDepartmentDirectory() {
       try {
         const body = await apiJson<{
-          departments?: Array<{ id: number | string; name: string }>;
+          departments?: Array<{ id: number | string; name: string; defaultAuthority?: {kind:string;userId?:number} }>;
         }>("/api/appliance/departments");
 
         if (!cancelled) {
@@ -230,6 +234,10 @@ export default function EmployeesClient() {
       cancelled = true;
     };
   }, []);
+
+  const departmentHeads = useMemo(() => Object.fromEntries(departmentDirectory
+    .filter(d => d.defaultAuthority?.kind === "employee" && Number.isSafeInteger(d.defaultAuthority.userId))
+    .map(d => [d.name.toLowerCase(), Number(d.defaultAuthority!.userId)])), [departmentDirectory]);
 
   const departmentOptions = useMemo(() => {
     const names = new Set<string>();
@@ -488,6 +496,7 @@ export default function EmployeesClient() {
           employees={employees}
           roles={roles}
           departmentOptions={departmentOptions}
+          departmentHeads={departmentHeads}
           designationOptions={designationOptions}
           companyCode={companyCode}
           onClose={() => setCreating(false)}
@@ -501,6 +510,7 @@ export default function EmployeesClient() {
           employees={employees}
           roles={roles}
           departmentOptions={departmentOptions}
+          departmentHeads={departmentHeads}
           designationOptions={designationOptions}
           companyCode={companyCode}
           isMe={meId !== null && manageId === meId}
@@ -547,10 +557,34 @@ function Tabs({
 
 type Option = { label: string; value: string };
 
+function SimpleManagerPicker({
+  policy, onChange, employees, excludeId,
+}: {policy: ReportingPolicy; onChange:(value:ReportingPolicy)=>void;employees:Employee[];excludeId?:number}) {
+  const current=policy.mode === "specific_user" ? String(policy.userId ?? "")
+    : policy.mode === "top_level" ? "top_level" : policy.mode === "role" ? "advanced" : "";
+  return <Field label="Reports to">
+    <select className={inputClass} value={current} onChange={e=>{
+      const v=e.target.value;
+      onChange(v === "top_level" ? {version:1,mode:"top_level"}
+        : v === "" ? UNSET
+        : v === "advanced" ? policy
+        : {version:1,mode:"specific_user",userId:Number(v)});
+    }}>
+      <option value="">Not assigned yet</option>
+      <option value="top_level">No manager (top-level)</option>
+      {current === "advanced" && <option value="advanced">Advanced reporting rule (below)</option>}
+      {employees.filter(e=>e.id!==excludeId && e.status==="active").map(e=><option value={e.id} key={e.id}>
+        {nameOf(e)}{e.department?` · ${e.department}`:""}
+      </option>)}
+    </select>
+  </Field>;
+}
+
 function AddEmployeeDialog({
   employees,
   roles,
   departmentOptions,
+  departmentHeads,
   designationOptions,
   companyCode,
   onClose,
@@ -559,6 +593,7 @@ function AddEmployeeDialog({
   employees: Employee[];
   roles: Role[];
   departmentOptions: Option[];
+  departmentHeads: Record<string,number>;
   designationOptions: Option[];
   companyCode: string | null;
   onClose: () => void;
@@ -751,12 +786,15 @@ function AddEmployeeDialog({
           <div className="text-[14px] font-semibold">Team</div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Department">
-              <MultiSelect
-                options={departmentOptions}
-                selectedValues={departmentsPicked}
-                onValueChange={setDepartmentsPicked}
-                placeholder="Choose departments"
-              />
+              <select className={inputClass} value={departmentsPicked[0] ?? ""}
+                  onChange={e => { const next=e.target.value;
+                    setDepartmentsPicked(next?[next]:[]);
+                    const owner=departmentHeads[next.toLowerCase()];
+                    if (owner && policy.mode === "unset") setPolicy({version:1,mode:"specific_user",userId:owner});
+                  }}>
+                  <option value="">Choose a department</option>
+                  {departmentOptions.map(option=><option key={String(option.value)} value={String(option.value)}>{option.label}</option>)}
+                </select>
             </Field>
             <Field label="Designation">
               <SearchSelect
@@ -786,9 +824,10 @@ function AddEmployeeDialog({
         </section>
 
         <section className="space-y-3">
+          <SimpleManagerPicker policy={policy} onChange={setPolicy} employees={employees}/>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-[14px] font-semibold">Manager and approver</div>
+              <div className="text-[14px] font-semibold">Advanced reporting rules</div>
               <div className="text-[13px] text-muted-foreground">
                 {policy.mode === "unset" ? "Not set yet. You can set it later." : "Set."}
               </div>
@@ -818,6 +857,7 @@ function ManageEmployeeDialog({
   employees,
   roles,
   departmentOptions,
+  departmentHeads,
   designationOptions,
   companyCode,
   isMe = false,
@@ -828,6 +868,7 @@ function ManageEmployeeDialog({
   employees: Employee[];
   roles: Role[];
   departmentOptions: Option[];
+  departmentHeads: Record<string,number>;
   designationOptions: Option[];
   companyCode: string | null;
   isMe?: boolean;
@@ -1055,13 +1096,17 @@ function ManageEmployeeDialog({
               <input value={email} onChange={(event) => setEmail(event.target.value)} className={inputClass} type="email" />
             </Field>
             <Field label="Department">
-              <MultiSelect
-                options={departmentOptions}
-                selectedValues={departmentsPicked}
-                onValueChange={setDepartmentsPicked}
-                placeholder="Choose departments"
-              />
+              <select className={inputClass} value={departmentsPicked[0] ?? ""}
+                onChange={e=>{ const next=e.target.value; setDepartmentsPicked(next?[next]:[]);
+                  const owner=departmentHeads[next.toLowerCase()];
+                  if(owner && policy.mode === "unset" && owner !== employeeId) setPolicy({version:1,mode:"specific_user",userId:owner});
+                }}>
+                <option value="">Choose a department</option>
+                {departmentOptions.map(option=><option key={String(option.value)} value={String(option.value)}>{option.label}</option>)}
+              </select>
             </Field>
+            <details className="sm:col-span-2 rounded-lg border p-3"><summary className="cursor-pointer text-sm font-medium">Optional details: designation, area and zone</summary>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <Field label="Designation">
               <SearchSelect
                 options={designationOptions}
@@ -1076,8 +1121,11 @@ function ManageEmployeeDialog({
             <Field label="Zone">
               <input value={zone} onChange={(event) => setZone(capitalizeFirst(event.target.value))} className={inputClass} />
             </Field>
-            <div className="sm:col-span-2">
-              <ReportingPolicyEditor
+            </div></details>
+            <div className="sm:col-span-2 space-y-3">
+              <SimpleManagerPicker policy={policy} onChange={setPolicy} employees={employees} excludeId={employeeId}/>
+              <details className="rounded-lg border p-3"><summary className="cursor-pointer text-sm font-medium">Advanced reporting rules</summary>
+              <div className="mt-3"><ReportingPolicyEditor
                 value={policy}
                 onChange={(next) => {
                   setPolicy(next);
@@ -1088,7 +1136,7 @@ function ManageEmployeeDialog({
                 subjectId={employeeId}
                 snapshot={snapshot}
                 onPreview={() => void previewManager()}
-              />
+              /></div></details>
             </div>
             <button type="submit" className="hidden" aria-hidden tabIndex={-1} />
           </form>
@@ -1141,6 +1189,7 @@ function ManageEmployeeDialog({
             )}
           </section>
 
+          <EmployeeFieldAccessPanel employeeId={employeeId} />
           <section className="rounded-[12px] border p-4">
             <div className="text-[14px] font-semibold">Approval roles</div>
             <div className="mb-3 text-[13px] text-muted-foreground">

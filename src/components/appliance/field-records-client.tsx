@@ -1,5 +1,7 @@
 // BRIXTA_SITE_ADMIN_V5
 "use client";
+// BRIXTA_CRM_ACCESS_UX_V1_20261101
+import FieldActivitySummary from "./field-activity-summary";
 
 import {
   CheckCircle2,
@@ -942,6 +944,7 @@ export default function FieldRecordsClient() {
                   </button>
                 </div>
 
+                <FieldActivitySummary recordId={detail.id} />
                 <section className="rounded-xl border bg-muted/10 p-4 space-y-2 text-sm">
                   <h3 className="text-xs font-semibold uppercase tracking-wide">Record activity &amp; verification</h3>
                   <div>Last saved: <strong>{detail.lastSavedAt ? new Date(detail.lastSavedAt).toLocaleString("en-IN") : "Unknown"}</strong></div>

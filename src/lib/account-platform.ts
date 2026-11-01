@@ -57,10 +57,19 @@ export async function listOrganizationsForAccountEmail(email: string) {
     [email.trim().toLowerCase()],
   );
 
+  // Resolve codes for companies visible to this account. This query works
+  // both before and after the optional login_code column is migrated.
+  const ids = result.rows.map(row => row.id);
+  const aliases = ids.length ? await pool.query<{ id: number; company_code: string }>(
+    `SELECT o.id, coalesce(to_jsonb(o)->>'login_code',o.schema_name) AS company_code
+       FROM public.organizations o WHERE o.id = ANY($1::integer[])`, [ids],
+  ) : { rows: [] as Array<{id:number;company_code:string}> };
+  const byId = new Map(aliases.rows.map(row => [row.id, row.company_code]));
   return result.rows.map((row) => ({
     id: row.id,
     name: row.name,
     schemaName: row.schema_name,
+    companyCode: byId.get(row.id) ?? row.schema_name,
     isProvisioned: row.is_provisioned,
     platformVersion: row.platform_version,
     registryStatus: row.registry_status,

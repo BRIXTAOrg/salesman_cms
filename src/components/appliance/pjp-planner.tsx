@@ -1,9 +1,10 @@
 "use client";
+// BRIXTA_PJP_LOCAL_FIX_20261101
 
 import dynamic from "next/dynamic";
 import type { JourneyRules } from "@/lib/field-app-contract";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown, ArrowUp, ClipboardList, Download, MapPin, Plus, RefreshCw,
   Route, Save, Search, Trash2, Users,
@@ -99,6 +100,9 @@ export default function PjpPlanner({ home = false }: { home?: boolean }) {
   const [publishedRevision, setPublishedRevision] = useState(0);
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [publishedFor, setPublishedFor] = useState("");
+  const [publicationRefreshId, setPublicationRefreshId] = useState(0);
+  const activeSitesRequest = useRef<AbortController | null>(null);
   // AI planner state and helpers are declared below the eligible CRM filter.
 
   const loadPeople = useCallback(async () => {
@@ -114,30 +118,39 @@ export default function PjpPlanner({ home = false }: { home?: boolean }) {
   }, []);
 
   const loadSites = useCallback(async () => {
+    activeSitesRequest.current?.abort();
+    const controller = new AbortController();
+    activeSitesRequest.current = controller;
     setLoading(true);
     try {
       const params = new URLSearchParams({ export: "1", sort: "priority" });
       if (listId) params.set("list", listId);
-      const response = await fetch(`/api/platform/field-records?${params.toString()}`, { cache: "no-store" });
+      const response = await fetch(`/api/platform/field-records?${params.toString()}`, {
+        cache: "no-store", signal: controller.signal,
+      });
       const data = await response.json() as CRMResponse;
-      if (!response.ok || !data.success) throw new Error(data.error ?? "Unable to read CRM records.");
+      if (controller.signal.aborted || activeSitesRequest.current !== controller) return;
+      if (!response.ok || !data.success) throw new Error(data.error ?? `CRM HTTP ${response.status}`);
       setLists(data.lists ?? []);
       setSites(data.rows ?? []);
       setJourneyRules(data.list?.journeyRules ?? null);
       setPublishedAppVersion(data.list?.appVersion ?? 0);
       if (data.list?.journeyRules?.enabled) setStageFilter("all");
       setListId((current) => current || String(data.list?.id ?? ""));
-      setMessage("");
     } catch (error) {
+      if (controller.signal.aborted || activeSitesRequest.current !== controller) return;
       setMessage(error instanceof Error ? error.message : "Cannot load published CRM lists.");
       setSites([]);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted && activeSitesRequest.current === controller) setLoading(false);
     }
   }, [listId]);
 
   useEffect(() => { void loadPeople(); }, [loadPeople]);
-  useEffect(() => { void loadSites(); }, [loadSites]);
+  useEffect(() => {
+    void loadSites();
+    return () => activeSitesRequest.current?.abort();
+  }, [loadSites]);
 
   // Browser-only drafts are NOT team assignments. This key isolates the user/date/list.
   const draftKey = employeeId && listId && date ? `brixta:pjp-draft:v1:${employeeId}:${listId}:${date}` : "";
@@ -157,41 +170,69 @@ export default function PjpPlanner({ home = false }: { home?: boolean }) {
     setDraftLoaded(draftKey);
   }, [draftKey]);
 
-  // Server source of truth: browser draft is never a published assignment.
+  // A revision is safe to use only after the CURRENT employee/date has loaded.
   useEffect(() => {
+    setPublishedFor("");
+    setPublishedRevision(0);
+    setPublishedAt(null);
     if (!employeeId || !date) return;
     let cancelled = false;
     const params = new URLSearchParams({ employeeId, date });
     void fetch(`/api/platform/pjp?${params.toString()}`, { cache: "no-store" })
       .then(async (response) => {
         const body = await response.json() as { success: boolean; error?: string; revision: number; plan?: { publishedAt?: string } };
-        if (!response.ok) throw new Error(body.error || "Cannot retrieve published PJP.");
+        if (!response.ok || !body.success) throw new Error(`${body.error || "Cannot retrieve published PJP."} (HTTP ${response.status})`);
         if (cancelled) return;
         setPublishedRevision(body.revision ?? 0);
         setPublishedAt(body.plan?.publishedAt ?? null);
+        setPublishedFor(`${employeeId}:${date}`);
       })
       .catch((err) => { if (!cancelled) setMessage(err instanceof Error ? err.message : "Failed to check published PJP."); });
     return () => { cancelled = true; };
-  }, [employeeId, date]);
+  }, [employeeId, date, publicationRefreshId]);
 
   async function publishPlan() {
-    if (!origin || !employeeId || !listId || !stops.length || publishing || draftLoaded !== draftKey) {
-      setMessage("Choose an employee, CRM list, start point and at least one stop."); return;
+    const currentKey = `${employeeId}:${date}`;
+    const cancelling = stops.length === 0;
+    if (!employeeId || publishing || loading || draftLoaded !== draftKey || publishedFor !== currentKey ||
+        (!cancelling && (!origin || !listId)) || (cancelling && !publishedAt)) {
+      setMessage("Wait for the employee's current plan and CRM list to load; choose a start point and stops, or cancel an existing published plan.");
+      return;
     }
-    if (!window.confirm(`Publish this ${date} itinerary to ${selectedEmployee?.name ?? "the employee"}'s mobile Home?\n\n${stops.length} stops (sites and tasks). This replaces the previously published itinerary for that day, but never changes CRM records or their assignments.`)) return;
+    const prompt = cancelling
+      ? `Cancel the published ${date} itinerary for ${selectedEmployee?.name ?? "the employee"}?\n\nThis removes it from mobile Home, but keeps the audit history.`
+      : `Publish this ${date} itinerary to ${selectedEmployee?.name ?? "the employee"}'s mobile Home?\n\n${stops.length} stops. This replaces the published itinerary without changing CRM records.`;
+    if (!window.confirm(prompt)) return;
     setPublishing(true);
     try {
+      const payload = cancelling
+        ? { employeeId: Number(employeeId), date, expectedRevision: publishedRevision }
+        : { employeeId: Number(employeeId), date, listId: Number(listId), origin, stops,
+            appVersion: publishedAppVersion, expectedRevision: publishedRevision };
       const response = await fetch("/api/platform/pjp", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId: Number(employeeId), date, listId: Number(listId), origin, stops, appVersion: publishedAppVersion, expectedRevision: publishedRevision }),
+        method: cancelling ? "DELETE" : "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(payload),
       });
-      const body = await response.json() as { success: boolean; error?: string; revision?: number; plan?: { publishedAt?: string } };
-      if (!response.ok || !body.success) throw new Error(body.error ?? "PJP publication failed.");
+      const raw = await response.text();
+      let body: { success?: boolean; error?: string; revision?: number; plan?: { publishedAt?: string } | null };
+      try { body = JSON.parse(raw); }
+      catch { throw new Error(`PJP server returned a non-JSON response (HTTP ${response.status}). Check the server logs.`); }
+      if (!response.ok || !body.success) {
+        throw new Error(`${body.error ?? "PJP request failed"} (HTTP ${response.status})`);
+      }
       setPublishedRevision(body.revision ?? 0);
       setPublishedAt(body.plan?.publishedAt ?? null);
-      setMessage(`Published PJP v${body.revision} to ${selectedEmployee?.name ?? "employee"}. It will appear on Home after a mobile refresh.`);
+      // Persist the exact successfully published/cancelled draft locally.
+      try { window.localStorage.setItem(draftKey, JSON.stringify({ origin, stops, updatedAt: new Date().toISOString() } satisfies BrowserDraft)); }
+      catch { /* Publishing is authoritative even when browser storage is blocked. */ }
+      setMessage(cancelling
+        ? `Cancelled the published PJP for ${selectedEmployee?.name ?? "employee"}. Mobile Home will clear after refresh.`
+        : `Published PJP v${body.revision} to ${selectedEmployee?.name ?? "employee"}. It will appear on Home after mobile refresh.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to publish PJP.");
+      setMessage(error instanceof Error ? error.message : "Unable to change published PJP.");
+      setPublicationRefreshId(id => id + 1); // Reload authoritative revision after conflicts.
     } finally { setPublishing(false); }
   }
 
@@ -432,10 +473,10 @@ export default function PjpPlanner({ home = false }: { home?: boolean }) {
       <PageIntro
         title={home ? "Home · Journey planning" : "PJP · Journey planner"}
         description="Plan an employee's day from published CRM sites and other tasks. Preview stop order before dispatch."
-        action={<SecondaryButton type="button" onClick={() => { void loadSites(); void loadPeople(); }}><RefreshCw className="h-4 w-4" />Refresh CRM</SecondaryButton>}
+        action={<SecondaryButton type="button" onClick={() => { void loadSites(); void loadPeople(); setPublicationRefreshId(id => id + 1); }}><RefreshCw className="h-4 w-4" />Refresh CRM & PJP</SecondaryButton>}
       />
       <Panel className="flex flex-wrap items-center gap-3 py-3 text-xs">
-        <Pill tone="info">{publishedRevision ? `Published v${publishedRevision}` : "Planning draft"}</Pill>
+        <Pill tone="info">{publishedAt ? `Published v${publishedRevision}` : publishedRevision ? "Previously cancelled" : "Planning draft"}</Pill>
         <span className="text-muted-foreground">CRM data is read-only here. Use Publish PJP to send this itinerary to the employee's Home. Browser drafts remain device-local.</span>
         <span className="font-medium text-primary">{publishedRuleLabel}</span>
         {home && <Link href="/dashboard/workspace/assignments" className="ml-auto font-semibold text-primary">Open full planner</Link>}
@@ -562,7 +603,11 @@ export default function PjpPlanner({ home = false }: { home?: boolean }) {
           <div><div className="text-lg font-semibold">Journey itinerary · {date}</div><div className="text-xs text-muted-foreground">{publishedAt ? `Latest published: ${new Date(publishedAt).toLocaleString("en-IN")}` : "Not published to mobile yet"}</div><div className="text-xs text-muted-foreground">{stops.filter((s) => s.type === "site").length} site stops · {stops.filter((s) => s.type === "task").length} tasks · {routeStops.length} mappable stops</div></div>
           <div className="flex flex-wrap gap-2">
             <SecondaryButton type="button" onClick={saveDraft} disabled={!draftKey || draftLoaded !== draftKey}><Save className="h-4 w-4" />Save browser draft</SecondaryButton>
-            <PrimaryButton type="button" onClick={() => void publishPlan()} disabled={publishing || !employeeId || !origin || !stops.length || draftLoaded !== draftKey}>{publishing ? "Publishing..." : "Publish PJP to mobile Home"}</PrimaryButton>
+            <PrimaryButton type="button" onClick={() => void publishPlan()} disabled={publishing || loading || !employeeId ||
+              publishedFor !== `${employeeId}:${date}` || draftLoaded !== draftKey ||
+              (stops.length > 0 && (!origin || !listId)) || (stops.length === 0 && !publishedAt)}>
+              {publishing ? "Saving..." : stops.length ? "Publish PJP to mobile Home" : "Cancel published PJP"}
+            </PrimaryButton>
             <SecondaryButton type="button" onClick={downloadCsv} disabled={!stops.length}><Download className="h-4 w-4" />Export itinerary CSV</SecondaryButton>
             <PrimaryButton type="button" disabled={!origin || routeStops.length === 0} onClick={() => origin && openRoadRoute(origin, routeStops)}><MapPin className="h-4 w-4" />Open road directions</PrimaryButton>
           </div>

@@ -1,3 +1,4 @@
+// BRIXTA_PJP_LOCAL_FIX_20261101
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { withTenantDb } from "@/lib/auth";
@@ -28,7 +29,12 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
   const date = url.searchParams.get("date") ?? "";
   if (!Number.isSafeInteger(employeeId) || employeeId < 1 || !datePattern.test(date)) return error(400, "Choose an employee and date.");
   const [entry] = await db.select().from(platformMeta).where(eq(platformMeta.key, metaKey(employeeId, date))).limit(1);
-  return NextResponse.json({ success: true, revision: Number(asObj(entry?.value).revision ?? 0), plan: entry?.value ?? null }, { headers: { "Cache-Control": "no-store" } });
+  const saved = asObj(entry?.value);
+  return NextResponse.json({
+    success: true,
+    revision: Number(saved.revision ?? 0),
+    plan: saved.cancelled === true ? null : entry?.value ?? null,
+  }, { headers: { "Cache-Control": "no-store" } });
 });
 
 export const POST = withTenantDb(async (request: NextRequest, db, session) => {
@@ -130,4 +136,51 @@ export const POST = withTenantDb(async (request: NextRequest, db, session) => {
     payload: { revision, previousRevision: currentRevision, completePlan: plan, previousPlan: currentRevision ? previous : null },
   });
   return NextResponse.json({ success: true, revision, plan }, { headers: { "Cache-Control": "no-store" } });
+});
+
+
+/** Revoke a published itinerary without erasing its audit history or revision. */
+export const DELETE = withTenantDb(async (request: NextRequest, db, session) => {
+  if (!session.permissions.includes("ALL_ACCESS")) return error(403, "PJP cancellation requires ALL_ACCESS.");
+  const body = asObj(await request.json().catch(() => null));
+  const employeeId = Number(body.employeeId);
+  const date = String(body.date ?? "");
+  const expectedRevision = Number(body.expectedRevision);
+  if (!Number.isSafeInteger(employeeId) || employeeId < 1 || !datePattern.test(date) ||
+      !Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
+    return error(422, "Choose a valid employee, date and published revision.");
+  }
+  const key = metaKey(employeeId, date);
+  // Keep the tombstone row so optimistic locking still works after cancellation.
+  await db.insert(platformMeta).values({ key, value: { revision: 0 } }).onConflictDoNothing();
+  const [entry] = await db.select().from(platformMeta).where(eq(platformMeta.key, key)).limit(1).for("update");
+  const previous = asObj(entry?.value);
+  const currentRevision = Number(previous.revision ?? 0);
+  if (expectedRevision !== currentRevision) {
+    return error(409, "This itinerary changed. Refresh before cancelling.");
+  }
+  if (previous.cancelled === true || currentRevision === 0) {
+    return NextResponse.json({ success: true, revision: currentRevision, plan: null },
+      { headers: { "Cache-Control": "no-store" } });
+  }
+  const now = new Date();
+  const cancelled = {
+    revision: currentRevision + 1,
+    employeeId,
+    date,
+    stops: [],
+    cancelled: true,
+    cancelledAt: now.toISOString(),
+    cancelledBy: session.userId,
+  };
+  await db.update(platformMeta).set({ value: cancelled, updatedAt: now }).where(eq(platformMeta.key, key));
+  await db.insert(platformAuditEvents).values({
+    actorUserId: session.userId,
+    eventType: "pjp.cancelled",
+    subjectType: "pjp",
+    subjectId: key,
+    payload: { revision: cancelled.revision, previousRevision: currentRevision, previousPlan: previous },
+  });
+  return NextResponse.json({ success: true, revision: cancelled.revision, plan: null },
+    { headers: { "Cache-Control": "no-store" } });
 });

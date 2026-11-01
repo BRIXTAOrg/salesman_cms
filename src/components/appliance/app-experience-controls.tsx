@@ -1,3 +1,4 @@
+// BRIXTA_CRM_ACCESS_UX_V1_20261101
 "use client";
 
 import {
@@ -343,6 +344,16 @@ export default function AppExperienceControls({
         </Field>
 
 
+        <Field label="Filter display">
+          <select className={inputClass} value={list.filterControl} onChange={(event) =>
+            patchList({filterControl: event.target.value === "pills" ? "pills" : "dropdown"})}>
+            <option value="dropdown">Dropdown selector</option>
+            <option value="pills">Horizontal filter buttons</option>
+          </select>
+        </Field>
+
+        <Toggle label="Always start with Not Visited" checked={list.preferNotVisitedDefault}
+          onChange={(value) => patchList({preferNotVisitedDefault:value})}/>
         <Field label="Default view">
           <select
             className={inputClass}
@@ -893,6 +904,11 @@ export default function AppExperienceControls({
           />
 
           <Toggle
+            label="Evidence gallery"
+            checked={detail.showEvidenceGallery}
+            onChange={(value) => patchDetail({showEvidenceGallery: value})}
+          />
+          <Toggle
             label="Timeline"
             checked={
               detail.showTimeline
@@ -906,6 +922,13 @@ export default function AppExperienceControls({
           />
 
         </div>
+        <Field label="Site detail layout">
+          <select className={inputClass} value={detail.layoutStyle}
+            onChange={(event) => patchDetail({layoutStyle: event.target.value === "timeline_first" ? "timeline_first" : "standard"})}>
+            <option value="standard">Standard · steps first</option>
+            <option value="timeline_first">Activity first · timeline and evidence ahead of steps</option>
+          </select>
+        </Field>
 
       </div>
 

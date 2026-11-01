@@ -45,6 +45,7 @@ type CompanyPortfolio = {
   id: number;
   name: string;
   schemaName: string;
+  companyCode: string;
   isProvisioned: boolean;
   platformVersion?: number;
   registryStatus?: string;
@@ -76,6 +77,7 @@ async function loadCompany(
     id: organization.id,
     name: organization.name,
     schemaName: organization.schemaName,
+    companyCode: organization.companyCode,
     isProvisioned: organization.isProvisioned,
     platformVersion: organization.platformVersion,
     registryStatus: organization.registryStatus,

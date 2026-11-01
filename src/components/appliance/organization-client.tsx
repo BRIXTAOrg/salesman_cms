@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { useCompanySwitch } from "@/components/company-switch-dialog";
+import CompanyProfileSettings from "./company-profile-settings";
 import type {
   Employee,
 } from "@/lib/appliance-types";
@@ -41,6 +42,7 @@ type PortfolioCompany = {
   id: number;
   name: string;
   schemaName: string;
+  companyCode: string;
   isProvisioned: boolean;
   platformVersion?: number;
   registryStatus?: string;
@@ -130,7 +132,7 @@ function CompanyCard({
           </div>
 
           <div className="mt-1 truncate text-xs text-muted-foreground">
-            {company.schemaName}
+            Sign-in code: {company.companyCode || company.schemaName}
             {company.platformVersion
               ? ` · platform v${company.platformVersion}`
               : ""}
@@ -488,6 +490,7 @@ export default function OrganizationClient() {
         }
       />
 
+      <CompanyProfileSettings />
       <Panel>
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
