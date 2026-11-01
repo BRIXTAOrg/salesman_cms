@@ -8,7 +8,7 @@ type Policy = {
   viewPhotos: boolean;
   editOtherSites: boolean;
 };
-type List = {id:number;title:string};
+type List = {id:number;title:string;linked?:boolean};
 const initial: Policy = {listIds:null,recordScope:"inherit",viewOtherHistory:true,viewPhotos:true,editOtherSites:false};
 
 export default function EmployeeFieldAccessPanel({employeeId}:{employeeId:number}) {
@@ -42,15 +42,19 @@ export default function EmployeeFieldAccessPanel({employeeId}:{employeeId:number
     <div><div className="text-sm font-semibold">CRM dataset & site access</div>
       <div className="text-xs text-muted-foreground">Separate from app layout and workflow roles. Applies to the employee's mobile Field API.</div></div>
     {loading?<p className="text-xs">Loading CRM access...</p>:<>
-      <label className="block text-xs font-medium">Which CRM lists can this employee open?</label>
+      <label className="block text-xs font-medium">Original CRM dataset access</label>
+      <p className="text-[11px] text-muted-foreground">Linked App Experience access is managed on each module in App experiences. These settings control original datasets only.</p>
       <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={policy.listIds===null}
-        onChange={e=>setPolicy(p=>({...p,listIds:e.target.checked?null:[]}))}/> All published Field lists</label>
-      {policy.listIds!==null && <div className="max-h-44 overflow-y-auto grid gap-2 p-2 rounded-lg border">
+        onChange={e=>setPolicy(p=>({...p,listIds:e.target.checked?null:lists.filter(x=>!x.linked).map(x=>x.id)}))}/> Automatically allow original CRM modules (not newly linked modules)</label>
+      <div className="max-h-56 overflow-y-auto grid gap-2 p-2 rounded-lg border">
         {lists.map(list=><label key={list.id} className="flex gap-2 items-center text-xs"><input type="checkbox"
-          checked={policy.listIds?.includes(list.id)??false}
-          onChange={e=>setPolicy(p=>({...p,listIds:e.target.checked?[...(p.listIds??[]),list.id]:(p.listIds??[]).filter(id=>id!==list.id)}))}/>{list.title}</label>)}
+          checked={policy.listIds===null?!list.linked:(policy.listIds?.includes(list.id)??false)}
+          onChange={e=>setPolicy(p=>{
+            const current=p.listIds??lists.filter(x=>!x.linked).map(x=>x.id);
+            return {...p,listIds:e.target.checked?[...new Set([...current,list.id])]:current.filter(id=>id!==list.id)};
+          })}/>{list.title} {list.linked?<span className="text-muted-foreground">(Linked experience)</span>:null}</label>)}
         {lists.length===0&&<span className="text-xs text-muted-foreground">No published Field lists.</span>}
-      </div>}
+      </div>
       <label className="block text-xs font-medium">Site visibility</label>
       <select className="w-full rounded-lg border p-2 text-sm" value={policy.recordScope}
         onChange={e=>setPolicy(p=>({...p,recordScope:e.target.value as Policy["recordScope"]}))}>

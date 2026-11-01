@@ -956,6 +956,9 @@ export const POST = withTenantDb(
           { status: 404 },
         );
       }
+      // Linked experiences use the original CRM records; never import into a module row.
+      if (row.config?.fieldSource) return NextResponse.json({success:false,
+        error:"This is a linked App Experience. Import new data into its source CRM dataset."}, {status:409});
       entity = row;
     } else {
       const key = normalizeKey(plan.target.title).slice(0, 160);

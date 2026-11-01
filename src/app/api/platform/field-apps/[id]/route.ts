@@ -287,9 +287,14 @@ export const POST = withTenantDb<Context>(async (request: NextRequest, db, sessi
     });
   }
 
+  const linked = row.config?.fieldSource as {sourceListId?:number} | undefined;
+  const sourceId = Number(linked?.sourceListId);
+  const sourceRow = Number.isSafeInteger(sourceId) && sourceId > 0
+    ? await loadRow(db,sourceId,true) : null;
+  if (linked && !sourceRow) return fail(409,"The source CRM dataset is no longer available.");
+  const fieldBase = sourceRow?.fieldDefinitions ?? row.fieldDefinitions ?? [];
   const merged = mergeFieldDefinitions(
-    (row.fieldDefinitions ?? []) as Parameters<typeof mergeFieldDefinitions>[0],
-    published,
+    fieldBase as Parameters<typeof mergeFieldDefinitions>[0], published,
   );
 
   const [updated] = await db
@@ -306,6 +311,10 @@ export const POST = withTenantDb<Context>(async (request: NextRequest, db, sessi
     .where(eq(entityTypes.id, id))
     .returning();
 
+  // SAFE ISOLATION: publishing a linked module must NOT mutate the source CRM
+  // field definitions, published version, record data, progress or histories.
+  // The linked module stores its own field definitions; JSONB values are captured
+  // by the source record engine only when an authorized employee explicitly acts.
   const summary = summaryOf(published);
   await db.insert(platformAuditEvents).values({
     actorUserId: session.userId,

@@ -342,7 +342,7 @@ export function buildWorkspaceManifest({
     workflowHasApproval ||
     pendingApprovals > 0
   ) {
-    addNav(nav, "Legacy", {
+    addNav(nav, "People", {
       key: "approvals",
       label: pendingApprovals > 0 ? `Approvals (${pendingApprovals})` : "Approvals",
       href: "/dashboard/workspace/approvals",
@@ -391,6 +391,21 @@ export function buildWorkspaceManifest({
 
       section: "Archived Responsibilities",
     });
+  }
+
+  // BRIXTA_CRM_FIRST_V1: preserve historical records/routes, not normal navigation.
+  const legacyKeys = new Set([
+    "responsibilities", "legacy_assignment_controls", "legacy_home", "all_responsibilities",
+  ]);
+  for (const group of nav.values()) {
+    for (const [key] of group.items) {
+      if (legacyKeys.has(key) || key.startsWith("responsibility:") || key.startsWith("archived:")) {
+        group.items.delete(key);
+      }
+    }
+  }
+  for (const [key, group] of nav) {
+    if (group.items.size === 0) nav.delete(key);
   }
 
   const navigation = navGroups(nav);

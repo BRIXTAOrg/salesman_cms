@@ -44,7 +44,17 @@ export const GET = withTenantDb<Context>(async (_request: NextRequest, db, sessi
     return NextResponse.json({ success: false, error: "Record not found." }, { status: 404 });
   }
   const [type] = await db.select().from(entityTypes).where(eq(entityTypes.id, record.entityTypeId)).limit(1);
-  const config = type ? readFieldConfig(type.config, type.title) : null;
+  const moduleId = Number(_request.nextUrl.searchParams.get("module"));
+  let experienceType = type;
+  if (Number.isSafeInteger(moduleId) && moduleId > 0 && moduleId !== record.entityTypeId) {
+    const [linked] = await db.select().from(entityTypes).where(eq(entityTypes.id,moduleId)).limit(1);
+    const source = linked?.config?.fieldSource as {sourceListId?:number;recordIds?:string[]} | undefined;
+    if (!linked?.isActive || source?.sourceListId !== record.entityTypeId ||
+        !Array.isArray(source.recordIds) || !source.recordIds.includes(record.id))
+      return NextResponse.json({success:false,error:"This record is not part of that App Experience."},{status:404});
+    experienceType = linked;
+  }
+  const config = experienceType ? readFieldConfig(experienceType.config, experienceType.title) : null;
   if (!type || !config) {
     return NextResponse.json({ success: false, error: "This list is not in the field app." }, { status: 404 });
   }

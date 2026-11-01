@@ -77,10 +77,10 @@ export const POST = withTenantDb(async (request: NextRequest, db, session) => {
         ? String(body.displayTemplate)
         : null,
       searchableFields,
-      config:
-        body?.config && typeof body.config === "object"
-          ? body.config
-          : {},
+      // A normal CRM creator cannot fabricate source-linked module membership.
+      config: body?.config && typeof body.config === "object" && !Array.isArray(body.config)
+        ? Object.fromEntries(Object.entries(body.config as Record<string, unknown>).filter(([key]) =>
+            !["fieldSource","fieldApp","fieldAppDraft","fieldAppHistory"].includes(key))) : {},
     })
     .returning();
 

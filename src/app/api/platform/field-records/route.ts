@@ -1,7 +1,7 @@
 import { readFieldAppConfig } from "@/lib/field-app-contract";
 // BRIXTA_SITE_ADMIN_V5
 import { NextRequest, NextResponse } from "next/server";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
 
 import { withTenantDb } from "@/lib/auth";
 import { canOperation } from "@/lib/operations-permissions";
@@ -59,6 +59,15 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
   const current = lists.find((item) => item.type.id === requested) ?? lists[0];
   const type = current.type;
   const config = current.config!;
+  const linked = type.config?.fieldSource as {sourceListId?:number;recordIds?:string[]} | undefined;
+  const sourceListId = Number.isSafeInteger(linked?.sourceListId) ? Number(linked!.sourceListId) : type.id;
+  const siblingIds = linked ? [] : lists.flatMap(item => {
+    const fs=item.type.config?.fieldSource as {sourceListId?:number;recordIds?:string[]} | undefined;
+    return fs?.sourceListId === type.id && Array.isArray(fs.recordIds) ? fs.recordIds : [];
+  });
+  const membership = linked ? (linked.recordIds?.length
+    ? inArray(entityRecords.id,linked.recordIds) : sql`false`)
+    : (siblingIds.length ? notInArray(entityRecords.id,siblingIds) : sql`true`);
 
   const keys = [
     ...new Set(
@@ -87,7 +96,7 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
       )})`,
     })
     .from(entityRecords)
-    .where(and(eq(entityRecords.entityTypeId, type.id), eq(entityRecords.status, "active")))
+    .where(and(eq(entityRecords.entityTypeId, sourceListId), eq(entityRecords.status, "active"), membership))
     .limit(MAX_ROWS);
 
   // Never silently download incomplete exports at the server's row cap.

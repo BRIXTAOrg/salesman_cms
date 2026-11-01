@@ -314,7 +314,7 @@ export default function EntityImportWizard({
   const [result, setResult] = useState<ImportResult | null>(null);
 
   const activeEntities = useMemo(
-    () => entities.filter((entity) => entity.isActive !== false),
+    () => entities.filter((entity) => entity.isActive !== false && !entity.config?.["fieldSource"]),
     [entities],
   );
   const selectedEntity = activeEntities.find((entity) => entity.id === entityTypeId) ?? null;

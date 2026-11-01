@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiJson, cx } from "./client";
 import FieldOperationsPanel from "./field-operations-panel";
+import CreateLinkedExperience from "./create-linked-experience";
 import FieldAdminCorrection from "./field-admin-correction";
 import {
   EmptyState,
@@ -282,7 +283,7 @@ export default function FieldRecordsClient() {
     setHandoverTargets({});
     setHandoverReasons({});
     try {
-      const body = await apiJson<{ record: Detail }>(`/api/platform/field-records/${id}`);
+      const body = await apiJson<{ record: Detail }>(`/api/platform/field-records/${id}?module=${listId ?? ""}`);
       setDetail(body.record);
       void apiJson<{ canRestart: boolean }>(`/api/platform/field-records/${id}/restart`)
         .then((access) => setMayRestart(access.canRestart === true))
@@ -307,7 +308,7 @@ export default function FieldRecordsClient() {
     } finally {
       setDetailLoading(false);
     }
-  }, []);
+  }, [listId]);
 
   useEffect(() => {
     if (!openId) return;
@@ -733,6 +734,23 @@ export default function FieldRecordsClient() {
             </button>
           </div>}
       </section>
+
+      {/* Module creation belongs to DATA INPUT, never the App Experience editor. */}
+      {list && Boolean(stage || lens || verifiedOnly || workedOnly || recentOnly || assignee || search.trim()) && (
+        <CreateLinkedExperience
+          key={`${list.id}:${stage}:${lens}:${assignee}:${verifiedOnly}:${workedOnly}:${recentOnly}:${search}`}
+          sourceListId={list.id}
+          filters={{
+            q: search,
+            stage,
+            lens,
+            assignee,
+            verified: verifiedOnly,
+            worked: workedOnly,
+            recent: recentOnly,
+          }}
+        />
+      )}
 
       {/* BRIXTA_DATA_INPUT_REFUEL_20261025 — operations and live graph are always discoverable. */}
       {list && (

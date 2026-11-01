@@ -113,7 +113,7 @@ export default function EntitiesClient({
       const body = await apiJson<{ entityTypes: PlatformEntityType[] }>(
         "/api/platform/entities",
       );
-      setItems(body.entityTypes ?? []);
+      setItems((body.entityTypes ?? []).filter(item => !item.config?.["fieldSource"]));
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Could not load your lists.",
@@ -279,12 +279,20 @@ export default function EntitiesClient({
       {standalone ? (
         <PageIntro
           title="CRM & inputs"
-          description="Your CRM lists live here. Imported Dealers, Sites, Products and other records automatically become searchable data sources for Responsibilities. Separately configure what new information field users must enter."
+          description="Your source datasets live here. Import a new CRM list or update an existing one, then open App experiences to build and publish its employee-facing screens."
         />
       ) : (
         <div className="flex items-center gap-2 text-[15px] font-semibold">
           <Boxes className="h-5 w-5" />
           Lists
+        </div>
+      )}
+
+      {standalone && (
+        <div className="rounded-xl border border-[#D2E2DB] bg-[#F2F8F5] p-4 text-sm">
+          <div className="font-semibold">New CRM module → new App Experience</div>
+          <p className="mt-1 text-muted-foreground">Import into <b>A new list</b> below, then configure that list in App experiences. Import into <b>An existing list</b> to update its records without creating a separate module.</p>
+          <a href="/dashboard/workspace/app-experiences" className="mt-3 inline-flex h-9 items-center rounded-lg bg-[#2F6B62] px-4 font-semibold text-white hover:opacity-90">Open App Experience Library</a>
         </div>
       )}
 

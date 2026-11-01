@@ -36,6 +36,7 @@ import {
 } from "@/lib/field-app-templates";
 
 import AppExperienceControls from "./app-experience-controls";
+import LinkedModuleAccessEditor from "./linked-module-access-editor";
 import FieldPixelLogicEditor from "./field-pixel-logic-editor";
 import JourneyRulesEditor from "./journey-rules-editor";
 import FieldPublishedPixelLogic from "./field-published-pixel-logic";
@@ -551,6 +552,10 @@ export default function AppExperienceBuilder() {
                 return current;
               }
 
+              // Newly-created linked module: deep-link into its independent draft.
+              const requestedId = typeof window !== "undefined"
+                ? Number(new URLSearchParams(window.location.search).get("entity")) : 0;
+              if (requestedId && items.some(item => item.id === requestedId)) return requestedId;
               const published =
                 items.find(
                   (item) => {
@@ -1770,7 +1775,7 @@ export default function AppExperienceBuilder() {
 
       <PageIntro
         title="App experiences"
-        description="Build the operational CRM interface your field team uses — list, record detail, stages and steps. Responsibilities stay available for standalone workflows; this surface controls the CRM Field experience."
+        description="Edit published modules, review drafts, restore versions and publish changes here. To create a separate module from selected records, go to Data input and apply a filter."
       />
 
 
@@ -1790,6 +1795,9 @@ export default function AppExperienceBuilder() {
         </div>
       )}
 
+
+      {/* Data input creates linked modules. This editor manages their drafts,
+          versions and publishing using the existing module selector below. */}
 
       <Panel>
         <div className="flex flex-col gap-3 md:flex-row md:items-end">
@@ -1882,6 +1890,11 @@ export default function AppExperienceBuilder() {
         </div>
       </Panel>
 
+
+      {/* Access belongs to this individual linked module, not the source dataset. */}
+      {entity && Boolean(entity.config?.["fieldSource"]) && (
+        <LinkedModuleAccessEditor key={entity.id} moduleId={entity.id} />
+      )}
 
       {loading && !config && (
         <div className="flex h-48 items-center justify-center text-muted-foreground">

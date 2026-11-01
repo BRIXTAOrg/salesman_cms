@@ -40,8 +40,9 @@ export const GET = withTenantDb(async (request: NextRequest, db, session) => {
   if (!employee) return invalid("Employee does not exist.", 404);
   const [entry] = await db.select().from(platformMeta).where(eq(platformMeta.key, keyFor(employeeId))).limit(1);
   const candidates = await db.select().from(entityTypes).where(eq(entityTypes.isActive, true));
-  const lists = candidates.filter((r) => Boolean(readFieldAppConfig(r.config, r.title)))
-    .map((r) => ({id: r.id, title: r.title})).sort((a,b) => a.title.localeCompare(b.title));
+  const lists = candidates.filter((r) => !r.config?.fieldSource && Boolean(readFieldAppConfig(r.config, r.title)))
+    .map((r) => ({id:r.id,title:r.title,linked:Boolean(r.config?.fieldSource)}))
+    .sort((a,b) => a.title.localeCompare(b.title));
   return NextResponse.json({success:true, policy: entry ? normalize(entry.value) : defaultPolicy,
     customized: Boolean(entry), lists}, {headers:{"Cache-Control":"no-store"}});
 });
@@ -63,7 +64,10 @@ export const POST = withTenantDb(async (request: NextRequest, db, session) => {
   const policy = normalize(proposal);
   if (policy.listIds !== null) {
     const ids = await db.select({id: entityTypes.id}).from(entityTypes).where(eq(entityTypes.isActive, true));
-    if (policy.listIds.some(id => !ids.some(t => t.id === id))) return invalid("One or more CRM datasets no longer exist.", 409);
+    const linked = await db.select({id:entityTypes.id,config:entityTypes.config})
+      .from(entityTypes).where(eq(entityTypes.isActive,true));
+    if (policy.listIds.some(id => !ids.some(t => t.id === id) || linked.some(t => t.id === id && t.config?.fieldSource)))
+      return invalid("Choose original CRM lists here. Linked module visibility is managed in App experiences.",409);
   }
   const key = keyFor(employeeId);
   const [before] = await db.select().from(platformMeta).where(eq(platformMeta.key, key)).limit(1).for("update");

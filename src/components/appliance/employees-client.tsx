@@ -1178,29 +1178,13 @@ function ManageEmployeeDialog({
           </section>
 
           <section className="rounded-[12px] border p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="text-[14px] font-semibold">Responsibilities</div>
-                <div className="text-[13px] text-muted-foreground">
-                  {detail.responsibilities.length
-                    ? `${detail.responsibilities.length} in their app right now.`
-                    : "Nothing assigned yet."}
-                </div>
-              </div>
-              <Link
-                href="/dashboard/workspace/assignments"
-                className="brixta-secondary-button inline-flex h-9 items-center px-3 text-[13px] font-medium"
-              >
-                Open assignments
-              </Link>
+            <div className="text-sm font-semibold">CRM App Experiences & planned work</div>
+            <p className="mt-1 text-xs text-muted-foreground">Select the CRM datasets this employee can use below. Their published App Experiences appear under FIELD in the mobile app. Publish site visits and tasks through PJP planning.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href="/dashboard/workspace/app-experiences" className="brixta-secondary-button inline-flex h-9 items-center px-3 text-[13px] font-medium">App Experiences</Link>
+              <Link href="/dashboard/workspace/assignments" className="brixta-secondary-button inline-flex h-9 items-center px-3 text-[13px] font-medium">Plan PJP & tasks</Link>
+              <Link href="/dashboard/lists" className="brixta-secondary-button inline-flex h-9 items-center px-3 text-[13px] font-medium">Import CRM dataset</Link>
             </div>
-            {detail.responsibilities.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {detail.responsibilities.map((responsibility) => (
-                  <Pill key={responsibility.id}>{responsibility.title}</Pill>
-                ))}
-              </div>
-            )}
           </section>
 
           <EmployeeFieldAccessPanel employeeId={employeeId} />

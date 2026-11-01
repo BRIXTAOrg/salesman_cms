@@ -70,6 +70,12 @@ export const PATCH = withTenantDb<Context>(
         if (key in storedConfig) incoming[key] = storedConfig[key];
         else delete incoming[key];
       }
+      // Snapshot membership is immutable through the generic Entity editor.
+      if ("fieldSource" in storedConfig) incoming.fieldSource = storedConfig.fieldSource;
+      else delete incoming.fieldSource;
+      // Generic Entity edits must never silently remove a module's employee grants.
+      if ("fieldModuleAccess" in storedConfig) incoming.fieldModuleAccess = storedConfig.fieldModuleAccess;
+      else delete incoming.fieldModuleAccess;
       (patch as Record<string, unknown>).config = incoming;
     }
 

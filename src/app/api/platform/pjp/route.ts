@@ -74,14 +74,35 @@ export const POST = withTenantDb(async (request: NextRequest, db, session) => {
   const [list] = await db.select().from(entityTypes).where(and(eq(entityTypes.id, listId), eq(entityTypes.isActive, true))).limit(1);
   const appConfig = list ? readFieldAppConfig(list.config, list.title) : null;
   if (!appConfig) return error(422, "CRM list is not published to the Field App.");
+  // A PJP cannot be dispatched to an employee who cannot open its module.
+  if (list?.config?.fieldSource) {
+    const access = list.config.fieldModuleAccess as { employeeIds?:number[] } | undefined;
+    if (!Array.isArray(access?.employeeIds) || !access.employeeIds.includes(employeeId))
+      return error(403,"Grant this employee access to the linked App Experience before publishing their PJP.");
+  }
   if (Number(body.appVersion) !== appConfig.version) return error(409, "App Experience/Pixel Logic was republished. Refresh the PJP planner and review its current rules.");
   const journeyRules = appConfig.journeyRules;
   if (journeyRules?.enabled && stops.filter(s => s.type === "site").length > journeyRules.maxSiteStops) {
     return error(422, `Journey Rules permit at most ${journeyRules.maxSiteStops} CRM site stops.`);
   }
   if (siteUuids.length) {
+    const linked = list?.config?.fieldSource as {sourceListId?:number;recordIds?:string[]} | undefined;
+    const sourceId = Number(linked?.sourceListId) || listId;
+    if (linked && siteUuids.some(id => !linked.recordIds?.includes(id.toLowerCase())))
+      return error(409,"Selected site is outside this linked module. Refresh its list.");
+    if (!linked) {
+      const active = await db.select({config:entityTypes.config,title:entityTypes.title})
+        .from(entityTypes).where(eq(entityTypes.isActive,true));
+      const moved=new Set(active.flatMap(row=>{
+        const fs=row.config?.fieldSource as {sourceListId?:number;recordIds?:string[]} | undefined;
+        return fs?.sourceListId===listId && readFieldAppConfig(row.config,row.title)
+          ? (fs.recordIds??[]) : [];
+      }));
+      if (siteUuids.some(id=>moved.has(id.toLowerCase())))
+        return error(409,"Site is now in a linked module; refresh the PJP list.");
+    }
     const valid = await db.select({ id: entityRecords.id, data: entityRecords.data }).from(entityRecords).where(and(
-      eq(entityRecords.entityTypeId, listId), eq(entityRecords.status, "active"), inArray(entityRecords.id, siteUuids),
+      eq(entityRecords.entityTypeId, sourceId), eq(entityRecords.status, "active"), inArray(entityRecords.id, siteUuids),
     ));
     if (valid.length !== siteUuids.length) return error(409, "Some CRM sites are no longer in the published list. Refresh and regenerate.");
     if (journeyRules?.enabled) {
