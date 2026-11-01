@@ -1,3 +1,4 @@
+// BRIXTA_UNIFIED_PRIMARY_ROLE_V1
 // src/app/api/dashboardPagesAPI/users-and-team/users/[userId]/route.ts
 import 'server-only';
 import { connection, NextRequest, NextResponse } from 'next/server';
@@ -73,6 +74,12 @@ export const PUT = withTenantDb<RouteContext>(async (request, db, session, conte
       ...standardData
     } = parsedBody.data;
 
+    // Role changes through the older Users editor are privileged too.
+    // Otherwise a regular user with UPDATE could grant themselves ALL_ACCESS.
+    if ((orgRole !== undefined || jobRole !== undefined || standardData.role !== undefined || isDashboardUser !== undefined || isSalesAppUser !== undefined || resetDashboardPassword === true) && !session.permissions.includes('ALL_ACCESS')) {
+      return NextResponse.json({error: 'Only a full-access administrator can manage Roles and dashboard sign-in.'}, {status: 403});
+    }
+
     const jobRolesArray = Array.isArray(jobRole) ? jobRole : [jobRole].filter(Boolean) as string[];
 
     const targetUserResult = await db.select().from(users).where(eq(users.id, targetUserLocalId)).limit(1);
@@ -116,6 +123,18 @@ export const PUT = withTenantDb<RouteContext>(async (request, db, session, conte
     }
 
     const generatedCreds: any = {};
+
+    // Prevent issuing dashboard credentials that can never sign in.
+    if (isDashboardUser === true) {
+      const [permissionRole] = await db.select({ id: rolesTable.id }).from(userRoles)
+        .innerJoin(rolesTable, eq(userRoles.roleId, rolesTable.id))
+        .where(eq(userRoles.userId, targetUserLocalId)).limit(1);
+      if (!permissionRole) {
+        return NextResponse.json({
+          error: 'Assign this person a Role in Employees before enabling dashboard sign-in.'
+        }, {status: 400});
+      }
+    }
 
     // --- LOGIC A: Dashboard access ---
     // BRIXTA_PASSWORD_SECURITY_V1: passwords are random, stored as hashes and

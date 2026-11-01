@@ -1,3 +1,4 @@
+// BRIXTA_UNIFIED_PRIMARY_ROLE_V1
 // BRIXTA_COMPANY_ORG_UI_20261101
 export type CrudOperation =
   | "create"
@@ -266,6 +267,9 @@ export type Employee = {
   phoneNumber?: string | null;
   email?: string | null;
   role?: string | null;
+  primaryRoleId?: number | null;
+  primaryRoleName?: string | null;
+  assignedRoleCount?: number;
   area?: string | null;
   zone?: string | null;
   status?: string | null;

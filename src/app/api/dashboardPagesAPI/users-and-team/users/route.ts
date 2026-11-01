@@ -1,3 +1,4 @@
+// BRIXTA_UNIFIED_PRIMARY_ROLE_V1
 // src/app/api/dashboardPagesAPI/users-and-team/users/route.ts
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
@@ -16,7 +17,8 @@ import {
 
 export const POST = withTenantDb(async (request, db, session) => {
     try {
-        if (!hasPermission(session.permissions, "WRITE")) {
+        // Creating a dashboard account and assigning its Role is privileged.
+        if (!session.permissions.includes("ALL_ACCESS")) {
             return NextResponse.json({ error: 'Forbidden: WRITE access required' }, { status: 403 });
         }
 

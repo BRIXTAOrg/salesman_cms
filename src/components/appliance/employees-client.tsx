@@ -1,3 +1,4 @@
+// BRIXTA_UNIFIED_PRIMARY_ROLE_V1
 // BRIXTA_COMPANY_ORG_UI_20261101
 // BRIXTA_CRM_ACCESS_UX_V1_20261101
 "use client";
@@ -452,7 +453,7 @@ export default function EmployeesClient() {
                       <div className="font-medium">{nameOf(employee)}</div>
                       <div className="text-[12.5px] text-muted-foreground">
                         {employee.employeeCode ?? "No app login"}
-                        {employee.designation ? `, ${employee.designation}` : ""}
+                        {employee.primaryRoleName ? ` · ${employee.primaryRoleName}` : employee.assignedRoleCount === 0 ? " · Role not assigned" : ""}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{employee.phoneNumber || "—"}</td>
@@ -606,6 +607,7 @@ function AddEmployeeDialog({
   const [password, setPassword] = useState(makePassword);
   const [departmentsPicked, setDepartmentsPicked] = useState<string[]>([]);
   const [designation, setDesignation] = useState("");
+  const [primaryRoleId, setPrimaryRoleId] = useState("");
   const [area, setArea] = useState("");
   const [zone, setZone] = useState("");
   const [policy, setPolicy] = useState<ReportingPolicy>(UNSET);
@@ -624,6 +626,7 @@ function AddEmployeeDialog({
     setPassword(makePassword());
     setDepartmentsPicked([]);
     setDesignation("");
+    setPrimaryRoleId("");
     setArea("");
     setZone("");
     setPolicy(UNSET);
@@ -638,6 +641,9 @@ function AddEmployeeDialog({
     const problems: Record<string, string> = {};
     if (!name.trim()) problems.name = "Enter their name.";
     if (!employeeCode.trim()) problems.employeeCode = "Enter an employee ID.";
+    if (!primaryRoleId || !roles.some(r => String(r.id) === primaryRoleId)) {
+      problems.primaryRoleId = "Choose a Role. The Role grants permissions and enables work access.";
+    }
     if (password.length < 6) problems.password = "At least 6 characters.";
     const digits = phone.replace(/\D/g, "");
     if (phone.trim() && digits.length < 6) problems.phone = "This phone number looks too short.";
@@ -664,12 +670,12 @@ function AddEmployeeDialog({
           email: email.trim() || null,
           department: departmentsPicked.length ? departmentsPicked.join(", ") : null,
           designation: designation.trim() || null,
-          role: designation.trim() || null,
+          primaryRoleId: Number(primaryRoleId),
           area: area.trim() || null,
           zone: zone.trim() || null,
           ...(policy.mode === "unset" ? {} : { reportingPolicy: policy }),
           responsibilityIds: [],
-          roleIds: [],
+          roleIds: [Number(primaryRoleId)],
         }),
       });
       setCreated({ name: name.trim(), employeeCode: employeeCode.trim(), password });
@@ -706,7 +712,7 @@ function AddEmployeeDialog({
       open
       size="lg"
       title="Add employee"
-      description="Only the name, employee ID and password are required. Everything else can be added later."
+      description="Name, employee ID, password and one Role are required. Department and manager can be set now or later."
       onClose={onClose}
       footer={
         <>
@@ -785,6 +791,15 @@ function AddEmployeeDialog({
         <section className="space-y-3">
           <div className="text-[14px] font-semibold">Team</div>
           <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Role" required error={fieldErrors.primaryRoleId}>
+              <select className={inputClass} value={primaryRoleId} onChange={e => setPrimaryRoleId(e.target.value)}>
+                <option value="">Choose a Role</option>
+                {roles.map(role => <option key={role.id} value={role.id}>{role.orgRole || role.jobRole || role.label}</option>)}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">This one Role controls the employee's permissions. Dashboard sign-in is enabled separately.</p>
+              {roles.find(role => String(role.id) === primaryRoleId)?.grantedPerms?.includes("ALL_ACCESS") &&
+                <p className="mt-1 text-xs text-amber-700">Full administrator access. Only assign this Role to trusted people.</p>}
+            </Field>
             <Field label="Department">
               <select className={inputClass} value={departmentsPicked[0] ?? ""}
                   onChange={e => { const next=e.target.value;
@@ -796,15 +811,14 @@ function AddEmployeeDialog({
                   {departmentOptions.map(option=><option key={String(option.value)} value={String(option.value)}>{option.label}</option>)}
                 </select>
             </Field>
-            <Field label="Designation">
-              <SearchSelect
-                options={designationOptions}
-                value={designation}
-                onChange={(next) => setDesignation(String(next ?? ""))}
-                placeholder="Choose a designation"
-              />
-            </Field>
-            <Field label="Area">
+            <details className="sm:col-span-2 rounded-lg border p-3">
+              <summary className="cursor-pointer text-sm font-medium">Optional job title and territory</summary>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <Field label="Job title (does not grant permissions)">
+                  <SearchSelect options={designationOptions} value={designation}
+                    onChange={next => setDesignation(String(next ?? ""))} placeholder="Optional" />
+                </Field>
+                <Field label="Area">
               <input
                 value={area}
                 onChange={(event) => setArea(capitalizeFirst(event.target.value))}
@@ -820,6 +834,8 @@ function AddEmployeeDialog({
                 placeholder="e.g. North-East"
               />
             </Field>
+              </div>
+            </details>
           </div>
         </section>
 
@@ -888,8 +904,10 @@ function ManageEmployeeDialog({
   const [policy, setPolicy] = useState<ReportingPolicy>(UNSET);
   const [snapshot, setSnapshot] = useState<ReportingSnapshot | null>(null);
   const [roleIds, setRoleIds] = useState<number[]>([]);
+  const [chosenRoleId, setChosenRoleId] = useState("");
+  const [roleChanged, setRoleChanged] = useState(false);
 
-  const [busy, setBusy] = useState<null | "profile" | "roles" | "status" | "password">(null);
+  const [busy, setBusy] = useState<null | "profile" | "status" | "password">(null);
   const [error, setError] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState<Credentials | null>(null);
 
@@ -914,6 +932,8 @@ function ManageEmployeeDialog({
       );
       setSnapshot(body.reporting ?? null);
       setRoleIds(body.directRoleIds ?? []);
+      setChosenRoleId((body.directRoleIds ?? []).length === 1 ? String(body.directRoleIds[0]) : "");
+      setRoleChanged(false);
     } catch (failure) {
       setLoadError(failure instanceof Error ? failure.message : "Could not open this employee.");
     }
@@ -940,13 +960,13 @@ function ManageEmployeeDialog({
           email: email.trim() || null,
           department: departmentsPicked.length ? departmentsPicked.join(", ") : null,
           designation: designation.trim() || null,
-          role: designation.trim() || null,
+          ...(roleChanged && chosenRoleId ? { primaryRoleId: Number(chosenRoleId) } : {}),
           area: area.trim() || null,
           zone: zone.trim() || null,
           reportingPolicy: policy,
         }),
       });
-      toast.success("Changes saved.");
+      toast.success("Employee and Role saved.");
       onChanged();
       await loadDetail();
     } catch (failure) {
@@ -965,23 +985,6 @@ function ManageEmployeeDialog({
       setSnapshot(body);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Could not check this manager rule.");
-    }
-  }
-
-  async function saveRoles() {
-    setBusy("roles");
-    setError(null);
-    try {
-      await apiJson(`/api/appliance/employees/${employeeId}/roles`, {
-        method: "PUT",
-        body: JSON.stringify({ roleIds }),
-      });
-      toast.success("Roles saved.");
-      await loadDetail();
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "Could not save the roles.");
-    } finally {
-      setBusy(null);
     }
   }
 
@@ -1105,7 +1108,18 @@ function ManageEmployeeDialog({
                 {departmentOptions.map(option=><option key={String(option.value)} value={String(option.value)}>{option.label}</option>)}
               </select>
             </Field>
-            <details className="sm:col-span-2 rounded-lg border p-3"><summary className="cursor-pointer text-sm font-medium">Optional details: designation, area and zone</summary>
+            <div className="sm:col-span-2 space-y-1">
+              <Field label="Role">
+                <select className={inputClass} value={chosenRoleId} onChange={e => { setChosenRoleId(e.target.value); setRoleChanged(true); }}>
+                  <option value="">{roleIds.length > 1 ? "Choose a primary Role (replace legacy multiple Roles)" : "Choose a Role"}</option>
+                  {roles.map(role => <option value={role.id} key={role.id}>{role.orgRole || role.jobRole || role.label}</option>)}
+                </select>
+              </Field>
+              <p className="text-xs text-muted-foreground">One Role determines permissions, actions and approval eligibility. Changes take effect when you press Save changes.</p>
+              {roleIds.length > 1 && <p className="text-xs text-amber-700">This account has {roleIds.length} legacy Roles. They remain unchanged until you explicitly select a new primary Role and save.</p>}
+              {roles.find(role => String(role.id) === chosenRoleId)?.grantedPerms?.includes("ALL_ACCESS") && <p className="text-xs text-amber-700">This Role has full administrator permissions.</p>}
+            </div>
+            <details className="sm:col-span-2 rounded-lg border p-3"><summary className="cursor-pointer text-sm font-medium">Optional details: job title, area and zone</summary>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <Field label="Designation">
               <SearchSelect
@@ -1191,22 +1205,8 @@ function ManageEmployeeDialog({
 
           <EmployeeFieldAccessPanel employeeId={employeeId} />
           <section className="rounded-[12px] border p-4">
-            <div className="text-[14px] font-semibold">Approval roles</div>
-            <div className="mb-3 text-[13px] text-muted-foreground">
-              Approval steps in workflows use these roles to find who decides.
-            </div>
-            <MultiSelect
-              options={roles.map((role) => ({ label: role.label, value: String(role.id) }))}
-              selectedValues={roleIds.map(String)}
-              onValueChange={(values) => setRoleIds(values.map(Number))}
-              placeholder="Choose roles"
-            />
-            <div className="mt-3 flex justify-end">
-              <SecondaryButton onClick={() => void saveRoles()} disabled={busy !== null}>
-                {busy === "roles" && <Loader2 className="h-4 w-4 animate-spin" />}
-                Save roles
-              </SecondaryButton>
-            </div>
+            <div className="text-sm font-semibold">Approvals and permissions</div>
+            <p className="mt-1 text-xs text-muted-foreground">Approval eligibility comes from the employee's Role and applicable workflow rules. Requests routed to their manager use Reports to. Configure the one Role above; use Roles &amp; permissions to edit what that Role can do.</p>
           </section>
         </div>
       )}

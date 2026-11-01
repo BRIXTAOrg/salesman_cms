@@ -1,3 +1,4 @@
+// BRIXTA_UNIFIED_PRIMARY_ROLE_V1
 "use client";
 
 import {
@@ -241,16 +242,13 @@ export default function DashboardAccessClient() {
         id: "role",
         header: "Role",
         cell: ({ row }) => {
-          const label = [
-            row.original.orgRole,
-            ...(row.original.jobRole ?? []),
-          ]
-            .filter(Boolean)
-            .join(" · ");
+          const labels = [row.original.orgRole, ...(row.original.jobRole ?? [])]
+            .filter((name): name is string => Boolean(name) && name !== "Unassigned");
+          const label = [...new Set(labels)].join(" · ");
 
           return (
             <span className="text-muted-foreground">
-              {label || "Role not configured"}
+              {label || "No Role assigned · set one in Employees"}
             </span>
           );
         },

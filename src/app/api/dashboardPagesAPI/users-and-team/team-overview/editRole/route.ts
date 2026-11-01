@@ -1,7 +1,8 @@
+// BRIXTA_UNIFIED_PRIMARY_ROLE_V1
 // src/app/api/dashboardPagesAPI/users-and-team/team-overview/editRole/route.ts
 import 'server-only';
 import { NextResponse, NextRequest } from 'next/server';
-import { withTenantDb, hasPermission } from '@/lib/auth';
+import { withTenantDb } from '@/lib/auth';
 import { users, roles, userRoles } from '../../../../../../../drizzle/schema';
 import { eq, inArray, and } from 'drizzle-orm';
 import { z } from 'zod';
@@ -15,7 +16,7 @@ const editRoleSchema = z.object({
 
 export const POST = withTenantDb(async (request, db, session) => {
   try {
-    if (!hasPermission(session.permissions, ['UPDATE', 'WRITE'])) {
+    if (!session.permissions.includes('ALL_ACCESS')) {
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
 
