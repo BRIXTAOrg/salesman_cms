@@ -48,8 +48,8 @@ export const POST = withTenantDb(async (request: NextRequest, db, session) => {
   const rawStops = body.stops;
   if (!Number.isSafeInteger(employeeId) || employeeId < 1 || !datePattern.test(date) ||
       !Number.isSafeInteger(listId) || listId < 1 || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0 ||
-      (!origin || !validLoc(origin)) || !Array.isArray(rawStops) || !rawStops.length || rawStops.length > 30) {
-    return error(422, "Choose a valid employee, date, CRM list, start point and 1–30 stops.");
+      (!origin || !validLoc(origin)) || !Array.isArray(rawStops) || !rawStops.length || rawStops.length > 60) {
+    return error(422, "Choose a valid employee, date, CRM list, start point and 1–60 stops.");
   }
   const stopIds = new Set<string>();
   const stops: Array<{ id: string; type: string; title: string; note: string; externalKey: string | null; location: unknown; doneAt: string | null }> = [];

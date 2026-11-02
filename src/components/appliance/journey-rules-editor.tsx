@@ -43,7 +43,7 @@ export default function JourneyRulesEditor({ value, stages, onChange }: Props) {
           </select>
         </label>
         <label className="space-y-1 text-xs">Max CRM site stops / day
-          <input className={input} type="number" min="1" max="20" value={rules.maxSiteStops} onChange={e => change({ maxSiteStops: Math.max(1, Math.min(20, Number(e.target.value) || 1)) })} />
+          <input className={input} type="number" min="1" max="50" value={rules.maxSiteStops} onChange={e => change({ maxSiteStops: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })} />
         </label>
         <label className="space-y-1 text-xs">Maximum planning radius (km, straight-line)
           <input className={input} type="number" min="1" max="100" value={rules.radiusKm} onChange={e => change({ radiusKm: Math.max(1, Math.min(100, Number(e.target.value) || 1)) })} />
